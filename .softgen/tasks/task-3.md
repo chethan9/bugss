@@ -1,20 +1,26 @@
 ---
-title: Dashboard UI with Issue Display
-status: todo
-priority: high
+title: Dashboard UI & Filters
+status: done
+priority: medium
 type: feature
-tags: [ui, dashboard, components]
+tags: [ui, filters, dashboard]
 created_by: agent
-created_at: 2026-04-08T10:20:16Z
+created_at: 2026-04-08
 position: 3
 ---
 
 ## Notes
-Build the main dashboard interface displaying issues in card and list views. Each issue card shows title, status badge, labels, assignee avatar, created date. Support view toggle between cards and table. Implement issue detail modal with full description, comments preview, GitHub link.
+Build Jira-style dashboard with summary metrics, progress visualization, filtering system, and issue table. Add column sorting and detailed issue viewer modal.
 
 ## Checklist
-- [ ] Create IssueCard component: issue title with truncation, status badge with color-coded states, label chips, assignee avatar with tooltip, created/updated timestamps, click handler for detail view
-- [ ] Create IssueTable component: sortable columns (title, status, labels, assignee, updated), row click for details, compact view for large datasets
-- [ ] Create IssueDetailModal: full issue title and description, label list, assignee info, milestone, created/updated dates, comment count, "View on GitHub" button
-- [ ] Create ViewToggle component: card/list view switcher with icons
-- [ ] Create dashboard layout in index.tsx: header with repo selector and sync button, view toggle, main content area with issue cards/table, empty state for no issues
+- [x] Create DashboardMetrics: Jira-style horizontal stat cards with colored numbers
+- [x] Create ProgressBar: color-coded segments for status breakdown
+- [x] Create FilterPanel: multi-select filters for repos, labels, statuses
+- [x] Create IssueTable: sortable columns (Date, Title, Status)
+- [x] Add search functionality across titles and issue numbers
+- [x] Implement column sorting with visual indicators (ascending/descending/none)
+- [x] Create IssueDetailsModal: full description, comments, labels, assignees
+- [x] Fetch live issue details and comments from GitHub API
+- [x] Click-to-open modal from any issue row
+- [x] Responsive layout with sidebar filters and main content area
+- [x] Display issue counts matching GitHub exactly (Pull Requests filtered out)
