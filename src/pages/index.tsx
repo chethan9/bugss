@@ -3,451 +3,467 @@
 import { useState, useMemo, useEffect } from "react";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
+import { IssueTable } from "@/components/IssueTable";
 import { FilterPanel } from "@/components/FilterPanel";
-import { calculateMetrics } from "@/lib/mockData";
-import { Github, LayoutDashboard, Plus, Settings, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Github, Key, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 
 interface Repository {
-  owner: string;
+  id: number;
   name: string;
-  fullName: string;
+  full_name: string;
+  description: string | null;
+  owner: { login: string };
+}
+
+interface GitHubIssue {
+  id: number;
+  number: number;
+  title: string;
+  body: string | null;
+  state: "open" | "closed";
+  labels: Array<{ name: string; color: string }>;
+  assignees: Array<{ login: string; avatar_url: string }>;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  html_url: string;
+  repository_url: string;
 }
 
 export default function Home() {
   const [token, setToken] = useState("");
-  const [tokenInput, setTokenInput] = useState("");
-  const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [repoInput, setRepoInput] = useState("");
+  const [storedToken, setStoredToken] = useState<string | null>(null);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [showRepoModal, setShowRepoModal] = useState(false);
+  const [tokenError, setTokenError] = useState("");
+  const [isLoadingToken, setIsLoadingToken] = useState(false);
+  
+  const [allRepositories, setAllRepositories] = useState<Repository[]>([]);
+  const [selectedRepoIds, setSelectedRepoIds] = useState<number[]>([]);
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+  const [repoError, setRepoError] = useState("");
+  
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [showTokenDialog, setShowTokenDialog] = useState(false);
-
-  const [filters, setFilters] = useState({
-    repositories: [] as string[],
-    labels: [] as string[],
-    statuses: [] as string[],
-    search: "",
-  });
+  const [isLoadingIssues, setIsLoadingIssues] = useState(false);
+  const [syncError, setSyncError] = useState("");
+  
+  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Load token from localStorage on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem("github_token");
-    const savedRepos = localStorage.getItem("github_repos");
-    
-    if (savedToken) {
-      setToken(savedToken);
-      if (savedRepos) {
-        setRepositories(JSON.parse(savedRepos));
-      }
+    const saved = localStorage.getItem("github_token");
+    if (saved) {
+      setStoredToken(saved);
+      loadRepositories(saved);
     } else {
-      setShowTokenDialog(true);
+      setShowTokenModal(true);
+    }
+
+    const savedRepoIds = localStorage.getItem("selected_repo_ids");
+    if (savedRepoIds) {
+      setSelectedRepoIds(JSON.parse(savedRepoIds));
     }
   }, []);
 
-  // Fetch issues when repositories change
+  // Load issues when selected repos change
   useEffect(() => {
-    if (token && repositories.length > 0) {
-      fetchAllIssues();
-    } else if (repositories.length === 0) {
-      setIssues([]);
+    if (storedToken && selectedRepoIds.length > 0) {
+      loadIssues();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repositories, token]);
+  }, [selectedRepoIds, storedToken]);
 
-  const saveToken = () => {
-    if (!tokenInput.trim()) {
-      setError("Please enter a valid token");
-      return;
-    }
-    localStorage.setItem("github_token", tokenInput.trim());
-    setToken(tokenInput.trim());
-    setTokenInput("");
-    setShowTokenDialog(false);
-    setError("");
-  };
-
-  const addRepository = async () => {
-    if (!repoInput.trim()) return;
-    
-    // Parse repo URL or owner/name
-    let owner = "";
-    let name = "";
-    
-    if (repoInput.includes("github.com")) {
-      const match = repoInput.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-      if (match) {
-        owner = match[1];
-        name = match[2].replace(/\.git$/, "");
-      }
-    } else if (repoInput.includes("/")) {
-      [owner, name] = repoInput.split("/");
-    }
-    
-    if (!owner || !name) {
-      setError("Invalid repository format. Use 'owner/repo' or paste GitHub URL");
-      return;
-    }
-    
-    const fullName = `${owner}/${name}`;
-    if (repositories.some(r => r.fullName === fullName)) {
-      setError("Repository already added");
-      return;
-    }
-    
-    const newRepo = { owner, name, fullName };
-    const updatedRepos = [...repositories, newRepo];
-    setRepositories(updatedRepos);
-    localStorage.setItem("github_repos", JSON.stringify(updatedRepos));
-    setRepoInput("");
-    setError("");
-  };
-
-  const removeRepository = (fullName: string) => {
-    const updatedRepos = repositories.filter(r => r.fullName !== fullName);
-    setRepositories(updatedRepos);
-    localStorage.setItem("github_repos", JSON.stringify(updatedRepos));
-    setIssues(prev => prev.filter(i => i.repository !== fullName));
-  };
-
-  const fetchAllIssues = async () => {
-    setIsLoading(true);
-    setError("");
+  const loadRepositories = async (tokenToUse: string) => {
+    setIsLoadingRepos(true);
+    setRepoError("");
     
     try {
-      const allIssues: GitHubIssue[] = [];
+      const { fetchGitHubRepositories } = await import("@/services/githubService");
+      const repos = await fetchGitHubRepositories(tokenToUse);
+      setAllRepositories(repos);
+    } catch (error: any) {
+      setRepoError(error.message || "Failed to load repositories");
+      console.error("Repository load error:", error);
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
+
+  const loadIssues = async () => {
+    if (!storedToken || selectedRepoIds.length === 0) return;
+    
+    setIsLoadingIssues(true);
+    setSyncError("");
+    
+    try {
+      const { fetchGitHubIssues } = await import("@/services/githubService");
+      const selectedRepos = allRepositories.filter(r => selectedRepoIds.includes(r.id));
       
-      for (const repo of repositories) {
-        const response = await fetch(
-          `https://api.github.com/repos/${repo.fullName}/issues?state=all&per_page=100`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/vnd.github.v3+json",
-            },
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch issues from ${repo.fullName}`);
-        }
-        
-        const repoIssues = await response.json();
-        
-        allIssues.push(
-          ...repoIssues.map((issue: any): GitHubIssue => ({
-            id: String(issue.id),
-            number: issue.number,
-            title: issue.title,
-            status: issue.state === "open" ? "open" : "closed",
-            repository: repo.fullName,
-            labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
-            assignee: issue.assignees?.[0]?.login || issue.assignee?.login,
-            url: issue.html_url,
-            createdAt: issue.created_at,
-          }))
-        );
+      const allIssues: GitHubIssue[] = [];
+      for (const repo of selectedRepos) {
+        const repoIssues = await fetchGitHubIssues(storedToken, repo.full_name);
+        allIssues.push(...repoIssues);
       }
       
       setIssues(allIssues);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch issues");
+    } catch (error: any) {
+      setSyncError(error.message || "Failed to load issues");
+      console.error("Issues load error:", error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingIssues(false);
     }
   };
 
-  const resetToken = () => {
-    localStorage.removeItem("github_token");
-    localStorage.removeItem("github_repos");
-    setToken("");
-    setRepositories([]);
-    setIssues([]);
-    setShowTokenDialog(true);
+  const handleSaveToken = async () => {
+    if (!token.trim()) {
+      setTokenError("Please enter a valid token");
+      return;
+    }
+
+    setIsLoadingToken(true);
+    setTokenError("");
+
+    try {
+      // Verify token by fetching user info
+      const response = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${token.trim()}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Invalid GitHub token");
+      }
+
+      localStorage.setItem("github_token", token.trim());
+      setStoredToken(token.trim());
+      await loadRepositories(token.trim());
+      setShowTokenModal(false);
+      setShowRepoModal(true);
+      setToken("");
+    } catch (error: any) {
+      setTokenError(error.message || "Failed to verify token");
+    } finally {
+      setIsLoadingToken(false);
+    }
   };
+
+  const handleToggleRepo = (repoId: number) => {
+    setSelectedRepoIds(prev => {
+      const newIds = prev.includes(repoId)
+        ? prev.filter(id => id !== repoId)
+        : [...prev, repoId];
+      localStorage.setItem("selected_repo_ids", JSON.stringify(newIds));
+      return newIds;
+    });
+  };
+
+  const handleChangeToken = () => {
+    setShowTokenModal(true);
+  };
+
+  // Get unique values for filters
+  const uniqueRepos = useMemo(() => {
+    const repos = new Set(
+      issues.map(issue => {
+        const urlParts = issue.repository_url.split("/");
+        return urlParts[urlParts.length - 1];
+      })
+    );
+    return Array.from(repos);
+  }, [issues]);
+
+  const uniqueLabels = useMemo(() => {
+    const labels = new Set<string>();
+    issues.forEach(issue => {
+      issue.labels.forEach(label => labels.add(label.name));
+    });
+    return Array.from(labels);
+  }, [issues]);
 
   // Filter issues
   const filteredIssues = useMemo(() => {
-    return issues.filter((issue) => {
-      if (
-        filters.repositories.length > 0 &&
-        !filters.repositories.includes(issue.repository)
-      ) {
+    return issues.filter(issue => {
+      const repoName = issue.repository_url.split("/").pop() || "";
+      
+      if (selectedRepos.length > 0 && !selectedRepos.includes(repoName)) {
         return false;
       }
 
-      if (filters.statuses.length > 0) {
-        if (!filters.statuses.includes(issue.status)) {
+      if (selectedStatuses.length > 0 && !selectedStatuses.includes(issue.state)) {
+        return false;
+      }
+
+      if (selectedLabels.length > 0) {
+        const issueLabels = issue.labels.map(l => l.name);
+        if (!selectedLabels.some(label => issueLabels.includes(label))) {
           return false;
         }
       }
 
-      if (filters.labels.length > 0) {
-        if (!filters.labels.some((label) => issue.labels.includes(label))) {
-          return false;
-        }
-      }
-
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        return issue.title.toLowerCase().includes(searchLower);
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          issue.title.toLowerCase().includes(query) ||
+          issue.body?.toLowerCase().includes(query) ||
+          `#${issue.number}`.includes(query)
+        );
       }
 
       return true;
     });
-  }, [issues, filters]);
+  }, [issues, selectedRepos, selectedLabels, selectedStatuses, searchQuery]);
 
-  const metrics = useMemo(() => calculateMetrics(filteredIssues), [filteredIssues]);
-
-  const availableRepositories = useMemo(() => {
-    return Array.from(new Set(issues.map((issue) => issue.repository)));
-  }, [issues]);
-
-  const availableLabels = useMemo(() => {
-    const labels = new Set<string>();
-    issues.forEach((issue) => {
-      issue.labels.forEach((label) => labels.add(label));
-    });
-    return Array.from(labels).sort();
-  }, [issues]);
-
-  if (!token) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-card">
-          <div className="container flex h-16 items-center justify-between px-6">
-            <div className="flex items-center gap-3">
-              <Github className="h-8 w-8 text-primary" />
-              <h1 className="font-heading text-xl font-bold">GitHub Issue Dashboard</h1>
-            </div>
-          </div>
-        </header>
-
-        <Dialog open={showTokenDialog} onOpenChange={setShowTokenDialog}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Github className="h-5 w-5" />
-                GitHub Personal Access Token
-              </DialogTitle>
-              <DialogDescription>
-                Enter your GitHub token to start tracking repository issues locally. No login required.
-              </DialogDescription>
-            </DialogHeader>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="token">Personal Access Token</Label>
-                <Input
-                  id="token"
-                  type="password"
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && saveToken()}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Create a token at{" "}
-                  <a
-                    href="https://github.com/settings/tokens/new?scopes=repo,read:user"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    GitHub Settings → Developer settings
-                  </a>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Required scopes: <code className="rounded bg-muted px-1 py-0.5">repo</code>
-                </p>
-              </div>
-              <Button onClick={saveToken} className="w-full">
-                Save Token
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
+  // Calculate metrics
+  const totalIssues = issues.length;
+  const openIssues = issues.filter(i => i.state === "open").length;
+  const closedIssues = issues.filter(i => i.state === "closed").length;
+  const progressPercentage = totalIssues > 0 ? Math.round((closedIssues / totalIssues) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="container flex h-16 items-center justify-between px-6">
+      {/* Header */}
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <LayoutDashboard className="h-6 w-6 text-primary" />
-            <h1 className="font-heading text-xl font-bold hidden sm:block">GitHub Issue Dashboard</h1>
+            <Github className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-semibold text-foreground">GitHub Issue Dashboard</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={fetchAllIssues} disabled={isLoading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-            <Button variant="ghost" size="sm" onClick={resetToken}>
-              <Settings className="mr-2 h-4 w-4" />
-              Change Token
-            </Button>
+          
+          <div className="flex items-center gap-3">
+            {storedToken && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowRepoModal(true)}
+                >
+                  Manage Repositories ({selectedRepoIds.length})
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadIssues}
+                  disabled={isLoadingIssues || selectedRepoIds.length === 0}
+                >
+                  {isLoadingIssues ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Syncing...</>
+                  ) : (
+                    <><RefreshCw className="h-4 w-4 mr-2" /> Sync Now</>
+                  )}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleChangeToken}>
+                  <Key className="h-4 w-4 mr-2" /> Change Token
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="container px-6 py-8">
-        <div className="mb-6">
-          <Card className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-2 items-center">
-                {repositories.length === 0 && (
-                  <span className="text-muted-foreground text-sm py-1">No repositories added yet</span>
-                )}
-                {repositories.map((repo) => (
-                  <Badge key={repo.fullName} variant="secondary" className="gap-2 text-sm py-1">
-                    <Github className="w-3 h-3" />
-                    {repo.fullName}
-                    <button
-                      onClick={() => removeRepository(repo.fullName)}
-                      className="hover:text-destructive ml-1"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="e.g. facebook/react"
-                  value={repoInput}
-                  onChange={(e) => setRepoInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addRepository()}
-                  className="w-full sm:w-64"
-                />
-                <Button onClick={addRepository}>
-                  <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Add Repo</span>
-                </Button>
-              </div>
-            </div>
-            {error && <p className="text-sm text-destructive mt-2">{error}</p>}
-          </Card>
-        </div>
+      {/* Token Modal */}
+      <Dialog open={showTokenModal} onOpenChange={setShowTokenModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Github className="h-5 w-5" />
+              Connect to GitHub
+            </DialogTitle>
+            <DialogDescription>
+              Enter your GitHub Personal Access Token to view your repositories
+            </DialogDescription>
+          </DialogHeader>
 
-        {repositories.length > 0 ? (
+          {tokenError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{tokenError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="token">Personal Access Token</Label>
+              <Input 
+                id="token" 
+                type="password" 
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                value={token} 
+                onChange={(e) => setToken(e.target.value)} 
+                disabled={isLoadingToken}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveToken()}
+              />
+              <p className="text-xs text-muted-foreground">
+                Create a token at{" "}
+                <a 
+                  href="https://github.com/settings/tokens/new?scopes=repo,read:user" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  GitHub Settings → Tokens (classic)
+                </a>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Required scopes: <code className="rounded bg-muted px-1 py-0.5">repo</code>, <code className="rounded bg-muted px-1 py-0.5">read:user</code>
+              </p>
+            </div>
+            <Button 
+              onClick={handleSaveToken} 
+              disabled={isLoadingToken || !token.trim()} 
+              className="w-full gap-2"
+            >
+              {isLoadingToken ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Verifying...</>
+              ) : (
+                <><Key className="h-4 w-4" /> Connect</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Repository Selection Modal */}
+      <Dialog open={showRepoModal} onOpenChange={setShowRepoModal}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Select Repositories to Track</DialogTitle>
+            <DialogDescription>
+              Choose which repositories you want to fetch issues from
+            </DialogDescription>
+          </DialogHeader>
+
+          {repoError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{repoError}</AlertDescription>
+            </Alert>
+          )}
+
+          {isLoadingRepos ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Loading repositories...</span>
+            </div>
+          ) : allRepositories.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">No repositories found</p>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {allRepositories.map((repo) => (
+                <Card key={repo.id} className="p-4 hover:bg-accent/50 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id={`repo-${repo.id}`}
+                      checked={selectedRepoIds.includes(repo.id)}
+                      onCheckedChange={() => handleToggleRepo(repo.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <label htmlFor={`repo-${repo.id}`} className="cursor-pointer">
+                        <div className="font-medium text-foreground">{repo.full_name}</div>
+                        {repo.description && (
+                          <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {repo.description}
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-between items-center pt-4 border-t">
+            <p className="text-sm text-muted-foreground">
+              {selectedRepoIds.length} {selectedRepoIds.length === 1 ? "repository" : "repositories"} selected
+            </p>
+            <Button onClick={() => setShowRepoModal(false)}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-8">
+        {syncError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{syncError}</AlertDescription>
+          </Alert>
+        )}
+
+        {storedToken && selectedRepoIds.length > 0 ? (
           <>
-            <div className="mb-8">
-              <h2 className="mb-6 font-heading text-2xl font-bold">Summary</h2>
-              <DashboardMetrics
-                totalRepos={repositories.length}
-                totalIssues={filteredIssues.length}
-                open={metrics.statusCounts.open}
-                inProgress={metrics.statusCounts.inProgress || 0}
-                closed={metrics.statusCounts.closed}
-              />
-            </div>
+            {/* Metrics */}
+            <DashboardMetrics
+              totalRepos={selectedRepoIds.length}
+              totalIssues={totalIssues}
+              openIssues={openIssues}
+              closedIssues={closedIssues}
+            />
 
-            <div className="mb-8">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-heading text-lg font-semibold">
-                  Issue Progress - {metrics.completionRate}% completed
-                </h3>
+            {/* Progress Bar */}
+            <ProgressBar percentage={progressPercentage} />
+
+            {/* Filters and Table */}
+            <div className="grid grid-cols-12 gap-6">
+              <div className="col-span-3">
+                <FilterPanel
+                  repositories={uniqueRepos}
+                  labels={uniqueLabels}
+                  selectedRepos={selectedRepos}
+                  selectedLabels={selectedLabels}
+                  selectedStatuses={selectedStatuses}
+                  searchQuery={searchQuery}
+                  onRepoChange={setSelectedRepos}
+                  onLabelChange={setSelectedLabels}
+                  onStatusChange={setSelectedStatuses}
+                  onSearchChange={setSearchQuery}
+                />
               </div>
-              <ProgressBar segments={metrics.segments} completionRate={metrics.completionRate} />
-            </div>
 
-            <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-              <FilterPanel
-                repositories={availableRepositories}
-                labels={availableLabels}
-                statuses={[
-                  { value: "open", label: "Open", count: metrics.statusCounts.open },
-                  { value: "closed", label: "Closed", count: metrics.statusCounts.closed },
-                ]}
-                selectedRepos={filters.repositories}
-                selectedLabels={filters.labels}
-                selectedStatuses={filters.statuses}
-                searchQuery={filters.search}
-                onRepoToggle={(repo) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    repositories: prev.repositories.includes(repo)
-                      ? prev.repositories.filter((r) => r !== repo)
-                      : [...prev.repositories, repo],
-                  }))
-                }
-                onLabelToggle={(label) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    labels: prev.labels.includes(label)
-                      ? prev.labels.filter((l) => l !== label)
-                      : [...prev.labels, label],
-                  }))
-                }
-                onStatusToggle={(status) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    statuses: prev.statuses.includes(status)
-                      ? prev.statuses.filter((s) => s !== status)
-                      : [...prev.statuses, status],
-                  }))
-                }
-                onSearchChange={(search) => setFilters((prev) => ({ ...prev, search }))}
-                onClearFilters={() =>
-                  setFilters({
-                    repositories: [],
-                    labels: [],
-                    statuses: [],
-                    search: "",
-                  })
-                }
-              />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-heading text-lg font-semibold">
-                    Issues ({filteredIssues.length})
-                  </h3>
-                  {isLoading && <Badge variant="secondary" className="animate-pulse">Fetching from GitHub...</Badge>}
-                </div>
-                {filteredIssues.length > 0 ? (
-                  <IssueTable issues={filteredIssues} />
-                ) : (
-                  <Card className="p-8 text-center text-muted-foreground">
-                    No issues found matching your filters.
+              <div className="col-span-9">
+                {isLoadingIssues ? (
+                  <Card className="p-12">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-muted-foreground">Loading issues from {selectedRepoIds.length} {selectedRepoIds.length === 1 ? "repository" : "repositories"}...</p>
+                    </div>
                   </Card>
+                ) : (
+                  <IssueTable issues={filteredIssues} />
                 )}
               </div>
             </div>
           </>
         ) : (
-          <div className="py-20 text-center">
-            <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-              <Github className="h-10 w-10 text-primary" />
-            </div>
-            <h2 className="mb-4 font-heading text-2xl font-bold">Ready to track issues</h2>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Add a repository URL above (like <code>facebook/react</code>) to instantly fetch and view its issues in this dashboard.
-            </p>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Card className="p-12 max-w-md text-center">
+              <Github className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">No Repositories Selected</h2>
+              <p className="text-muted-foreground mb-6">
+                {storedToken 
+                  ? "Select repositories to track from the 'Manage Repositories' button above."
+                  : "Connect your GitHub account to get started."
+                }
+              </p>
+              {storedToken && (
+                <Button onClick={() => setShowRepoModal(true)}>
+                  Select Repositories
+                </Button>
+              )}
+            </Card>
           </div>
         )}
       </main>
