@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, GitBranch, Tag } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -8,12 +8,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
 
-export interface GitHubIssue {
+interface Issue {
   id: string;
   number: number;
   title: string;
-  status: "open" | "in_progress" | "closed";
+  status: "open" | "closed";
   repository: string;
   labels: string[];
   assignee?: string;
@@ -22,78 +25,163 @@ export interface GitHubIssue {
 }
 
 interface IssueTableProps {
-  issues: GitHubIssue[];
+  issues: Issue[];
+  onIssueClick: (issue: Issue) => void;
 }
 
-const statusConfig = {
-  open: { label: "Open", variant: "open" as const },
-  in_progress: { label: "In Progress", variant: "progress" as const },
-  closed: { label: "Closed", variant: "closed" as const }
-};
+type SortField = "createdAt" | "title" | "status";
+type SortDirection = "asc" | "desc" | null;
 
-export function IssueTable({ issues }: IssueTableProps) {
+export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Cycle through: asc -> desc -> null
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        setSortDirection(null);
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedIssues = [...issues];
+  if (sortField && sortDirection) {
+    sortedIssues.sort((a, b) => {
+      let compareResult = 0;
+
+      if (sortField === "createdAt") {
+        compareResult = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else if (sortField === "title") {
+        compareResult = a.title.localeCompare(b.title);
+      } else if (sortField === "status") {
+        compareResult = a.status.localeCompare(b.status);
+      }
+
+      return sortDirection === "asc" ? compareResult : -compareResult;
+    });
+  }
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="ml-2 h-4 w-4" />
+    ) : (
+      <ArrowDown className="ml-2 h-4 w-4" />
+    );
+  };
+
+  if (sortedIssues.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-12 text-center">
+        <p className="text-muted-foreground">No issues found matching your filters</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <div className="rounded-lg border border-border">
       <Table>
         <TableHeader>
-          <TableRow className="hover:bg-transparent border-border">
-            <TableHead className="w-32 font-semibold">Issue Key</TableHead>
-            <TableHead className="font-semibold">Summary</TableHead>
-            <TableHead className="w-40 font-semibold">Status</TableHead>
-            <TableHead className="w-48 font-semibold">Repository</TableHead>
-            <TableHead className="w-48 font-semibold">Labels</TableHead>
-            <TableHead className="w-32 font-semibold">Assignee</TableHead>
+          <TableRow className="border-border hover:bg-card/50">
+            <TableHead className="w-[100px]">Issue</TableHead>
+            <TableHead>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 hover:bg-muted"
+                onClick={() => handleSort("title")}
+              >
+                Title
+                <SortIcon field="title" />
+              </Button>
+            </TableHead>
+            <TableHead className="w-[150px]">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 hover:bg-muted"
+                onClick={() => handleSort("status")}
+              >
+                Status
+                <SortIcon field="status" />
+              </Button>
+            </TableHead>
+            <TableHead className="w-[200px]">Repository</TableHead>
+            <TableHead className="w-[200px]">Labels</TableHead>
+            <TableHead className="w-[150px]">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 hover:bg-muted"
+                onClick={() => handleSort("createdAt")}
+              >
+                Date
+                <SortIcon field="createdAt" />
+              </Button>
+            </TableHead>
+            <TableHead className="w-[80px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {issues.map((issue) => (
-            <TableRow key={issue.id} className="hover:bg-muted/50 border-border">
-              <TableCell className="font-mono text-sm">
-                <a
-                  href={issue.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline flex items-center gap-1"
-                >
-                  #{issue.number}
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </TableCell>
-              <TableCell className="max-w-md">
-                <div className="truncate" title={issue.title}>
-                  {issue.title}
-                </div>
-              </TableCell>
+          {sortedIssues.map((issue) => (
+            <TableRow
+              key={issue.id}
+              className="border-border hover:bg-muted/50 cursor-pointer"
+              onClick={() => onIssueClick(issue)}
+            >
+              <TableCell className="font-medium">#{issue.number}</TableCell>
+              <TableCell className="font-medium">{issue.title}</TableCell>
               <TableCell>
-                <Badge variant={statusConfig[issue.status].variant}>
-                  {statusConfig[issue.status].label}
+                <Badge
+                  variant={issue.status === "open" ? "default" : "secondary"}
+                  className={
+                    issue.status === "open"
+                      ? "bg-status-open hover:bg-status-open"
+                      : "bg-muted hover:bg-muted"
+                  }
+                >
+                  {issue.status}
                 </Badge>
               </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <GitBranch className="w-4 h-4" />
-                  {issue.repository}
-                </div>
+              <TableCell className="text-sm text-muted-foreground">
+                {issue.repository}
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
-                  {issue.labels.slice(0, 3).map((label) => (
-                    <Badge key={label} variant="outline" className="text-xs">
-                      <Tag className="w-3 h-3 mr-1" />
+                  {issue.labels.slice(0, 2).map((label, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs">
                       {label}
                     </Badge>
                   ))}
-                  {issue.labels.length > 3 && (
+                  {issue.labels.length > 2 && (
                     <Badge variant="outline" className="text-xs">
-                      +{issue.labels.length - 3}
+                      +{issue.labels.length - 2}
                     </Badge>
                   )}
                 </div>
               </TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {formatDistanceToNow(new Date(issue.createdAt))} ago
+              </TableCell>
               <TableCell>
-                <div className="text-sm text-muted-foreground">
-                  {issue.assignee || "Unassigned"}
-                </div>
+                <a
+                  href={issue.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
               </TableCell>
             </TableRow>
           ))}

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 
 interface Repo {
   id: number;
@@ -52,6 +53,9 @@ export default function Home() {
     statuses: [] as string[],
     search: "",
   });
+
+  const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
 
   // Load state on mount
   useEffect(() => {
@@ -251,6 +255,11 @@ export default function Home() {
     });
     return Array.from(labels).sort();
   }, [issues]);
+
+  const handleIssueClick = (issue: GitHubIssue) => {
+    setSelectedIssue(issue);
+    setIsIssueModalOpen(true);
+  };
 
   if (!token) {
     return (
@@ -478,7 +487,7 @@ export default function Home() {
                   {isLoadingIssues && <Badge variant="secondary" className="animate-pulse">Syncing...</Badge>}
                 </div>
                 {filteredIssues.length > 0 ? (
-                  <IssueTable issues={filteredIssues} />
+                  <IssueTable issues={filteredIssues} onIssueClick={handleIssueClick} />
                 ) : (
                   <Card className="p-8 text-center text-muted-foreground">
                     {isLoadingIssues ? "Fetching issues..." : "No issues found matching your filters."}
@@ -486,6 +495,16 @@ export default function Home() {
                 )}
               </div>
             </div>
+
+            {selectedIssue && (
+              <IssueDetailsModal
+                isOpen={isIssueModalOpen}
+                onClose={() => setIsIssueModalOpen(false)}
+                issueNumber={selectedIssue.number}
+                repository={selectedIssue.repository}
+                token={token}
+              />
+            )}
           </>
         ) : (
           <div className="py-20 text-center">
