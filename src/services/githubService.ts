@@ -24,8 +24,17 @@ interface GitHubIssue {
 }
 
 export async function saveGitHubConnection(accessToken: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
+  // Get current session with better debugging
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  console.log("Session check:", { session, sessionError });
+  
+  if (!session || !session.user) {
+    console.error("No session found");
+    throw new Error("Not authenticated. Please refresh the page and try again.");
+  }
+
+  const user = session.user;
+  console.log("User authenticated:", user.id);
 
   const userResponse = await fetch("https://api.github.com/user", {
     headers: {
@@ -36,6 +45,7 @@ export async function saveGitHubConnection(accessToken: string) {
 
   if (!userResponse.ok) throw new Error("Invalid GitHub token");
   const userData = await userResponse.json();
+  console.log("GitHub user data:", userData);
 
   const { data: existing } = await supabase
     .from("github_connections")
@@ -53,7 +63,10 @@ export async function saveGitHubConnection(accessToken: string) {
         connected_at: new Date().toISOString()
       })
       .eq("id", existing.id);
-    if (error) throw error;
+    if (error) {
+      console.error("Update error:", error);
+      throw error;
+    }
   } else {
     const { error } = await supabase
       .from("github_connections")
@@ -63,8 +76,13 @@ export async function saveGitHubConnection(accessToken: string) {
         access_token: accessToken,
         avatar_url: userData.avatar_url,
       });
-    if (error) throw error;
+    if (error) {
+      console.error("Insert error:", error);
+      throw error;
+    }
   }
+  
+  console.log("GitHub connection saved successfully");
 }
 
 export async function getGitHubConnection() {

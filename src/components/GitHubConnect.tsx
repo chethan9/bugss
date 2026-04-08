@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Github, Key, RefreshCw, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/lib/supabase";
 
 interface GitHubConnectProps {
   open?: boolean;
@@ -33,6 +34,16 @@ export function GitHubConnect({ open, onOpenChange, onSuccess }: GitHubConnectPr
     setError("");
     
     try {
+      // Verify session first
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Current session before connect:", session);
+      
+      if (!session) {
+        setError("Session expired. Please refresh the page and sign in again.");
+        setIsLoading(false);
+        return;
+      }
+      
       const { saveGitHubConnection } = await import("@/services/githubService");
       await saveGitHubConnection(token.trim());
       
@@ -41,6 +52,7 @@ export function GitHubConnect({ open, onOpenChange, onSuccess }: GitHubConnectPr
       onOpenChange?.(false);
       onSuccess();
     } catch (err: any) {
+      console.error("Connection error:", err);
       setError(err.message || "Failed to store token. Please try again.");
       setIsLoading(false);
     }
