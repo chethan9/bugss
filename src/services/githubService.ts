@@ -23,26 +23,6 @@ interface GitHubIssue {
   html_url: string;
 }
 
-export async function saveGitHubConnection(accessToken: string, username: string, avatarUrl: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const { data, error } = await supabase
-    .from("github_connections")
-    .upsert({
-      user_id: user.id,
-      access_token: accessToken,
-      username,
-      avatar_url: avatarUrl,
-      connected_at: new Date().toISOString()
-    }, { onConflict: "user_id" })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
 export async function getGitHubConnection() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -51,10 +31,31 @@ export async function getGitHubConnection() {
     .from("github_connections")
     .select("*")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (error && error.code !== "PGRST116") throw error;
+  if (error) {
+    console.error("Error fetching GitHub connection:", error);
+    return null;
+  }
+  
   return data;
+}
+
+export async function disconnectGitHub() {
+  try {
+    const response = await fetch("/api/github/disconnect", {
+      method: "POST",
+    });
+    
+    if (!response.ok) {
+      throw new Error("Failed to disconnect");
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Disconnect error:", error);
+    throw error;
+  }
 }
 
 export async function fetchGitHubRepositories(accessToken: string): Promise<GitHubRepo[]> {
@@ -66,27 +67,34 @@ export async function fetchGitHubRepositories(accessToken: string): Promise<GitH
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.statusText}`);
+    const error = await response.json();
+    throw new Error(error.message || `GitHub API error: ${response.statusText}`);
   }
 
   return response.json();
 }
 
-export async function saveRepositories(connectionId: string, repos: GitHubRepo[]) {
+export async function saveRepositories(repos: GitHubRepo[]) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const connection = await getGitHubConnection();
+  if (!connection) throw new Error("No GitHub connection found");
+
   const reposToInsert = repos.map(repo => ({
-    connection_id: connectionId,
+    user_id: user.id,
     github_id: repo.id,
     name: repo.name,
     full_name: repo.full_name,
     owner: repo.owner.login,
     description: repo.description,
     is_private: repo.private,
-    is_tracked: true
+    is_tracked: false
   }));
 
   const { data, error } = await supabase
     .from("repositories")
-    .upsert(reposToInsert, { onConflict: "github_id" })
+    .upsert(reposToInsert, { onConflict: "user_id,github_id" })
     .select();
 
   if (error) throw error;
@@ -94,17 +102,39 @@ export async function saveRepositories(connectionId: string, repos: GitHubRepo[]
 }
 
 export async function getTrackedRepositories() {
-  const connection = await getGitHubConnection();
-  if (!connection) return [];
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
 
   const { data, error } = await supabase
     .from("repositories")
     .select("*")
-    .eq("connection_id", connection.id)
+    .eq("user_id", user.id)
     .eq("is_tracked", true)
     .order("name");
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching tracked repositories:", error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function getAllRepositories() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from("repositories")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("name");
+
+  if (error) {
+    console.error("Error fetching repositories:", error);
+    return [];
+  }
+  
   return data || [];
 }
 
@@ -120,7 +150,8 @@ export async function fetchGitHubIssues(accessToken: string, repoFullName: strin
   );
 
   if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.statusText}`);
+    const error = await response.json();
+    throw new Error(error.message || `GitHub API error: ${response.statusText}`);
   }
 
   return response.json();
@@ -159,8 +190,8 @@ export async function syncRepositoryIssues(repositoryId: string, repoFullName: s
 }
 
 export async function getAllIssues() {
-  const connection = await getGitHubConnection();
-  if (!connection) return [];
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
 
   const { data, error } = await supabase
     .from("issues")
@@ -171,14 +202,18 @@ export async function getAllIssues() {
         name,
         full_name,
         owner,
-        connection_id
+        user_id
       )
     `)
-    .eq("repositories.connection_id", connection.id)
+    .eq("repositories.user_id", user.id)
     .eq("repositories.is_tracked", true)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching issues:", error);
+    return [];
+  }
+  
   return data || [];
 }
 
