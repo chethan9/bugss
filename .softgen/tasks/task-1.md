@@ -10,20 +10,16 @@ position: 1
 ---
 
 ## Notes
-Build GitHub OAuth integration to allow users to connect their repositories. Use GitHub's OAuth App flow or personal access tokens for authentication. Store connection details securely in Supabase.
-
-Need to handle:
-- GitHub OAuth callback
-- Token refresh logic
-- Multi-repository selection
-- Connection status display
+Build authentication system with Supabase email/password login, then allow GitHub Personal Access Token connection. OAuth removed for simplicity.
 
 ## Checklist
 - [x] Create Supabase schema: github_connections, repositories, issues tables with RLS
 - [x] Create githubService.ts: connection management, repo fetching, issue syncing
-- [x] Create GitHubConnect component: connection modal with OAuth and token options
+- [x] Create AuthModal component: email/password signup and login
+- [x] Create GitHubConnect component: Personal Access Token only (OAuth removed)
 - [x] Create RepositoryPicker component: select which repos to track
 - [x] Create SyncStatus component: last sync time, manual refresh button
-- [x] Update index.tsx: empty state for unconnected users, full dashboard when connected
+- [x] Update index.tsx: auth check → GitHub connection → full dashboard flow
 - [x] Add connection status check on page load
 - [x] Implement real data loading from Supabase
+- [x] Add Sign Out functionality

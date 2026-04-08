@@ -5,24 +5,29 @@ import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable } from "@/components/IssueTable";
 import { FilterPanel } from "@/components/FilterPanel";
+import { AuthModal } from "@/components/AuthModal";
 import { GitHubConnect } from "@/components/GitHubConnect";
 import { RepositoryPicker } from "@/components/RepositoryPicker";
 import { SyncStatus } from "@/components/SyncStatus";
 import { mockIssues, calculateMetrics } from "@/lib/mockData";
-import { Github, LayoutDashboard } from "lucide-react";
+import { Github, LayoutDashboard, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getGitHubConnection, getTrackedRepositories, getAllIssues } from "@/services/githubService";
+import { authService } from "@/services/authService";
 import { useAutoSync } from "@/hooks/useAutoSync";
 
 export default function Home() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showRepoPicker, setShowRepoPicker] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [realIssues, setRealIssues] = useState<any[]>([]);
   const [repositories, setRepositories] = useState<any[]>([]);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   const [filters, setFilters] = useState({
     repositories: [] as string[],
@@ -31,32 +36,28 @@ export default function Home() {
     search: "",
   });
 
-  // Check GitHub connection on mount
+  // Check authentication on mount
   useEffect(() => {
-    // Check if we just came back from OAuth
-    const urlParams = new URLSearchParams(window.location.search);
-    const githubToken = urlParams.get("github_token");
-    
-    if (githubToken) {
-      // Clear token from URL to prevent refreshing causing issues
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      // Save token
-      import("@/services/githubService").then(({ saveGitHubConnection }) => {
-        saveGitHubConnection(githubToken)
-          .then(() => {
-            checkConnection();
-          })
-          .catch(err => {
-            console.error("Failed to save OAuth token", err);
-          });
-      });
-    } else {
-      checkConnection();
-    }
+    checkAuth();
   }, []);
 
-  async function checkConnection() {
+  async function checkAuth() {
+    try {
+      const user = await authService.getCurrentUser();
+      if (user) {
+        setIsAuthenticated(true);
+        setUserEmail(user.email);
+        await checkGitHubConnection();
+      } else {
+        setShowAuthModal(true);
+      }
+    } catch (error) {
+      console.error("Error checking auth:", error);
+      setShowAuthModal(true);
+    }
+  }
+
+  async function checkGitHubConnection() {
     try {
       const connection = await getGitHubConnection();
       if (connection) {
@@ -65,7 +66,7 @@ export default function Home() {
         await loadData();
       }
     } catch (error) {
-      console.error("Error checking connection:", error);
+      console.error("Error checking GitHub connection:", error);
     }
   }
 
@@ -82,10 +83,25 @@ export default function Home() {
     }
   }
 
+  const handleAuthSuccess = async () => {
+    setIsAuthenticated(true);
+    setShowAuthModal(false);
+    await checkAuth();
+  };
+
   const handleConnectSuccess = async () => {
     setIsConnected(true);
     setShowConnectModal(false);
     await loadData();
+  };
+
+  const handleSignOut = async () => {
+    await authService.signOut();
+    setIsAuthenticated(false);
+    setIsConnected(false);
+    setRealIssues([]);
+    setRepositories([]);
+    setShowAuthModal(true);
   };
 
   const handleSync = async () => {
@@ -168,6 +184,43 @@ export default function Home() {
     return Array.from(labels);
   }, [issues]);
 
+  // Show auth modal if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <>
+        <div className="min-h-screen bg-background">
+          <header className="border-b border-border bg-card">
+            <div className="container flex h-16 items-center justify-between px-6">
+              <div className="flex items-center gap-3">
+                <Github className="h-8 w-8 text-primary" />
+                <h1 className="font-heading text-xl font-bold">GitHub Issue Dashboard</h1>
+              </div>
+            </div>
+          </header>
+
+          <main className="container px-6 py-12">
+            <div className="mx-auto max-w-2xl text-center">
+              <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                <Github className="h-10 w-10 text-primary" />
+              </div>
+              <h2 className="mb-4 font-heading text-3xl font-bold">Welcome to GitHub Dashboard</h2>
+              <p className="mb-8 text-lg text-muted-foreground">
+                Sign in to start tracking issues across all your repositories.
+              </p>
+            </div>
+          </main>
+        </div>
+
+        <AuthModal
+          open={showAuthModal}
+          onOpenChange={setShowAuthModal}
+          onSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
+
+  // Show GitHub connection screen if authenticated but not connected
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-background">
@@ -176,6 +229,13 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <Github className="h-8 w-8 text-primary" />
               <h1 className="font-heading text-xl font-bold">GitHub Issue Dashboard</h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">{userEmail}</span>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </header>
@@ -206,6 +266,7 @@ export default function Home() {
     );
   }
 
+  // Show full dashboard
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -214,16 +275,22 @@ export default function Home() {
             <LayoutDashboard className="h-6 w-6 text-primary" />
             <h1 className="font-heading text-xl font-bold">GitHub Issue Dashboard</h1>
           </div>
-          <SyncStatus
-            lastSyncTime={lastSyncTime}
-            isSyncing={isSyncing}
-            onSync={handleSync}
-            onManageRepos={() => setShowRepoPicker(true)}
-            autoSyncEnabled={autoSyncEnabled}
-            onAutoSyncToggle={setAutoSyncEnabled}
-            nextSyncAt={nextSyncAt}
-            isAutoSyncing={isAutoSyncing}
-          />
+          <div className="flex items-center gap-4">
+            <SyncStatus
+              lastSyncTime={lastSyncTime}
+              isSyncing={isSyncing}
+              onSync={handleSync}
+              onManageRepos={() => setShowRepoPicker(true)}
+              autoSyncEnabled={autoSyncEnabled}
+              onAutoSyncToggle={setAutoSyncEnabled}
+              nextSyncAt={nextSyncAt}
+              isAutoSyncing={isAutoSyncing}
+            />
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
