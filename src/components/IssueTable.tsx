@@ -16,7 +16,7 @@ export interface GitHubIssue {
   id: string;
   number: number;
   title: string;
-  status: "open" | "closed";
+  status: "open" | "in_progress" | "closed";
   repository: string;
   labels: string[];
   assignee?: string;
