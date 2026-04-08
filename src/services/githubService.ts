@@ -23,6 +23,50 @@ interface GitHubIssue {
   html_url: string;
 }
 
+export async function saveGitHubConnection(accessToken: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const userResponse = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/vnd.github.v3+json",
+    },
+  });
+
+  if (!userResponse.ok) throw new Error("Invalid GitHub token");
+  const userData = await userResponse.json();
+
+  const { data: existing } = await supabase
+    .from("github_connections")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("github_connections")
+      .update({
+        username: userData.login,
+        access_token: accessToken,
+        avatar_url: userData.avatar_url,
+        connected_at: new Date().toISOString()
+      })
+      .eq("id", existing.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from("github_connections")
+      .insert({
+        user_id: user.id,
+        username: userData.login,
+        access_token: accessToken,
+        avatar_url: userData.avatar_url,
+      });
+    if (error) throw error;
+  }
+}
+
 export async function getGitHubConnection() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -42,20 +86,15 @@ export async function getGitHubConnection() {
 }
 
 export async function disconnectGitHub() {
-  try {
-    const response = await fetch("/api/github/disconnect", {
-      method: "POST",
-    });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  
+  const { error } = await supabase
+    .from("github_connections")
+    .delete()
+    .eq("user_id", user.id);
     
-    if (!response.ok) {
-      throw new Error("Failed to disconnect");
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error("Disconnect error:", error);
-    throw error;
-  }
+  if (error) throw error;
 }
 
 export async function fetchGitHubRepositories(accessToken: string): Promise<GitHubRepo[]> {
@@ -75,14 +114,11 @@ export async function fetchGitHubRepositories(accessToken: string): Promise<GitH
 }
 
 export async function saveRepositories(repos: GitHubRepo[]) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
   const connection = await getGitHubConnection();
   if (!connection) throw new Error("No GitHub connection found");
 
   const reposToInsert = repos.map(repo => ({
-    user_id: user.id,
+    connection_id: connection.id,
     github_id: repo.id,
     name: repo.name,
     full_name: repo.full_name,
@@ -94,7 +130,7 @@ export async function saveRepositories(repos: GitHubRepo[]) {
 
   const { data, error } = await supabase
     .from("repositories")
-    .upsert(reposToInsert, { onConflict: "user_id,github_id" })
+    .upsert(reposToInsert, { onConflict: "github_id" })
     .select();
 
   if (error) throw error;
@@ -102,13 +138,13 @@ export async function saveRepositories(repos: GitHubRepo[]) {
 }
 
 export async function getTrackedRepositories() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const connection = await getGitHubConnection();
+  if (!connection) return [];
 
   const { data, error } = await supabase
     .from("repositories")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("connection_id", connection.id)
     .eq("is_tracked", true)
     .order("name");
 
@@ -121,13 +157,13 @@ export async function getTrackedRepositories() {
 }
 
 export async function getAllRepositories() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const connection = await getGitHubConnection();
+  if (!connection) return [];
 
   const { data, error } = await supabase
     .from("repositories")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("connection_id", connection.id)
     .order("name");
 
   if (error) {
@@ -176,11 +212,13 @@ export async function syncRepositoryIssues(repositoryId: string, repoFullName: s
     synced_at: new Date().toISOString()
   }));
 
-  const { error } = await supabase
-    .from("issues")
-    .upsert(issuesToInsert, { onConflict: "repository_id,github_id" });
+  if (issuesToInsert.length > 0) {
+    const { error } = await supabase
+      .from("issues")
+      .upsert(issuesToInsert, { onConflict: "repository_id,github_id" });
 
-  if (error) throw error;
+    if (error) throw error;
+  }
 
   // Update last synced timestamp
   await supabase
@@ -190,8 +228,8 @@ export async function syncRepositoryIssues(repositoryId: string, repoFullName: s
 }
 
 export async function getAllIssues() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const connection = await getGitHubConnection();
+  if (!connection) return [];
 
   const { data, error } = await supabase
     .from("issues")
@@ -202,11 +240,10 @@ export async function getAllIssues() {
         name,
         full_name,
         owner,
-        user_id
+        connection_id
       )
     `)
-    .eq("repositories.user_id", user.id)
-    .eq("repositories.is_tracked", true)
+    .eq("repositories.connection_id", connection.id)
     .order("created_at", { ascending: false });
 
   if (error) {

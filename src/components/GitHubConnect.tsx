@@ -56,26 +56,15 @@ export function GitHubConnect({ open, onOpenChange, onSuccess }: GitHubConnectPr
     setError("");
     
     try {
-      const response = await fetch("/api/github/store-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: token.trim() }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok || data.error) {
-        setError(data.error || "Failed to connect with token");
-        setIsLoading(false);
-        return;
-      }
+      const { saveGitHubConnection } = await import("@/services/githubService");
+      await saveGitHubConnection(token.trim());
       
       setToken("");
       setIsLoading(false);
       onOpenChange?.(false);
       onSuccess();
-    } catch (err) {
-      setError("Failed to store token. Please try again.");
+    } catch (err: any) {
+      setError(err.message || "Failed to store token. Please try again.");
       setIsLoading(false);
     }
   };

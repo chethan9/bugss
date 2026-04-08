@@ -31,7 +31,27 @@ export default function Home() {
 
   // Check GitHub connection on mount
   useEffect(() => {
-    checkConnection();
+    // Check if we just came back from OAuth
+    const urlParams = new URLSearchParams(window.location.search);
+    const githubToken = urlParams.get("github_token");
+    
+    if (githubToken) {
+      // Clear token from URL to prevent refreshing causing issues
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Save token
+      import("@/services/githubService").then(({ saveGitHubConnection }) => {
+        saveGitHubConnection(githubToken)
+          .then(() => {
+            checkConnection();
+          })
+          .catch(err => {
+            console.error("Failed to save OAuth token", err);
+          });
+      });
+    } else {
+      checkConnection();
+    }
   }, []);
 
   async function checkConnection() {

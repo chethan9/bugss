@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
@@ -8,7 +7,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { code, state } = req.query;
+  const { code } = req.query;
 
   if (!code || typeof code !== "string") {
     return res.redirect("/?error=no_code");
@@ -19,7 +18,6 @@ export default async function handler(
   }
 
   try {
-    // Exchange code for access token
     const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
       headers: {
@@ -40,46 +38,9 @@ export default async function handler(
     }
 
     const accessToken = tokenData.access_token;
-
-    // Fetch user info from GitHub
-    const userResponse = await fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
-
-    const userData = await userResponse.json();
-
-    // Get current Supabase user
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return res.redirect("/?error=not_authenticated");
-    }
-
-    // Store connection in database
-    const { error: dbError } = await supabase
-      .from("github_connections")
-      .upsert({
-        user_id: user.id,
-        github_user_id: userData.id,
-        github_username: userData.login,
-        github_email: userData.email,
-        access_token: accessToken,
-        token_type: "oauth",
-        avatar_url: userData.avatar_url,
-      }, {
-        onConflict: "user_id"
-      });
-
-    if (dbError) {
-      console.error("Database error:", dbError);
-      return res.redirect("/?error=database_error");
-    }
-
-    // Redirect back to app with success
-    res.redirect("/?connected=true");
+    
+    // Redirect back to app with token so client can store it securely with user session
+    res.redirect(`/?github_token=${accessToken}`);
   } catch (error) {
     console.error("OAuth callback error:", error);
     res.redirect("/?error=oauth_failed");
