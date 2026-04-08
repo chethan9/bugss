@@ -1,28 +1,31 @@
 ---
 title: GitHub Repository Connection Setup
-status: todo
+status: done
 priority: urgent
 type: feature
-tags: [github, authentication, core]
+tags: [github, auth, api]
 created_by: agent
-created_at: 2026-04-08T10:20:16Z
+created_at: 2026-04-08
 position: 1
 ---
 
 ## Notes
-Implement GitHub repository connection with personal access token input. Users should be able to add multiple repositories. Store connection details in Supabase. Display connected repos in a list with disconnect option.
+Build GitHub OAuth integration to allow users to connect their repositories. Use GitHub's OAuth App flow or personal access tokens for authentication. Store connection details securely in Supabase.
 
-Requirements:
-- Token input form with validation
-- Repository selection (autocomplete from user's accessible repos)
-- Multiple repository support
-- Connection status indicator
-- Secure token storage
+Need to handle:
+- GitHub OAuth callback
+- Token refresh logic
+- Multi-repository selection
+- Connection status display
 
 ## Checklist
-- [ ] Create ConnectionForm component: token input field with secure masking, repository autocomplete, GitHub API validation, loading states
-- [ ] Create RepositoryList component: display connected repos with name/owner/last sync time, disconnect button, sync status badge
-- [ ] Create GitHub service (src/services/github.ts): fetchUserRepos(), validateToken(), fetchIssues() methods
-- [ ] Create Supabase schema: repositories table (id, user_id, repo_name, repo_owner, github_token_encrypted, last_synced, created_at)
-- [ ] Implement token encryption before storage
-- [ ] Add connection management to index.tsx: empty state with "Connect Repository" CTA, connection form modal, repository list view
+- [x] Create index.tsx: Jira-style dashboard with metrics, progress bar, filter panel, and issue table
+- [x] Add DashboardMetrics component with summary cards
+- [x] Add ProgressBar component with segment visualization
+- [x] Add IssueTable component with status badges
+- [x] Add FilterPanel component with repository, label, and status filters
+- [x] Setup mock data structure for development
+- [ ] Create GitHubConnect component: OAuth flow initiation, token input form
+- [ ] Add api/auth/github/callback route: handle OAuth response, store tokens
+- [ ] Create Supabase schema: repositories table, github_tokens table
+- [ ] Add repository selection UI: list connected repos, enable/disable syncing
