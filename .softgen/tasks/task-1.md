@@ -3,23 +3,25 @@ title: GitHub Repository Connection Setup
 status: done
 priority: urgent
 type: feature
-tags: [github, auth, api]
+tags: [github, api]
 created_by: agent
 created_at: 2026-04-08
 position: 1
 ---
 
 ## Notes
-Build authentication system with Supabase email/password login, then allow GitHub Personal Access Token connection. OAuth removed for simplicity.
+Simplified approach: No authentication, no database. Users paste GitHub token and repository URLs directly. All data stored in browser localStorage. Issues fetched live from GitHub API.
 
 ## Checklist
-- [x] Create Supabase schema: github_connections, repositories, issues tables with RLS
-- [x] Create githubService.ts: connection management, repo fetching, issue syncing
-- [x] Create AuthModal component: email/password signup and login
-- [x] Create GitHubConnect component: Personal Access Token only (OAuth removed)
-- [x] Create RepositoryPicker component: select which repos to track
-- [x] Create SyncStatus component: last sync time, manual refresh button
-- [x] Update index.tsx: auth check → GitHub connection → full dashboard flow
-- [x] Add connection status check on page load
-- [x] Implement real data loading from Supabase
-- [x] Add Sign Out functionality
+- [x] Remove Supabase authentication (no signup/login needed)
+- [x] Token input modal with localStorage persistence
+- [x] Add repository by URL/name (facebook/react format)
+- [x] Remove repository with one click
+- [x] Fetch issues from GitHub API directly
+- [x] Display in Jira-style dashboard layout
+- [x] Summary metrics (repos, issues, status counts)
+- [x] Progress bar with completion percentage
+- [x] Multi-select filters (repositories, labels, status)
+- [x] Search functionality
+- [x] Manual refresh button
+- [x] Client-side only, no backend dependencies
