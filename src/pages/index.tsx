@@ -331,7 +331,7 @@ export default function Home() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowRepoPicker(true)}
+                  onClick={() => setShowRepoDialog(true)}
                   className="gap-2"
                 >
                   <FolderGit2 className="h-4 w-4" />
@@ -360,7 +360,7 @@ export default function Home() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowTokenModal(true)}
+              onClick={() => setShowTokenDialog(true)}
               className="gap-2"
             >
               <Settings className="h-4 w-4" />
@@ -463,14 +463,10 @@ export default function Home() {
             <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
               <FilterPanel
                 repositories={availableRepositories}
-                labels={availableLabels}
-                statuses={[
-                  { value: "open", label: "Open", count: metrics.statusCounts.open },
-                  { value: "closed", label: "Closed", count: metrics.statusCounts.closed },
-                ]}
+                allLabels={availableLabels}
+                selectedStatuses={filters.statuses}
                 selectedRepos={filters.repositories}
                 selectedLabels={filters.labels}
-                selectedStatuses={filters.statuses}
                 searchQuery={filters.search}
                 onRepoToggle={(repo) =>
                   setFilters((prev) => ({

@@ -16,6 +16,7 @@ interface FilterPanelProps {
   onStatusToggle: (status: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onClearFilters?: () => void;
 }
 
 export function FilterPanel({
@@ -29,6 +30,7 @@ export function FilterPanel({
   onStatusToggle,
   searchQuery,
   onSearchChange,
+  onClearFilters,
 }: FilterPanelProps) {
   const statuses = [
     { value: "open", label: "Open", color: "bg-green-100 text-green-800 border-green-300" },
@@ -38,7 +40,17 @@ export function FilterPanel({
   return (
     <Card className="p-6 space-y-6 bg-card">
       <div className="space-y-4">
-        <h3 className="font-heading font-semibold text-lg">Filters</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-heading font-semibold text-lg">Filters</h3>
+          {onClearFilters && (
+            <button 
+              onClick={onClearFilters}
+              className="text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
         
         {/* Search */}
         <div className="space-y-2">

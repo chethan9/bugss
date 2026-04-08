@@ -179,16 +179,18 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
                 {issue.repository}
               </TableCell>
               <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {issue.labels.slice(0, 2).map((label, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
+                <div className="flex flex-wrap gap-1.5">
+                  {issue.labels.map((label, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="secondary"
+                      className="text-[11px] px-2 py-0.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 font-normal whitespace-nowrap"
+                    >
                       {label}
                     </Badge>
                   ))}
-                  {issue.labels.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{issue.labels.length - 2}
-                    </Badge>
+                  {issue.labels.length === 0 && (
+                    <span className="text-xs text-muted-foreground italic">No labels</span>
                   )}
                 </div>
               </TableCell>
