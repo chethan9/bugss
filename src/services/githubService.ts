@@ -280,3 +280,46 @@ export async function updateRepositoryTracking(repositoryId: string, isTracked: 
 
   if (error) throw error;
 }
+
+export async function fetchRepositoryIssues(
+  owner: string,
+  repo: string,
+  token: string
+): Promise<GitHubIssue[]> {
+  const allIssues: GitHubIssue[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  // Fetch all pages of issues
+  while (hasMore) {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/issues?state=all&per_page=100&page=${page}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch issues: ${response.statusText}`);
+    }
+
+    const pageIssues = await response.json();
+    
+    // Filter out pull requests (GitHub API includes PRs in /issues endpoint)
+    const actualIssues = pageIssues.filter((item: any) => !item.pull_request);
+    
+    allIssues.push(...actualIssues);
+
+    // Check if there are more pages
+    if (pageIssues.length < 100) {
+      hasMore = false;
+    } else {
+      page++;
+    }
+  }
+
+  return allIssues;
+}
