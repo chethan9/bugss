@@ -150,37 +150,51 @@ export default function Home() {
       
       // Fetch concurrently
       await Promise.all(selectedRepos.map(async (repoFullName) => {
-        const response = await fetch(
-          `https://api.github.com/repos/${repoFullName}/issues?state=all&per_page=100`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/vnd.github.v3+json",
-            },
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+          const response = await fetch(
+            `https://api.github.com/repos/${repoFullName}/issues?state=all&per_page=100&page=${page}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            }
+          );
+          
+          if (!response.ok) {
+            hasMore = false;
+            break; // Skip failures silently and stop paging
           }
-        );
-        
-        if (!response.ok) return; // Skip failures silently
-        
-        const repoIssues = await response.json();
-        
-        // GitHub API returns Pull Requests in the issues endpoint
-        // We filter them out so the "Issues" total is accurate
-        const actualIssues = repoIssues.filter((item: any) => !item.pull_request);
-        
-        allFetchedIssues.push(
-          ...actualIssues.map((issue: any): GitHubIssue => ({
-            id: String(issue.id),
-            number: issue.number,
-            title: issue.title,
-            status: issue.state === "open" ? "open" : "closed",
-            repository: repoFullName,
-            labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
-            assignee: issue.assignees?.[0]?.login || issue.assignee?.login,
-            url: issue.html_url,
-            createdAt: issue.created_at,
-          }))
-        );
+          
+          const repoIssues = await response.json();
+          
+          // GitHub API returns Pull Requests in the issues endpoint
+          // We filter them out so the "Issues" total is accurate
+          const actualIssues = repoIssues.filter((item: any) => !item.pull_request);
+          
+          allFetchedIssues.push(
+            ...actualIssues.map((issue: any): GitHubIssue => ({
+              id: String(issue.id),
+              number: issue.number,
+              title: issue.title,
+              status: issue.state === "open" ? "open" : "closed",
+              repository: repoFullName,
+              labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
+              assignee: issue.assignees?.[0]?.login || issue.assignee?.login,
+              url: issue.html_url,
+              createdAt: issue.created_at,
+            }))
+          );
+
+          if (repoIssues.length < 100) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
       }));
       
       // Sort by newest
@@ -391,13 +405,12 @@ export default function Home() {
         {selectedRepos.length > 0 ? (
           <>
             <div className="mb-8">
-              <h2 className="mb-6 font-heading text-2xl font-bold">Summary</h2>
               <DashboardMetrics
                 totalRepos={selectedRepos.length}
                 totalIssues={filteredIssues.length}
-                open={metrics.statusCounts.open}
-                inProgress={metrics.statusCounts.inProgress || 0}
-                closed={metrics.statusCounts.closed}
+                openIssues={metrics.statusCounts.open}
+                inProgressIssues={metrics.statusCounts.inProgress || 0}
+                closedIssues={metrics.statusCounts.closed}
               />
             </div>
 

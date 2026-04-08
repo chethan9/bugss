@@ -1,5 +1,3 @@
-import { Card } from "@/components/ui/card";
-
 interface DashboardMetricsProps {
   totalRepos: number;
   totalIssues: number;
@@ -24,22 +22,20 @@ export function DashboardMetrics({
   ];
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Summary</h2>
-      <Card className="p-8">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-8">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="text-center space-y-2">
-              <div className={`text-5xl font-bold ${metric.color}`}>
-                {metric.value}
-              </div>
-              <div className="text-sm text-muted-foreground font-medium">
-                {metric.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold font-heading">Summary</h2>
+      <div className="flex flex-wrap items-center gap-12 lg:gap-16 pt-2 pb-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="flex flex-col items-center justify-center gap-1">
+            <span className={`text-5xl font-light tracking-tight ${metric.color}`}>
+              {metric.value}
+            </span>
+            <span className="text-sm text-muted-foreground font-medium">
+              {metric.label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
