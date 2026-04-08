@@ -3,10 +3,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueTable } from "@/components/IssueTable";
+import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { FilterPanel } from "@/components/FilterPanel";
 import { calculateMetrics } from "@/lib/mockData";
-import { Github, LayoutDashboard, Plus, Settings, Trash2 } from "lucide-react";
+import { Github, LayoutDashboard, Plus, Settings, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -28,24 +28,12 @@ interface Repository {
   fullName: string;
 }
 
-interface Issue {
-  id: number;
-  number: number;
-  title: string;
-  body: string | null;
-  state: string;
-  labels: Array<{ name: string; color: string }>;
-  repository: string;
-  html_url: string;
-  created_at: string;
-}
-
 export default function Home() {
   const [token, setToken] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [repoInput, setRepoInput] = useState("");
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTokenDialog, setShowTokenDialog] = useState(false);
@@ -76,7 +64,10 @@ export default function Home() {
   useEffect(() => {
     if (token && repositories.length > 0) {
       fetchAllIssues();
+    } else if (repositories.length === 0) {
+      setIssues([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repositories, token]);
 
   const saveToken = () => {
@@ -139,7 +130,7 @@ export default function Home() {
     setError("");
     
     try {
-      const allIssues: Issue[] = [];
+      const allIssues: GitHubIssue[] = [];
       
       for (const repo of repositories) {
         const response = await fetch(
@@ -157,17 +148,18 @@ export default function Home() {
         }
         
         const repoIssues = await response.json();
+        
         allIssues.push(
-          ...repoIssues.map((issue: any) => ({
-            id: issue.id,
+          ...repoIssues.map((issue: any): GitHubIssue => ({
+            id: String(issue.id),
             number: issue.number,
             title: issue.title,
-            body: issue.body,
-            state: issue.state,
-            labels: issue.labels || [],
+            status: issue.state === "open" ? "open" : "closed",
             repository: repo.fullName,
-            html_url: issue.html_url,
-            created_at: issue.created_at,
+            labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
+            assignee: issue.assignees?.[0]?.login || issue.assignee?.login,
+            url: issue.html_url,
+            createdAt: issue.created_at,
           }))
         );
       }
@@ -200,28 +192,20 @@ export default function Home() {
       }
 
       if (filters.statuses.length > 0) {
-        const statusMap: Record<string, string> = {
-          open: "open",
-          closed: "closed",
-        };
-        if (!filters.statuses.includes(statusMap[issue.state])) {
+        if (!filters.statuses.includes(issue.status)) {
           return false;
         }
       }
 
       if (filters.labels.length > 0) {
-        const issueLabels = issue.labels?.map((l: any) => l.name || l) || [];
-        if (!filters.labels.some((label) => issueLabels.includes(label))) {
+        if (!filters.labels.some((label) => issue.labels.includes(label))) {
           return false;
         }
       }
 
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
-        return (
-          issue.title.toLowerCase().includes(searchLower) ||
-          issue.body?.toLowerCase().includes(searchLower)
-        );
+        return issue.title.toLowerCase().includes(searchLower);
       }
 
       return true;
@@ -237,11 +221,9 @@ export default function Home() {
   const availableLabels = useMemo(() => {
     const labels = new Set<string>();
     issues.forEach((issue) => {
-      issue.labels?.forEach((label: any) => {
-        labels.add(typeof label === "string" ? label : label.name);
-      });
+      issue.labels.forEach((label) => labels.add(label));
     });
-    return Array.from(labels);
+    return Array.from(labels).sort();
   }, [issues]);
 
   if (!token) {
@@ -264,7 +246,7 @@ export default function Home() {
                 GitHub Personal Access Token
               </DialogTitle>
               <DialogDescription>
-                Enter your GitHub token to start tracking repository issues
+                Enter your GitHub token to start tracking repository issues locally. No login required.
               </DialogDescription>
             </DialogHeader>
 
@@ -298,8 +280,7 @@ export default function Home() {
                   </a>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Required scopes: <code className="rounded bg-muted px-1 py-0.5">repo</code>,{" "}
-                  <code className="rounded bg-muted px-1 py-0.5">read:user</code>
+                  Required scopes: <code className="rounded bg-muted px-1 py-0.5">repo</code>
                 </p>
               </div>
               <Button onClick={saveToken} className="w-full">
@@ -314,94 +295,73 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
+      <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="container flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <LayoutDashboard className="h-6 w-6 text-primary" />
-            <h1 className="font-heading text-xl font-bold">GitHub Issue Dashboard</h1>
+            <h1 className="font-heading text-xl font-bold hidden sm:block">GitHub Issue Dashboard</h1>
           </div>
-          <Button variant="ghost" size="sm" onClick={resetToken}>
-            <Settings className="mr-2 h-4 w-4" />
-            Change Token
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={fetchAllIssues} disabled={isLoading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button variant="ghost" size="sm" onClick={resetToken}>
+              <Settings className="mr-2 h-4 w-4" />
+              Change Token
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container px-6 py-8">
-        {repositories.length === 0 ? (
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-              <Github className="h-10 w-10 text-primary" />
-            </div>
-            <h2 className="mb-4 font-heading text-3xl font-bold">Add Your First Repository</h2>
-            <p className="mb-8 text-lg text-muted-foreground">
-              Enter any GitHub repository to start tracking its issues
-            </p>
-            
-            <Card className="p-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Repository URL or Owner/Name</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="facebook/react or https://github.com/facebook/react"
-                      value={repoInput}
-                      onChange={(e) => setRepoInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addRepository()}
-                    />
-                    <Button onClick={addRepository}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add
-                    </Button>
-                  </div>
-                  {error && (
-                    <p className="text-sm text-destructive">{error}</p>
-                  )}
-                </div>
+        <div className="mb-6">
+          <Card className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-2 items-center">
+                {repositories.length === 0 && (
+                  <span className="text-muted-foreground text-sm py-1">No repositories added yet</span>
+                )}
+                {repositories.map((repo) => (
+                  <Badge key={repo.fullName} variant="secondary" className="gap-2 text-sm py-1">
+                    <Github className="w-3 h-3" />
+                    {repo.fullName}
+                    <button
+                      onClick={() => removeRepository(repo.fullName)}
+                      className="hover:text-destructive ml-1"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
               </div>
-            </Card>
-          </div>
-        ) : (
-          <>
-            <div className="mb-6">
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    {repositories.map((repo) => (
-                      <Badge key={repo.fullName} variant="secondary" className="gap-2">
-                        {repo.fullName}
-                        <button
-                          onClick={() => removeRepository(repo.fullName)}
-                          className="hover:text-destructive"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add repository..."
-                      value={repoInput}
-                      onChange={(e) => setRepoInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addRepository()}
-                      className="w-64"
-                    />
-                    <Button onClick={addRepository} size="sm">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="e.g. facebook/react"
+                  value={repoInput}
+                  onChange={(e) => setRepoInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addRepository()}
+                  className="w-full sm:w-64"
+                />
+                <Button onClick={addRepository}>
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Add Repo</span>
+                </Button>
+              </div>
             </div>
+            {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+          </Card>
+        </div>
 
+        {repositories.length > 0 ? (
+          <>
             <div className="mb-8">
               <h2 className="mb-6 font-heading text-2xl font-bold">Summary</h2>
               <DashboardMetrics
                 totalRepos={repositories.length}
                 totalIssues={filteredIssues.length}
                 open={metrics.statusCounts.open}
-                inProgress={0}
+                inProgress={metrics.statusCounts.inProgress || 0}
                 closed={metrics.statusCounts.closed}
               />
             </div>
@@ -467,12 +427,28 @@ export default function Home() {
                   <h3 className="font-heading text-lg font-semibold">
                     Issues ({filteredIssues.length})
                   </h3>
-                  {isLoading && <Badge variant="secondary">Loading...</Badge>}
+                  {isLoading && <Badge variant="secondary" className="animate-pulse">Fetching from GitHub...</Badge>}
                 </div>
-                <IssueTable issues={filteredIssues} />
+                {filteredIssues.length > 0 ? (
+                  <IssueTable issues={filteredIssues} />
+                ) : (
+                  <Card className="p-8 text-center text-muted-foreground">
+                    No issues found matching your filters.
+                  </Card>
+                )}
               </div>
             </div>
           </>
+        ) : (
+          <div className="py-20 text-center">
+            <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <Github className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="mb-4 font-heading text-2xl font-bold">Ready to track issues</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Add a repository URL above (like <code>facebook/react</code>) to instantly fetch and view its issues in this dashboard.
+            </p>
+          </div>
         )}
       </main>
     </div>
