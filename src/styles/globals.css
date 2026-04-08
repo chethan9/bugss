@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Work+Sans:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,77 +6,52 @@
 
 @layer base {
   :root {
-    --radius: 0.5rem;
+    /* Light theme colors */
+    --background: 0 0% 100%;
+    --foreground: 220 15% 10%;
     
-    /* Core palette */
+    --card: 0 0% 98%;
+    --card-foreground: 220 15% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 10%;
+    
     --primary: 220 90% 56%;
-    --background: 220 15% 10%;
-    --foreground: 210 40% 98%;
-    --card: 220 15% 14%;
-    --card-foreground: 210 40% 98%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 220 15% 95%;
+    --secondary-foreground: 220 15% 10%;
+    
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 15% 45%;
+    
     --accent: 270 70% 60%;
-    --muted: 220 15% 25%;
-    --border: 220 15% 20%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 220 90% 56%;
+    
+    --radius: 0.5rem;
     
     /* Status colors */
     --status-open: 142 76% 45%;
     --status-progress: 270 70% 60%;
-    --status-closed: 220 15% 45%;
-    
-    /* UI elements */
-    --popover: 220 15% 14%;
-    --popover-foreground: 210 40% 98%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 210 40% 98%;
-    --muted-foreground: 220 15% 65%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --input: 220 15% 20%;
-    --ring: 220 90% 56%;
-    
-    /* Charts */
-    --chart-1: 220 90% 56%;
-    --chart-2: 270 70% 60%;
-    --chart-3: 142 76% 45%;
-    --chart-4: 190 80% 50%;
-    --chart-5: 30 80% 55%;
+    --status-closed: 220 15% 55%;
   }
+}
 
+@layer base {
   * {
     @apply border-border;
   }
-  
   body {
     @apply bg-background text-foreground font-sans;
   }
-  
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
-  }
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-@layer components {
-  .container {
-    @apply mx-auto px-4 md:px-6 lg:px-8 max-w-7xl w-full;
-  }
-  
-  .status-badge-open {
-    @apply bg-status-open/10 text-status-open border-status-open/20;
-  }
-  
-  .status-badge-progress {
-    @apply bg-status-progress/10 text-status-progress border-status-progress/20;
-  }
-  
-  .status-badge-closed {
-    @apply bg-status-closed/10 text-status-closed border-status-closed/20;
   }
 }

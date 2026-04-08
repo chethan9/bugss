@@ -6,7 +6,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { FilterPanel } from "@/components/FilterPanel";
 import { calculateMetrics } from "@/lib/mockData";
-import { Github, LayoutDashboard, Settings, RefreshCw, AlertCircle, Loader2, FolderGit2 } from "lucide-react";
+import { Github, LayoutDashboard, Settings, RefreshCw, AlertCircle, Loader2, FolderGit2, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -315,28 +315,55 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="container flex h-16 items-center justify-between px-6">
+      {/* Header */}
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <LayoutDashboard className="h-6 w-6 text-primary" />
-            <h1 className="font-heading text-xl font-bold hidden sm:block">GitHub Issue Dashboard</h1>
+            <LayoutGrid className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-heading font-bold text-foreground">
+              GitHub Issue Dashboard
+            </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={openRepoDialog}>
-              <FolderGit2 className="mr-2 h-4 w-4" />
-              Manage Repos
-              {selectedRepos.length > 0 && (
-                <Badge variant="secondary" className="ml-2 bg-primary/20 hover:bg-primary/30">
-                  {selectedRepos.length}
-                </Badge>
-              )}
-            </Button>
-            <Button variant="outline" size="sm" onClick={fetchSelectedIssues} disabled={isLoadingIssues || selectedRepos.length === 0}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingIssues ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-            <Button variant="ghost" size="sm" onClick={resetToken}>
-              <Settings className="mr-2 h-4 w-4" />
+          
+          <div className="flex items-center gap-3">
+            {selectedRepos.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRepoPicker(true)}
+                  className="gap-2"
+                >
+                  <FolderGit2 className="h-4 w-4" />
+                  Manage Repos
+                  <Badge variant="secondary" className="ml-1 bg-primary/10 text-primary">
+                    {selectedRepos.length}
+                  </Badge>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchSelectedIssues}
+                  disabled={isLoadingIssues}
+                  className="gap-2"
+                >
+                  {isLoadingIssues ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Refresh
+                </Button>
+              </>
+            )}
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTokenModal(true)}
+              className="gap-2"
+            >
+              <Settings className="h-4 w-4" />
               Change Token
             </Button>
           </div>
@@ -403,7 +430,8 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <main className="container px-6 py-8">
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-8">
         {issuesError && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />

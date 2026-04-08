@@ -139,7 +139,30 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
               onClick={() => onIssueClick(issue)}
             >
               <TableCell className="font-medium">#{issue.number}</TableCell>
-              <TableCell className="font-medium">{issue.title}</TableCell>
+              <TableCell className="max-w-md">
+                <a
+                  href={issue.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium hover:underline hover:text-primary transition-colors block"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {issue.title}
+                </a>
+                {issue.labels.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {issue.labels.map((label) => (
+                      <Badge
+                        key={label}
+                        variant="secondary"
+                        className="text-xs bg-muted hover:bg-muted/80 text-muted-foreground"
+                      >
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </TableCell>
               <TableCell>
                 <Badge
                   variant={issue.status === "open" ? "default" : "secondary"}

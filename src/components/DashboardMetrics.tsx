@@ -16,20 +16,20 @@ export function DashboardMetrics({
   const metrics = [
     { label: "Repositories", value: totalRepos, color: "text-foreground" },
     { label: "Total Issues", value: totalIssues, color: "text-foreground" },
-    { label: "Open", value: openIssues, color: "text-[#57d9a3]" },
-    { label: "In Progress", value: inProgressIssues, color: "text-[#a78bfa]" },
-    { label: "Closed", value: closedIssues, color: "text-muted-foreground" },
+    { label: "Open", value: openIssues, color: "text-green-600" },
+    { label: "In Progress", value: inProgressIssues, color: "text-purple-600" },
+    { label: "Closed", value: closedIssues, color: "text-gray-600" },
   ];
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold font-heading">Summary</h2>
-      <div className="flex flex-wrap items-center gap-12 lg:gap-16 pt-2 pb-4">
+      <h2 className="text-xl font-heading font-semibold">Summary</h2>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
         {metrics.map((metric) => (
-          <div key={metric.label} className="flex flex-col items-center justify-center gap-1">
-            <span className={`text-5xl font-light tracking-tight ${metric.color}`}>
+          <div key={metric.label} className="text-center space-y-1">
+            <div className={`text-4xl font-heading font-bold ${metric.color}`}>
               {metric.value}
-            </span>
+            </div>
             <span className="text-sm text-muted-foreground font-medium">
               {metric.label}
             </span>
