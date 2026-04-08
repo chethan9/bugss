@@ -12,6 +12,7 @@ import { mockIssues, calculateMetrics } from "@/lib/mockData";
 import { Github, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getGitHubConnection, getTrackedRepositories, getAllIssues } from "@/services/githubService";
+import { useAutoSync } from "@/hooks/useAutoSync";
 
 export default function Home() {
   const [isConnected, setIsConnected] = useState(false);
@@ -21,6 +22,7 @@ export default function Home() {
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [realIssues, setRealIssues] = useState<any[]>([]);
   const [repositories, setRepositories] = useState<any[]>([]);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
 
   const [filters, setFilters] = useState({
     repositories: [] as string[],
@@ -97,6 +99,13 @@ export default function Home() {
       setIsSyncing(false);
     }
   };
+
+  // Auto-sync hook
+  const { isAutoSyncing, nextSyncAt } = useAutoSync({
+    enabled: autoSyncEnabled && isConnected,
+    onSync: handleSync,
+    intervalMs: 15 * 60 * 1000 // 15 minutes
+  });
 
   // Use real issues if connected, otherwise mock data
   const issues = isConnected && realIssues.length > 0 ? realIssues : mockIssues;
@@ -210,6 +219,10 @@ export default function Home() {
             isSyncing={isSyncing}
             onSync={handleSync}
             onManageRepos={() => setShowRepoPicker(true)}
+            autoSyncEnabled={autoSyncEnabled}
+            onAutoSyncToggle={setAutoSyncEnabled}
+            nextSyncAt={nextSyncAt}
+            isAutoSyncing={isAutoSyncing}
           />
         </div>
       </header>
