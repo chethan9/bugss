@@ -12,7 +12,7 @@ import { ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 
-interface Issue {
+export interface GitHubIssue {
   id: string;
   number: number;
   title: string;
@@ -25,8 +25,8 @@ interface Issue {
 }
 
 interface IssueTableProps {
-  issues: Issue[];
-  onIssueClick: (issue: Issue) => void;
+  issues: GitHubIssue[];
+  onIssueClick: (issue: GitHubIssue) => void;
 }
 
 type SortField = "createdAt" | "title" | "status";
