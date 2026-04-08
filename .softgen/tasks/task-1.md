@@ -19,13 +19,11 @@ Need to handle:
 - Connection status display
 
 ## Checklist
-- [x] Create index.tsx: Jira-style dashboard with metrics, progress bar, filter panel, and issue table
-- [x] Add DashboardMetrics component with summary cards
-- [x] Add ProgressBar component with segment visualization
-- [x] Add IssueTable component with status badges
-- [x] Add FilterPanel component with repository, label, and status filters
-- [x] Setup mock data structure for development
-- [ ] Create GitHubConnect component: OAuth flow initiation, token input form
-- [ ] Add api/auth/github/callback route: handle OAuth response, store tokens
-- [ ] Create Supabase schema: repositories table, github_tokens table
-- [ ] Add repository selection UI: list connected repos, enable/disable syncing
+- [x] Create Supabase schema: github_connections, repositories, issues tables with RLS
+- [x] Create githubService.ts: connection management, repo fetching, issue syncing
+- [x] Create GitHubConnect component: connection modal with OAuth and token options
+- [x] Create RepositoryPicker component: select which repos to track
+- [x] Create SyncStatus component: last sync time, manual refresh button
+- [x] Update index.tsx: empty state for unconnected users, full dashboard when connected
+- [x] Add connection status check on page load
+- [x] Implement real data loading from Supabase

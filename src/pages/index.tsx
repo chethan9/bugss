@@ -1,133 +1,244 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable } from "@/components/IssueTable";
 import { FilterPanel } from "@/components/FilterPanel";
+import { GitHubConnect } from "@/components/GitHubConnect";
+import { RepositoryPicker } from "@/components/RepositoryPicker";
+import { SyncStatus } from "@/components/SyncStatus";
+import { mockIssues, calculateMetrics, mockRepositories } from "@/lib/mockData";
+import { Github, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Github } from "lucide-react";
-import { mockIssues, getUniqueRepositories, getUniqueLabels, calculateMetrics } from "@/lib/mockData";
+import { getGitHubConnection, getTrackedRepositories, getAllIssues } from "@/services/githubService";
 
 export default function Home() {
-  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [showRepoPicker, setShowRepoPicker] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [realIssues, setRealIssues] = useState<any[]>([]);
+  const [repositories, setRepositories] = useState<any[]>([]);
 
-  const repositories = useMemo(() => getUniqueRepositories(mockIssues), []);
-  const labels = useMemo(() => getUniqueLabels(mockIssues), []);
+  const [filters, setFilters] = useState({
+    repositories: [] as string[],
+    labels: [] as string[],
+    statuses: [] as string[],
+    search: "",
+  });
 
+  // Check GitHub connection on mount
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
+  async function checkConnection() {
+    try {
+      const connection = await getGitHubConnection();
+      if (connection) {
+        setIsConnected(true);
+        setLastSyncTime(connection.last_sync_at ? new Date(connection.last_sync_at) : null);
+        await loadData();
+      }
+    } catch (error) {
+      console.error("Error checking connection:", error);
+    }
+  }
+
+  async function loadData() {
+    try {
+      const [repos, issues] = await Promise.all([
+        getTrackedRepositories(),
+        getAllIssues()
+      ]);
+      setRepositories(repos);
+      setRealIssues(issues);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    }
+  }
+
+  const handleConnectSuccess = async () => {
+    setIsConnected(true);
+    setShowConnectModal(false);
+    await loadData();
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await loadData();
+      setLastSyncTime(new Date());
+    } catch (error) {
+      console.error("Sync error:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Use real issues if connected, otherwise mock data
+  const issues = isConnected && realIssues.length > 0 ? realIssues : mockIssues;
+
+  // Filter issues based on current filters
   const filteredIssues = useMemo(() => {
-    return mockIssues.filter(issue => {
-      if (selectedRepos.length > 0 && !selectedRepos.includes(issue.repository)) {
+    return issues.filter((issue) => {
+      if (
+        filters.repositories.length > 0 &&
+        !filters.repositories.includes(issue.repository)
+      ) {
         return false;
       }
-      if (selectedLabels.length > 0 && !issue.labels.some(label => selectedLabels.includes(label))) {
-        return false;
+
+      if (filters.statuses.length > 0) {
+        const statusMap: Record<string, string> = {
+          open: "Open",
+          closed: "Closed",
+          in_progress: "In Progress",
+        };
+        const issueStatus = issue.state === "open" ? "Open" : "Closed";
+        if (!filters.statuses.some((s) => statusMap[s] === issueStatus)) {
+          return false;
+        }
       }
-      if (selectedStatuses.length > 0 && !selectedStatuses.includes(issue.status)) {
-        return false;
+
+      if (filters.labels.length > 0) {
+        const issueLabels = issue.labels?.map((l: any) => l.name || l) || [];
+        if (!filters.labels.some((label) => issueLabels.includes(label))) {
+          return false;
+        }
       }
-      if (searchQuery && !issue.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
+
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        return (
+          issue.title.toLowerCase().includes(searchLower) ||
+          issue.body?.toLowerCase().includes(searchLower)
+        );
       }
+
       return true;
     });
-  }, [selectedRepos, selectedLabels, selectedStatuses, searchQuery]);
+  }, [issues, filters]);
 
   const metrics = useMemo(() => calculateMetrics(filteredIssues), [filteredIssues]);
 
-  const statusOptions = [
-    { value: "open", label: "Open", count: mockIssues.filter(i => i.status === "open").length },
-    { value: "in_progress", label: "In Progress", count: mockIssues.filter(i => i.status === "in_progress").length },
-    { value: "closed", label: "Closed", count: mockIssues.filter(i => i.status === "closed").length }
-  ];
+  // Extract unique repositories and labels for filters
+  const availableRepositories = useMemo(() => {
+    return Array.from(new Set(issues.map((issue) => issue.repository)));
+  }, [issues]);
 
-  const handleRepoToggle = (repo: string) => {
-    setSelectedRepos(prev =>
-      prev.includes(repo) ? prev.filter(r => r !== repo) : [...prev, repo]
+  const availableLabels = useMemo(() => {
+    const labels = new Set<string>();
+    issues.forEach((issue) => {
+      issue.labels?.forEach((label: any) => {
+        labels.add(typeof label === "string" ? label : label.name);
+      });
+    });
+    return Array.from(labels);
+  }, [issues]);
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border bg-card">
+          <div className="container flex h-16 items-center justify-between px-6">
+            <div className="flex items-center gap-3">
+              <Github className="h-8 w-8 text-primary" />
+              <h1 className="font-heading text-xl font-bold">GitHub Issue Dashboard</h1>
+            </div>
+          </div>
+        </header>
+
+        <main className="container px-6 py-12">
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <Github className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="mb-4 font-heading text-3xl font-bold">Connect Your GitHub Account</h2>
+            <p className="mb-8 text-lg text-muted-foreground">
+              Connect your GitHub account to start tracking issues across all your repositories.
+              Get real-time insights, powerful filtering, and beautiful analytics.
+            </p>
+            <Button size="lg" onClick={() => setShowConnectModal(true)}>
+              <Github className="mr-2 h-5 w-5" />
+              Connect GitHub
+            </Button>
+
+            <GitHubConnect
+              open={showConnectModal}
+              onOpenChange={setShowConnectModal}
+              onSuccess={handleConnectSuccess}
+            />
+          </div>
+        </main>
+      </div>
     );
-  };
-
-  const handleLabelToggle = (label: string) => {
-    setSelectedLabels(prev =>
-      prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
-    );
-  };
-
-  const handleStatusToggle = (status: string) => {
-    setSelectedStatuses(prev =>
-      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
-    );
-  };
-
-  const handleClearFilters = () => {
-    setSelectedRepos([]);
-    setSelectedLabels([]);
-    setSelectedStatuses([]);
-    setSearchQuery("");
-  };
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-border bg-card">
+        <div className="container flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <Github className="w-8 h-8 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold">GitHub Issue Dashboard</h1>
-              <p className="text-sm text-muted-foreground">Track and manage issues across repositories</p>
-            </div>
+            <LayoutDashboard className="h-6 w-6 text-primary" />
+            <h1 className="font-heading text-xl font-bold">GitHub Issue Dashboard</h1>
           </div>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Sync Repositories
-          </Button>
+          <SyncStatus
+            lastSyncTime={lastSyncTime}
+            isSyncing={isSyncing}
+            onSync={handleSync}
+            onManageRepos={() => setShowRepoPicker(true)}
+          />
         </div>
       </header>
 
-      <main className="max-w-[1800px] mx-auto px-6 py-8">
-        <div className="flex gap-8">
+      <main className="container px-6 py-8">
+        <div className="mb-8">
+          <h2 className="mb-6 font-heading text-2xl font-bold">Summary</h2>
+          <DashboardMetrics
+            repositories={metrics.statusCounts.find((s) => s.label === "Repositories")?.value || 0}
+            totalIssues={filteredIssues.length}
+            open={metrics.statusCounts.find((s) => s.label === "Open")?.value || 0}
+            inProgress={metrics.statusCounts.find((s) => s.label === "In Progress")?.value || 0}
+            closed={metrics.statusCounts.find((s) => s.label === "Closed")?.value || 0}
+          />
+        </div>
+
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-heading text-lg font-semibold">
+              Issue Progress - {metrics.completionRate}% completed
+            </h3>
+          </div>
+          <ProgressBar segments={metrics.segments} />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
           <FilterPanel
-            repositories={repositories}
-            labels={labels}
-            statuses={statusOptions}
-            selectedRepos={selectedRepos}
-            selectedLabels={selectedLabels}
-            selectedStatuses={selectedStatuses}
-            searchQuery={searchQuery}
-            onRepoToggle={handleRepoToggle}
-            onLabelToggle={handleLabelToggle}
-            onStatusToggle={handleStatusToggle}
-            onSearchChange={setSearchQuery}
-            onClearFilters={handleClearFilters}
+            repositories={availableRepositories}
+            labels={availableLabels}
+            filters={filters}
+            onFilterChange={setFilters}
           />
 
-          <div className="flex-1 space-y-6">
-            <DashboardMetrics
-              totalRepos={repositories.length}
-              totalIssues={filteredIssues.length}
-              open={metrics.statusCounts.open}
-              inProgress={metrics.statusCounts.inProgress}
-              closed={metrics.statusCounts.closed}
-            />
-
-            <ProgressBar
-              segments={metrics.segments}
-              completionRate={metrics.completionRate}
-            />
-
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
+              <h3 className="font-heading text-lg font-semibold">
                 Issues ({filteredIssues.length})
-              </h2>
+              </h3>
             </div>
-
             <IssueTable issues={filteredIssues} />
           </div>
         </div>
       </main>
+
+      <RepositoryPicker
+        open={showRepoPicker}
+        onOpenChange={setShowRepoPicker}
+        onUpdateComplete={loadData}
+      />
     </div>
   );
 }
