@@ -8,7 +8,7 @@ import { FilterPanel } from "@/components/FilterPanel";
 import { GitHubConnect } from "@/components/GitHubConnect";
 import { RepositoryPicker } from "@/components/RepositoryPicker";
 import { SyncStatus } from "@/components/SyncStatus";
-import { mockIssues, calculateMetrics, mockRepositories } from "@/lib/mockData";
+import { mockIssues, calculateMetrics } from "@/lib/mockData";
 import { Github, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getGitHubConnection, getTrackedRepositories, getAllIssues } from "@/services/githubService";
@@ -198,11 +198,11 @@ export default function Home() {
         <div className="mb-8">
           <h2 className="mb-6 font-heading text-2xl font-bold">Summary</h2>
           <DashboardMetrics
-            repositories={metrics.statusCounts.find((s) => s.label === "Repositories")?.value || 0}
+            totalRepos={availableRepositories.length}
             totalIssues={filteredIssues.length}
-            open={metrics.statusCounts.find((s) => s.label === "Open")?.value || 0}
-            inProgress={metrics.statusCounts.find((s) => s.label === "In Progress")?.value || 0}
-            closed={metrics.statusCounts.find((s) => s.label === "Closed")?.value || 0}
+            open={metrics.statusCounts.open}
+            inProgress={metrics.statusCounts.inProgress}
+            closed={metrics.statusCounts.closed}
           />
         </div>
 
@@ -212,15 +212,47 @@ export default function Home() {
               Issue Progress - {metrics.completionRate}% completed
             </h3>
           </div>
-          <ProgressBar segments={metrics.segments} />
+          <ProgressBar segments={metrics.segments} completionRate={metrics.completionRate} />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
           <FilterPanel
             repositories={availableRepositories}
             labels={availableLabels}
-            filters={filters}
-            onFilterChange={setFilters}
+            statuses={[
+              { value: "open", label: "Open", count: metrics.statusCounts.open },
+              { value: "in_progress", label: "In Progress", count: metrics.statusCounts.inProgress },
+              { value: "closed", label: "Closed", count: metrics.statusCounts.closed }
+            ]}
+            selectedRepos={filters.repositories}
+            selectedLabels={filters.labels}
+            selectedStatuses={filters.statuses}
+            searchQuery={filters.search}
+            onRepoToggle={(repo) => setFilters(prev => ({
+              ...prev,
+              repositories: prev.repositories.includes(repo)
+                ? prev.repositories.filter(r => r !== repo)
+                : [...prev.repositories, repo]
+            }))}
+            onLabelToggle={(label) => setFilters(prev => ({
+              ...prev,
+              labels: prev.labels.includes(label)
+                ? prev.labels.filter(l => l !== label)
+                : [...prev.labels, label]
+            }))}
+            onStatusToggle={(status) => setFilters(prev => ({
+              ...prev,
+              statuses: prev.statuses.includes(status)
+                ? prev.statuses.filter(s => s !== status)
+                : [...prev.statuses, status]
+            }))}
+            onSearchChange={(search) => setFilters(prev => ({ ...prev, search }))}
+            onClearFilters={() => setFilters({
+              repositories: [],
+              labels: [],
+              statuses: [],
+              search: ""
+            })}
           />
 
           <div className="space-y-4">
