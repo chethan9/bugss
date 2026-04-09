@@ -879,3 +879,145 @@ export function calculatePriorityResolutionScatter(issues: GitHubIssue[]): Scatt
     };
   });
 }
+
+// ==========================================
+// Phase 4B - Advanced Visualizations: Time & Flow
+// ==========================================
+
+export interface StackedAreaDataPoint {
+  date: string;
+  bug: number;
+  enhancement: number;
+  documentation: number;
+  other: number;
+}
+
+export function calculateStackedAreaData(issues: GitHubIssue[], days: number = 30): StackedAreaDataPoint[] {
+  const now = new Date();
+  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  
+  // Initialize date map
+  const dateMap = new Map<string, StackedAreaDataPoint>();
+  
+  for (let i = 0; i < days; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const dateStr = date.toISOString().split("T")[0];
+    dateMap.set(dateStr, { date: dateStr, bug: 0, enhancement: 0, documentation: 0, other: 0 });
+  }
+  
+  // Count issues by category per day
+  issues.filter(i => new Date(i.createdAt) >= startDate).forEach(issue => {
+    const dateStr = new Date(issue.createdAt).toISOString().split("T")[0];
+    const entry = dateMap.get(dateStr);
+    
+    if (entry) {
+      const labelText = issue.labels.join(" ").toLowerCase();
+      
+      if (labelText.includes("bug")) entry.bug++;
+      else if (labelText.includes("enhancement") || labelText.includes("feature")) entry.enhancement++;
+      else if (labelText.includes("documentation") || labelText.includes("docs")) entry.documentation++;
+      else entry.other++;
+    }
+  });
+  
+  return Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  percentage: number;
+}
+
+export function calculateIssueFunnel(issues: GitHubIssue[]): FunnelStage[] {
+  const total = issues.length;
+  
+  const reported = total;
+  const assigned = issues.filter(i => i.assignee).length;
+  const inProgress = issues.filter(i => i.status === "in_progress").length;
+  const closed = issues.filter(i => i.status === "closed").length;
+  
+  return [
+    {
+      stage: "Reported",
+      count: reported,
+      percentage: 100,
+    },
+    {
+      stage: "Assigned",
+      count: assigned,
+      percentage: reported > 0 ? (assigned / reported) * 100 : 0,
+    },
+    {
+      stage: "In Progress",
+      count: inProgress,
+      percentage: reported > 0 ? (inProgress / reported) * 100 : 0,
+    },
+    {
+      stage: "Closed",
+      count: closed,
+      percentage: reported > 0 ? (closed / reported) * 100 : 0,
+    },
+  ];
+}
+
+export interface WaterfallDataPoint {
+  label: string;
+  value: number;
+  isTotal?: boolean;
+  type: "positive" | "negative" | "neutral";
+}
+
+export function calculateBacklogWaterfall(issues: GitHubIssue[], weeks: number = 4): WaterfallDataPoint[] {
+  const now = new Date();
+  const waterfallData: WaterfallDataPoint[] = [];
+  
+  let runningTotal = 0;
+  
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekStart = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
+    const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+    
+    const created = issues.filter(issue => {
+      const createdDate = new Date(issue.createdAt);
+      return createdDate >= weekStart && createdDate < weekEnd;
+    }).length;
+    
+    const closed = issues.filter(issue => {
+      if (!issue.closedAt) return false;
+      const closedDate = new Date(issue.closedAt);
+      return closedDate >= weekStart && closedDate < weekEnd;
+    }).length;
+    
+    const weekLabel = `Week ${weeks - i}`;
+    
+    if (created > 0) {
+      waterfallData.push({
+        label: `${weekLabel} Created`,
+        value: created,
+        type: "positive",
+      });
+      runningTotal += created;
+    }
+    
+    if (closed > 0) {
+      waterfallData.push({
+        label: `${weekLabel} Closed`,
+        value: -closed,
+        type: "negative",
+      });
+      runningTotal -= closed;
+    }
+  }
+  
+  // Add net change
+  waterfallData.push({
+    label: "Net Change",
+    value: runningTotal,
+    isTotal: true,
+    type: runningTotal > 0 ? "positive" : runningTotal < 0 ? "negative" : "neutral",
+  });
+  
+  return waterfallData;
+}

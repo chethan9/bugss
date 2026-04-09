@@ -1,22 +1,24 @@
 ---
 title: Advanced Visualizations - Phase 4B (Time & Flow)
-status: todo
+status: in_progress
 priority: medium
 type: feature
-tags: [charts, visualization, flow]
+tags: [analytics, visualizations, flow, time-series]
 created_by: agent
 created_at: 2026-04-09
 position: 19
 ---
 
 ## Notes
-Implement time-based and flow visualizations: stacked area charts, funnel charts, and waterfall charts for lifecycle and backlog analysis.
+Implement time-based and flow visualizations that show issue progression through workflow stages and backlog evolution over time.
 
 ## Checklist
-- [ ] Create Stacked Area Chart (bug categories over time)
-- [ ] Create Funnel Chart (Reported → Assigned → Fixed → Closed)
-- [ ] Create Waterfall Chart (backlog change: +created, -closed)
-- [ ] Add lifecycle stage calculations
+- [ ] Create StackedAreaChart widget (bug categories over time)
+- [ ] Calculate time-series data by category
+- [ ] Create FunnelChart widget (lifecycle stages)
+- [ ] Calculate conversion rates between stages
+- [ ] Create WaterfallChart widget (backlog delta)
+- [ ] Calculate created vs closed per week
 - [ ] Add backlog delta calculations
 - [ ] Integrate with dashboard
 - [ ] Add visibility controls
