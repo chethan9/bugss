@@ -168,30 +168,44 @@ export function calculateAverageResolutionTime(issues: GitHubIssue[]): Resolutio
 
 export function calculateIssueTrend(issues: GitHubIssue[], days: number = 30): TrendDataPoint[] {
   const now = new Date();
-  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - days);
+  startDate.setHours(0, 0, 0, 0);
   
+  // Create a map for each day in the range
   const dateMap = new Map<string, { created: number; closed: number }>();
   
+  // Initialize all days with zero counts
   for (let i = 0; i < days; i++) {
-    const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
     const dateStr = date.toISOString().split("T")[0];
     dateMap.set(dateStr, { created: 0, closed: 0 });
   }
   
+  // Count issues created on each day
   issues.forEach(issue => {
-    const createdDate = new Date(issue.createdAt).toISOString().split("T")[0];
-    if (dateMap.has(createdDate)) {
-      dateMap.get(createdDate)!.created++;
+    const createdDate = new Date(issue.createdAt);
+    const createdDateStr = createdDate.toISOString().split("T")[0];
+    
+    if (dateMap.has(createdDateStr)) {
+      const entry = dateMap.get(createdDateStr)!;
+      entry.created++;
     }
     
+    // Count issues closed on each day
     if (issue.closedAt) {
-      const closedDate = new Date(issue.closedAt).toISOString().split("T")[0];
-      if (dateMap.has(closedDate)) {
-        dateMap.get(closedDate)!.closed++;
+      const closedDate = new Date(issue.closedAt);
+      const closedDateStr = closedDate.toISOString().split("T")[0];
+      
+      if (dateMap.has(closedDateStr)) {
+        const entry = dateMap.get(closedDateStr)!;
+        entry.closed++;
       }
     }
   });
   
+  // Convert map to array and sort by date
   return Array.from(dateMap.entries())
     .map(([date, counts]) => ({
       date,
