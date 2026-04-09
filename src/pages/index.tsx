@@ -22,6 +22,9 @@ import { AgingIssues } from "@/components/analytics/AgingIssues";
 import { CriticalUntouched } from "@/components/analytics/CriticalUntouched";
 import { BacklogGrowth } from "@/components/analytics/BacklogGrowth";
 import { BugFixEfficiency } from "@/components/analytics/BugFixEfficiency";
+import { RepeatBugDetector } from "@/components/analytics/RepeatBugDetector";
+import { DeveloperLoad } from "@/components/analytics/DeveloperLoad";
+import { FocusRecommendations } from "@/components/analytics/FocusRecommendations";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -37,6 +40,9 @@ import {
   calculateCriticalUntouched,
   calculateBacklogGrowth,
   calculateBugFixEfficiency,
+  detectRepeatBugs,
+  calculateDeveloperLoad,
+  generateFocusRecommendations,
 } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -336,6 +342,9 @@ export default function Home() {
       criticalUntouched: calculateCriticalUntouched(filteredIssues, 3),
       backlogGrowth: calculateBacklogGrowth(filteredIssues),
       bugFixEfficiency: calculateBugFixEfficiency(filteredIssues, 30),
+      repeatBugs: detectRepeatBugs(filteredIssues, 7),
+      developerLoad: calculateDeveloperLoad(filteredIssues),
+      focusRecommendations: generateFocusRecommendations(filteredIssues),
     };
   }, [filteredIssues]);
 
@@ -663,6 +672,18 @@ export default function Home() {
               )}
               {widgetVisibility.bugFixEfficiency && (
                 <BugFixEfficiency stats={analytics.bugFixEfficiency} />
+              )}
+              {widgetVisibility.bugFixEfficiency && (
+                <BugFixEfficiency stats={analytics.bugFixEfficiency} />
+              )}
+              {widgetVisibility.repeatBugDetector && (
+                <RepeatBugDetector stats={analytics.repeatBugs} />
+              )}
+              {widgetVisibility.developerLoad && (
+                <DeveloperLoad stats={analytics.developerLoad} />
+              )}
+              {widgetVisibility.focusRecommendations && (
+                <FocusRecommendations recommendations={analytics.focusRecommendations} />
               )}
             </div>
 

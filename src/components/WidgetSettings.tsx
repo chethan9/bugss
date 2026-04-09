@@ -29,6 +29,9 @@ export interface WidgetVisibility {
   criticalUntouched: boolean;
   backlogGrowth: boolean;
   bugFixEfficiency: boolean;
+  repeatBugDetector: boolean;
+  developerLoad: boolean;
+  focusRecommendations: boolean;
 }
 
 export const DEFAULT_VISIBILITY: WidgetVisibility = {
@@ -47,6 +50,9 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
   criticalUntouched: true,
   backlogGrowth: true,
   bugFixEfficiency: true,
+  repeatBugDetector: true,
+  developerLoad: true,
+  focusRecommendations: true,
 };
 
 interface WidgetSettingsProps {
@@ -215,6 +221,32 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               onCheckedChange={(checked) => handleToggle("bugFixEfficiency", checked)}
             >
               🧯 Bug Fix Efficiency
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Engineering Health & AI
+            </DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={visibility.repeatBugDetector}
+              onCheckedChange={(checked) => handleToggle("repeatBugDetector", checked)}
+            >
+              🧠 Repeat Bug Detector
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.developerLoad}
+              onCheckedChange={(checked) => handleToggle("developerLoad", checked)}
+            >
+              🧑‍💻 Developer Load
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.focusRecommendations}
+              onCheckedChange={(checked) => handleToggle("focusRecommendations", checked)}
+            >
+              🎯 Focus Recommendations
             </DropdownMenuCheckboxItem>
           </DropdownMenuGroup>
         </DropdownMenuGroup>

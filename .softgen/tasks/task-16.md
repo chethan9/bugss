@@ -1,25 +1,23 @@
 ---
 title: Engineering Health & Smart Recommendations - Phase 3B
-status: todo
+status: in_progress
 priority: high
 type: feature
-tags: [analytics, health, ai-recommendations]
+tags: [analytics, ai, recommendations, team]
 created_by: agent
 created_at: 2026-04-09
 position: 16
 ---
 
 ## Notes
-Advanced analytics for detecting systemic issues, bottlenecks, and generating AI-like focus recommendations. Helps teams prioritize and avoid recurring problems.
+Add engineering health metrics and AI-like smart recommendation engine. Detects patterns, identifies systemic issues, and suggests actionable focus areas.
 
 ## Checklist
-- [ ] Create RepeatBugDetector widget (same labels recurring)
-- [ ] Create DependencyBottleneck widget (blocked issues)
-- [ ] Create FastestSlowFixTypes widget (resolution time by type)
-- [ ] Create DeveloperLoadImbalance widget (issues per dev)
-- [ ] Create FocusRecommendation widget (AI-like suggestions)
-- [ ] Create RiskClusters widget (critical+old+reopened)
-- [ ] Add pattern detection algorithms
-- [ ] Generate smart recommendations from data
+- [ ] Create RepeatBugDetector widget (labels appearing repeatedly)
+- [ ] Detect systemic issues from repeat patterns
+- [ ] Create DeveloperLoad widget (issues per developer)
+- [ ] Calculate average load and identify overloaded devs
+- [ ] Create FocusRecommendations widget (AI-like suggestions)
+- [ ] Generate recommendations from data
 - [ ] Highlight actionable insights
 - [ ] Add drill-down from recommendations
