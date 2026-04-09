@@ -83,32 +83,29 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
       color: "text-emerald-600 dark:text-emerald-400", 
       bgColor: "bg-emerald-500",
       badgeBg: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
-      icon: CheckCircle2,
-      gradient: "from-emerald-500 to-teal-500"
+      icon: CheckCircle2
     };
     if (healthScore >= 40) return { 
       label: "At Risk", 
       color: "text-amber-600 dark:text-amber-400", 
       bgColor: "bg-amber-500",
       badgeBg: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
-      icon: AlertTriangle,
-      gradient: "from-amber-500 to-orange-500"
+      icon: AlertTriangle
     };
     return { 
       label: "Critical", 
       color: "text-rose-600 dark:text-rose-400", 
       bgColor: "bg-rose-500",
       badgeBg: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800",
-      icon: XCircle,
-      gradient: "from-rose-500 to-red-500"
+      icon: XCircle
     };
   };
 
   const status = getStatus();
   const StatusIcon = status.icon;
 
-  // Gauge angle calculation (180 degree arc)
-  const angle = (healthScore / 100) * 180;
+  // Needle rotation: 0% = -90deg (left), 100% = 90deg (right)
+  const needleRotation = -90 + (healthScore / 100) * 180;
 
   if (isLoading) {
     return (
@@ -121,7 +118,7 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
           <Skeleton className="h-6 w-20 rounded-full" />
         </div>
         <div className="flex justify-center mb-6">
-          <Skeleton className="h-32 w-48 rounded-lg" />
+          <Skeleton className="h-40 w-52 rounded-lg" />
         </div>
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
@@ -153,164 +150,156 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
   }
 
   return (
-    <Card className="p-6 border-border/50 overflow-hidden relative">
-      {/* Subtle gradient background */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${status.gradient} opacity-[0.03]`} />
-      
-      <div className="relative">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl bg-gradient-to-br ${status.gradient} shadow-lg`}>
-              <Activity className="h-5 w-5 text-white" />
-            </div>
-            <h3 className="font-semibold text-lg">Project Health</h3>
+    <Card className="p-6 border-border/50">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl ${status.badgeBg}`}>
+            <Activity className="h-5 w-5" />
           </div>
-          <Badge variant="outline" className={`${status.badgeBg} border font-medium px-3 py-1`}>
-            <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
-            {status.label}
-          </Badge>
+          <h3 className="font-semibold text-lg">Project Health</h3>
         </div>
+        <Badge variant="outline" className={`${status.badgeBg} border font-medium px-3 py-1`}>
+          <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
+          {status.label}
+        </Badge>
+      </div>
 
-        {/* Gauge */}
-        <div className="relative flex justify-center mb-6">
-          <svg width="220" height="130" viewBox="0 0 220 130">
-            {/* Background arc with gradient */}
-            <defs>
-              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#ef4444" />
-                <stop offset="35%" stopColor="#f59e0b" />
-                <stop offset="70%" stopColor="#22c55e" />
-                <stop offset="100%" stopColor="#10b981" />
-              </linearGradient>
-              <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="currentColor" stopOpacity="0.1" />
-                <stop offset="100%" stopColor="currentColor" stopOpacity="0.05" />
-              </linearGradient>
-            </defs>
-            
-            {/* Background arc */}
-            <path
-              d="M 20 110 A 90 90 0 0 1 200 110"
-              fill="none"
-              stroke="url(#bgGradient)"
-              strokeWidth="16"
-              strokeLinecap="round"
-              className="text-muted"
-            />
-            
-            {/* Colored progress arc */}
-            <path
-              d="M 20 110 A 90 90 0 0 1 200 110"
-              fill="none"
-              stroke="url(#gaugeGradient)"
-              strokeWidth="16"
-              strokeLinecap="round"
-              strokeDasharray={`${(healthScore / 100) * 283} 283`}
-              className="transition-all duration-1000 ease-out"
-            />
-            
-            {/* Tick marks */}
-            {[0, 25, 50, 75, 100].map((tick, i) => {
-              const tickAngle = (tick / 100) * 180 - 180;
-              const rad = (tickAngle * Math.PI) / 180;
-              const x1 = 110 + 75 * Math.cos(rad);
-              const y1 = 110 + 75 * Math.sin(rad);
-              const x2 = 110 + 85 * Math.cos(rad);
-              const y2 = 110 + 85 * Math.sin(rad);
-              return (
-                <line
-                  key={i}
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="text-muted-foreground/30"
-                  strokeLinecap="round"
-                />
-              );
-            })}
-            
-            {/* Needle */}
-            <g transform={`rotate(${angle - 180}, 110, 110)`}>
+      {/* Gauge */}
+      <div className="relative flex flex-col items-center mb-8">
+        <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible">
+          <defs>
+            <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="30%" stopColor="#f97316" />
+              <stop offset="50%" stopColor="#eab308" />
+              <stop offset="70%" stopColor="#84cc16" />
+              <stop offset="100%" stopColor="#22c55e" />
+            </linearGradient>
+          </defs>
+          
+          {/* Background arc (gray) */}
+          <path
+            d="M 20 100 A 80 80 0 0 1 180 100"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="12"
+            strokeLinecap="round"
+            className="text-muted/30"
+          />
+          
+          {/* Colored arc */}
+          <path
+            d="M 20 100 A 80 80 0 0 1 180 100"
+            fill="none"
+            stroke="url(#gaugeGradient)"
+            strokeWidth="12"
+            strokeLinecap="round"
+          />
+          
+          {/* Tick marks */}
+          {[0, 25, 50, 75, 100].map((tick) => {
+            const angle = -180 + (tick / 100) * 180;
+            const rad = (angle * Math.PI) / 180;
+            const x1 = 100 + 65 * Math.cos(rad);
+            const y1 = 100 + 65 * Math.sin(rad);
+            const x2 = 100 + 72 * Math.cos(rad);
+            const y2 = 100 + 72 * Math.sin(rad);
+            return (
               <line
-                x1="110"
-                y1="110"
-                x2="110"
-                y2="35"
+                key={tick}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
                 stroke="currentColor"
-                strokeWidth="3"
-                className="text-foreground"
+                strokeWidth="2"
+                className="text-muted-foreground/40"
                 strokeLinecap="round"
               />
-              <circle cx="110" cy="110" r="10" className={`fill-current ${status.color}`} />
-              <circle cx="110" cy="110" r="5" fill="white" className="dark:fill-gray-900" />
-            </g>
-          </svg>
+            );
+          })}
           
-          {/* Score display */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-center">
-            <div className={`text-5xl font-bold ${status.color} tracking-tight`}>
-              {healthScore}
-              <span className="text-2xl">%</span>
-            </div>
-          </div>
+          {/* Needle */}
+          <g style={{ transform: `rotate(${needleRotation}deg)`, transformOrigin: '100px 100px' }}>
+            <line
+              x1="100"
+              y1="100"
+              x2="100"
+              y2="35"
+              stroke="currentColor"
+              strokeWidth="3"
+              className="text-foreground"
+              strokeLinecap="round"
+            />
+          </g>
+          
+          {/* Center circle */}
+          <circle cx="100" cy="100" r="8" className="fill-foreground" />
+          <circle cx="100" cy="100" r="4" className="fill-background" />
+        </svg>
+        
+        {/* Score display - positioned below the gauge */}
+        <div className="mt-2 text-center">
+          <span className={`text-4xl font-bold ${status.color}`}>
+            {healthScore}
+          </span>
+          <span className={`text-xl font-bold ${status.color}`}>%</span>
         </div>
+      </div>
 
-        {/* Metrics Grid */}
-        <div className="grid gap-3">
-          <MetricRow 
-            label="Critical Issues" 
-            value={`${criticalOpen}`}
-            subValue={`${criticalOpenPct.toFixed(1)}%`}
-            status={criticalOpenPct > 5 ? "danger" : "normal"}
-            icon={<XCircle className="h-4 w-4" />}
-          />
-          <MetricRow 
-            label="High Priority" 
-            value={`${highOpen}`}
-            subValue={`${highOpenPct.toFixed(1)}%`}
-            status={highOpenPct > 15 ? "warning" : "normal"}
-            icon={<AlertTriangle className="h-4 w-4" />}
-          />
-          <MetricRow 
-            label="Reopen Rate" 
-            value={`${reopenRate.toFixed(1)}%`}
-            status={reopenRate > 10 ? "warning" : "normal"}
-            icon={<TrendingUp className="h-4 w-4" />}
-          />
-          <MetricRow 
-            label="Aging Issues (30d+)" 
-            value={`${oldIssuesCount}`}
-            subValue={`${oldIssuesPct.toFixed(1)}%`}
-            status={oldIssuesPct > 20 ? "warning" : "normal"}
-            icon={<TrendingDown className="h-4 w-4" />}
-          />
-          <MetricRow 
-            label="Avg Resolution" 
-            value={`${avgResolutionDays.toFixed(1)}d`}
-            subValue={`/ ${slaTargetDays}d SLA`}
-            status={avgResolutionDays > slaTargetDays ? "danger" : "success"}
-            icon={<Activity className="h-4 w-4" />}
-          />
-        </div>
+      {/* Metrics Grid */}
+      <div className="space-y-2">
+        <MetricRow 
+          label="Critical Issues" 
+          value={criticalOpen}
+          percentage={criticalOpenPct}
+          status={criticalOpenPct > 5 ? "danger" : "normal"}
+          icon={<XCircle className="h-4 w-4" />}
+        />
+        <MetricRow 
+          label="High Priority" 
+          value={highOpen}
+          percentage={highOpenPct}
+          status={highOpenPct > 15 ? "warning" : "normal"}
+          icon={<AlertTriangle className="h-4 w-4" />}
+        />
+        <MetricRow 
+          label="Reopen Rate" 
+          value={null}
+          percentage={reopenRate}
+          status={reopenRate > 10 ? "warning" : "normal"}
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
+        <MetricRow 
+          label="Aging Issues (30d+)" 
+          value={oldIssuesCount}
+          percentage={oldIssuesPct}
+          status={oldIssuesPct > 20 ? "warning" : "normal"}
+          icon={<TrendingDown className="h-4 w-4" />}
+        />
+        <MetricRow 
+          label="Avg Resolution" 
+          value={null}
+          customValue={`${avgResolutionDays.toFixed(1)}d / ${slaTargetDays}d SLA`}
+          status={avgResolutionDays > slaTargetDays ? "danger" : "success"}
+          icon={<Activity className="h-4 w-4" />}
+        />
+      </div>
 
-        {/* Footer message */}
-        <div className="mt-5 pt-4 border-t border-border/50">
-          <div className={`flex items-center gap-2.5 text-sm ${status.color}`}>
-            <div className={`p-1.5 rounded-lg ${status.badgeBg}`}>
-              <StatusIcon className="h-4 w-4" />
-            </div>
-            <span className="text-muted-foreground">
-              {healthScore >= 70 
-                ? "Project is in good shape. Keep monitoring."
-                : healthScore >= 40
-                ? "Some areas need attention. Review priorities."
-                : "Immediate action required. Focus on critical issues."}
-            </span>
+      {/* Footer message */}
+      <div className="mt-5 pt-4 border-t border-border/50">
+        <div className={`flex items-center gap-2.5 text-sm`}>
+          <div className={`p-1.5 rounded-lg ${status.badgeBg}`}>
+            <StatusIcon className="h-4 w-4" />
           </div>
+          <span className="text-muted-foreground">
+            {healthScore >= 70 
+              ? "Project is in good shape. Keep monitoring."
+              : healthScore >= 40
+              ? "Some areas need attention. Review priorities."
+              : "Immediate action required. Focus on critical issues."}
+          </span>
         </div>
       </div>
     </Card>
@@ -321,13 +310,15 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
 function MetricRow({ 
   label, 
   value, 
-  subValue, 
+  percentage,
+  customValue,
   status, 
   icon 
 }: { 
   label: string; 
-  value: string; 
-  subValue?: string; 
+  value: number | null;
+  percentage?: number;
+  customValue?: string;
   status: "normal" | "warning" | "danger" | "success";
   icon: React.ReactNode;
 }) {
@@ -354,8 +345,18 @@ function MetricRow({
         <span className="text-sm text-muted-foreground">{label}</span>
       </div>
       <div className={`text-sm font-semibold ${statusColors[status]}`}>
-        {value}
-        {subValue && <span className="text-muted-foreground font-normal ml-1">{subValue}</span>}
+        {customValue ? (
+          customValue
+        ) : (
+          <>
+            {value !== null && <span>{value}</span>}
+            {percentage !== undefined && (
+              <span className={value !== null ? "ml-1" : ""}>
+                {percentage.toFixed(1)}%
+              </span>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
