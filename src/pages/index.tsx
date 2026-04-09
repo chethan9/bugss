@@ -1022,6 +1022,7 @@ export default function Home() {
                               totalIssues={filteredIssues.length}
                               openIssues={metrics.statusCounts.open}
                               closedIssues={metrics.statusCounts.closed}
+                              isLoading={isLoadingIssues}
                             />
                           </div>
                         );
@@ -1033,13 +1034,14 @@ export default function Home() {
                               inProgress={metrics.statusCounts.inProgress || 0}
                               closed={metrics.statusCounts.closed}
                               total={filteredIssues.length}
+                              isLoading={isLoadingIssues}
                             />
                           </div>
                         );
                       case "projectHealthGauge":
                         return (
                           <div key={widgetKey} className="mb-6">
-                            <ProjectHealthGauge issues={filteredIssues} />
+                            <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
                           </div>
                         );
                       case "burndownChart":
