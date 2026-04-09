@@ -948,38 +948,6 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {widgetVisibility.smartInsights && analytics.insights.length > 0 && (
-              <div className="mb-8" id="smart-insights-section">
-                <SmartInsights insights={analytics.insights} />
-              </div>
-            )}
-
-            {widgetVisibility.summaryMetrics && (
-              <div className="mb-8" id="summary-metrics-section">
-                <DashboardMetrics
-                  totalRepos={selectedRepos.length}
-                  totalIssues={filteredIssues.length}
-                  openIssues={metrics.statusCounts.open}
-                  inProgressIssues={metrics.statusCounts.inProgress || 0}
-                  closedIssues={metrics.statusCounts.closed}
-                  openSparkline={analytics.sparklines.open}
-                  closedSparkline={analytics.sparklines.closed}
-                  createdSparkline={analytics.sparklines.created}
-                />
-              </div>
-            )}
-
-            {widgetVisibility.progressBar && (
-              <div className="mb-8" id="progress-bar-section">
-                <ProgressBar
-                  open={metrics.statusCounts.open}
-                  inProgress={metrics.statusCounts.inProgress || 0}
-                  closed={metrics.statusCounts.closed}
-                  total={filteredIssues.length}
-                />
-              </div>
-            )}
-
             <div 
               className={`mb-8 grid gap-6 ${
                 widgetsPerRow === 1 ? "grid-cols-1" :
@@ -993,6 +961,38 @@ export default function Home() {
                 if (!widgetVisibility[widgetKey]) return null;
                 
                 switch (widgetKey) {
+                  case "smartInsights":
+                    return analytics.insights.length > 0 ? (
+                      <div key={widgetKey} className="col-span-full">
+                        <SmartInsights insights={analytics.insights} />
+                      </div>
+                    ) : null;
+                  case "summaryMetrics":
+                    return (
+                      <div key={widgetKey} className="col-span-full">
+                        <DashboardMetrics
+                          totalRepos={selectedRepos.length}
+                          totalIssues={filteredIssues.length}
+                          openIssues={metrics.statusCounts.open}
+                          inProgressIssues={metrics.statusCounts.inProgress || 0}
+                          closedIssues={metrics.statusCounts.closed}
+                          openSparkline={analytics.sparklines.open}
+                          closedSparkline={analytics.sparklines.closed}
+                          createdSparkline={analytics.sparklines.created}
+                        />
+                      </div>
+                    );
+                  case "progressBar":
+                    return (
+                      <div key={widgetKey} className="col-span-full">
+                        <ProgressBar
+                          open={metrics.statusCounts.open}
+                          inProgress={metrics.statusCounts.inProgress || 0}
+                          closed={metrics.statusCounts.closed}
+                          total={filteredIssues.length}
+                        />
+                      </div>
+                    );
                   case "severityHeatmap":
                     return <BugSeverityHeatmap key={widgetKey} severities={analytics.severities} />;
                   case "resolutionTime":
