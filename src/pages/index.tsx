@@ -1002,8 +1002,24 @@ export default function Home() {
                       </Button>
                     </div>
 
-                    <div className="text-sm text-muted-foreground">
-                      {selectedRepos.length} repositories selected
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedRepos.length} repositories selected
+                      </span>
+                      <Button
+                        onClick={handleRepoSelectionComplete}
+                        disabled={selectedRepos.length === 0 || isLoadingIssues}
+                        size="sm"
+                      >
+                        {isLoadingIssues ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          "Load Selected"
+                        )}
+                      </Button>
                     </div>
 
                     <div className="border rounded-md max-h-[400px] overflow-y-auto">
@@ -1045,55 +1061,25 @@ export default function Home() {
                         </div>
                       )}
                     </div>
+                    
+                    {connectionStep === "repos" && (
+                      <div className="flex justify-start">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setConnectionStep("token");
+                            setAvailableRepos([]);
+                            setRepoSearchQuery("");
+                            setSelectedRepos([]);
+                          }}
+                        >
+                          Back
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
-
-                <DialogFooter className="pt-4 border-t">
-                  <div className="flex items-center justify-between w-full">
-                    {connectionStep === "repos" && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setConnectionStep("token");
-                          setAvailableRepos([]);
-                          setRepoSearchQuery("");
-                          setSelectedRepos([]);
-                        }}
-                      >
-                        Back
-                      </Button>
-                    )}
-                    <div className="flex items-center gap-3 ml-auto">
-                      <span className="text-sm text-muted-foreground">
-                        {selectedRepos.length} selected
-                      </span>
-                      <Button
-                        onClick={connectionStep === "token" ? handleTokenSubmit : handleRepoSelectionComplete}
-                        disabled={
-                          connectionStep === "token" 
-                            ? !githubToken || isLoadingRepos 
-                            : selectedRepos.length === 0 || isLoadingIssues
-                        }
-                      >
-                        {isLoadingRepos ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Loading...
-                          </>
-                        ) : isLoadingIssues ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Loading Issues...
-                          </>
-                        ) : connectionStep === "token" ? (
-                          "Continue"
-                        ) : (
-                          "Load Selected"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
