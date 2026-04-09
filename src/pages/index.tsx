@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,6 +13,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
@@ -27,7 +34,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
@@ -545,6 +551,12 @@ export default function Home() {
     });
   };
 
+  // Open manage repositories dialog
+  const handleManageRepositories = () => {
+    setConnectionStep("repos");
+    setShowConnectionDialog(true);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -575,24 +587,37 @@ export default function Home() {
               </>
             )}
             
-            <ThemeSwitch />
-            
             {selectedRepos.length > 0 ? (
-              <div className="flex items-center gap-2">
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Menu
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={handleManageRepositories}>
+                      <GitBranch className="h-4 w-4 mr-2" />
+                      Manage Repositories
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={handleDisconnect}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Disconnect
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
                 {isStoredConnection && (
                   <Badge variant="outline" className="text-xs">
                     🔓 Stored
                   </Badge>
                 )}
-                <Button
-                  onClick={handleDisconnect}
-                  variant="outline"
-                  size="sm"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Disconnect
-                </Button>
-              </div>
+              </>
             ) : (
               <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
                 <DialogTrigger asChild>
@@ -732,15 +757,12 @@ export default function Home() {
                                       {repo.description}
                                     </p>
                                   )}
-                                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                    {repo.language && (
-                                      <span className="flex items-center gap-1">
-                                        <span className="w-2 h-2 rounded-full bg-primary"></span>
-                                        {repo.language}
-                                      </span>
-                                    )}
-                                    <span>⭐ {repo.stargazers_count}</span>
-                                  </div>
+                                  {repo.language && (
+                                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                                      <span className="w-2 h-2 rounded-full bg-primary"></span>
+                                      {repo.language}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
