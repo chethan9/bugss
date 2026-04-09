@@ -321,6 +321,48 @@ export default function Home() {
     setIssues(allIssues);
   };
 
+  const handleTokenSubmit = async () => {
+    if (!githubToken) {
+      alert("Please enter a GitHub token");
+      return;
+    }
+
+    const cleanToken = githubToken.trim();
+    
+    if (cleanToken.length < 20) {
+      alert("Invalid token format. GitHub tokens are typically 40+ characters long.");
+      return;
+    }
+
+    setIsLoadingRepos(true);
+    try {
+      console.log("🔑 Attempting to fetch repositories with provided token...");
+      const repos = await fetchUserRepositories(cleanToken);
+      
+      if (repos.length === 0) {
+        alert("No repositories found. This could mean:\n1. Your account has no repositories\n2. Your token lacks 'repo' scope permissions.");
+        return;
+      }
+      
+      setAvailableRepos(repos);
+      setConnectionStep("repos");
+      setToken(cleanToken);
+      setGithubToken(cleanToken);
+    } catch (error: any) {
+      console.error("Failed to fetch repositories:", error);
+      
+      const errorMessage = error.message || "Unknown error occurred";
+      alert(`❌ Error: ${errorMessage}\n\nCheck token permissions and validity.`);
+      
+      if (error.message.includes("Invalid") || error.message.includes("401") || error.message.includes("expired")) {
+        clearStoredCredentials();
+        setIsStoredConnection(false);
+      }
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
+
   const handleRepoSelectionComplete = async () => {
     console.log("🔴 handleRepoSelectionComplete called");
     console.log("🔴 selectedRepos:", selectedRepos);
