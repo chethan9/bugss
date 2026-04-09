@@ -331,6 +331,7 @@ export interface GitHubRepository {
   description: string | null;
   html_url: string;
   stargazers_count: number;
+  open_issues_count: number;
   language: string | null;
   private: boolean;
   owner: {
