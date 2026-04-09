@@ -164,6 +164,11 @@ export default function Home() {
   const [connectionStep, setConnectionStep] = useState<"token" | "repos">("token");
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   
+  // Log whenever dialog state changes
+  useEffect(() => {
+    console.log("🟢 showConnectionDialog changed to:", showConnectionDialog);
+  }, [showConnectionDialog]);
+  
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null,
@@ -317,7 +322,33 @@ export default function Home() {
     }
   };
 
+  const toggleRepoSelection = (repoFullName: string) => {
+    console.log("🔵 toggleRepoSelection called for:", repoFullName);
+    setSelectedRepos(prev => {
+      const newSelection = prev.includes(repoFullName)
+        ? prev.filter(r => r !== repoFullName)
+        : [...prev, repoFullName];
+      console.log("🔵 New selection:", newSelection);
+      return newSelection;
+    });
+  };
+
+  const selectAllFilteredRepos = () => {
+    console.log("🔵 selectAllFilteredRepos called");
+    const allFilteredNames = filteredRepos.map(r => r.full_name);
+    setSelectedRepos(prev => {
+      const newSet = new Set([...prev, ...allFilteredNames]);
+      return Array.from(newSet);
+    });
+  };
+
+  const deselectAllRepos = () => {
+    console.log("🔵 deselectAllRepos called");
+    setSelectedRepos([]);
+  };
+
   const handleRepoSelectionComplete = async () => {
+    console.log("🔴 handleRepoSelectionComplete called - THIS SHOULD ONLY BE CALLED WHEN 'FETCH ISSUES' IS CLICKED");
     if (selectedRepos.length === 0) {
       alert("Please select at least one repository");
       return;
@@ -333,6 +364,7 @@ export default function Home() {
         setIsStoredConnection(true);
       }
       
+      console.log("🔴 Closing dialog after successful fetch");
       setShowConnectionDialog(false);
       setConnectionStep("token");
       setRepoSearchQuery("");
@@ -422,14 +454,6 @@ export default function Home() {
       repo.language?.toLowerCase().includes(query)
     );
   }, [availableRepos, repoSearchQuery]);
-
-  const toggleRepoSelection = (repoFullName: string) => {
-    setSelectedRepos(prev => 
-      prev.includes(repoFullName)
-        ? prev.filter(r => r !== repoFullName)
-        : [...prev, repoFullName]
-    );
-  };
 
   const selectAllFilteredRepos = () => {
     const allFilteredNames = filteredRepos.map(r => r.full_name);
