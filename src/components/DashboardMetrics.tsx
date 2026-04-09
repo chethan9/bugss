@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FolderGit2, CircleDot, CircleCheck, Circle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -7,6 +8,7 @@ interface DashboardMetricsProps {
   totalIssues: number;
   openIssues: number;
   closedIssues: number;
+  isLoading?: boolean;
 }
 
 export function DashboardMetrics({
@@ -14,6 +16,7 @@ export function DashboardMetrics({
   totalIssues,
   openIssues,
   closedIssues,
+  isLoading,
 }: DashboardMetricsProps) {
   const openPercentage = totalIssues > 0 ? ((openIssues / totalIssues) * 100).toFixed(1) : "0.0";
   const closedPercentage = totalIssues > 0 ? ((closedIssues / totalIssues) * 100).toFixed(1) : "0.0";
@@ -42,8 +45,8 @@ export function DashboardMetrics({
       value: openIssues,
       percentage: openPercentage,
       icon: CircleDot,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
+      color: "text-rose-500",
+      bgColor: "bg-rose-500/10",
       tooltip: "Open issues requiring attention",
     },
     {
@@ -51,11 +54,30 @@ export function DashboardMetrics({
       value: closedIssues,
       percentage: closedPercentage,
       icon: CircleCheck,
-      color: "text-muted-foreground",
-      bgColor: "bg-muted/50",
+      color: "text-emerald-500",
+      bgColor: "bg-emerald-500/10",
       tooltip: "Resolved issues",
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="p-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+              <Skeleton className="h-7 w-20" />
+              <Skeleton className="h-3 w-12" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -71,7 +93,7 @@ export function DashboardMetrics({
                   {/* Top: Icon + Label */}
                   <div className="flex items-center gap-2">
                     <div className={`p-1.5 rounded-md ${metric.bgColor}`}>
-                      <metric.icon className={`h-4 w-4 ${metric.color}`} />
+                      <metric.icon className={`h-5 w-5 ${metric.color}`} />
                     </div>
                     <span className="text-xs text-muted-foreground font-medium">
                       {metric.label}
