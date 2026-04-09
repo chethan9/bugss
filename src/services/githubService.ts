@@ -347,10 +347,23 @@ export async function fetchUserRepositories(token: string): Promise<GitHubReposi
   let page = 1;
   let hasMore = true;
 
+  // Validate token format
+  if (!token || token.trim() === "") {
+    throw new Error("GitHub token is required");
+  }
+
+  // Check token format (should start with ghp_, gho_, or github_pat_)
+  const tokenPrefix = token.substring(0, 4);
+  if (!["ghp_", "gho_", "gith"].includes(tokenPrefix)) {
+    console.warn("⚠️ Token may have invalid format. GitHub tokens usually start with ghp_, gho_, or github_pat_");
+  }
+
   try {
     while (hasMore) {
+      console.log(`📡 Fetching repositories - Page ${page}...`);
+      
       const response = await fetch(
-        `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated`,
+        `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated&affiliation=owner,collaborator,organization_member`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -359,14 +372,30 @@ export async function fetchUserRepositories(token: string): Promise<GitHubReposi
         }
       );
 
+      console.log(`📊 Response status: ${response.status}`);
+
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error("Invalid GitHub token. Please check your token and try again.");
+          throw new Error("Invalid or expired GitHub token. Please check your token and try again.");
         }
+        if (response.status === 403) {
+          const rateLimitRemaining = response.headers.get("X-RateLimit-Remaining");
+          if (rateLimitRemaining === "0") {
+            throw new Error("GitHub API rate limit exceeded. Please try again later or use a different token.");
+          }
+          throw new Error("GitHub API access forbidden. Please ensure your token has 'repo' scope permissions.");
+        }
+        if (response.status === 404) {
+          throw new Error("GitHub API endpoint not found. Please verify your token has access to repositories.");
+        }
+        
+        const errorText = await response.text();
+        console.error("GitHub API Error Response:", errorText);
         throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log(`✅ Fetched ${data.length} repositories on page ${page}`);
       
       if (data.length === 0) {
         hasMore = false;
@@ -377,13 +406,33 @@ export async function fetchUserRepositories(token: string): Promise<GitHubReposi
 
       // GitHub API rate limiting: max 100 pages
       if (page > 100) {
+        console.warn("⚠️ Reached maximum page limit (100)");
         hasMore = false;
       }
     }
 
+    console.log(`🎉 Total repositories fetched: ${repos.length}`);
     return repos;
   } catch (error: any) {
-    console.error("Failed to fetch repositories:", error);
-    throw error;
+    console.error("❌ Failed to fetch repositories:", error);
+    
+    // Handle network errors
+    if (error.message === "Failed to fetch") {
+      throw new Error(
+        "Network error: Unable to reach GitHub API. Please check:\n" +
+        "1. Your internet connection\n" +
+        "2. GitHub API is accessible (https://api.github.com)\n" +
+        "3. No browser extensions blocking the request\n" +
+        "4. No firewall/VPN blocking GitHub"
+      );
+    }
+    
+    // Re-throw with original message if it's our custom error
+    if (error.message.includes("GitHub") || error.message.includes("token")) {
+      throw error;
+    }
+    
+    // Generic error
+    throw new Error(`Failed to fetch repositories: ${error.message}`);
   }
 }

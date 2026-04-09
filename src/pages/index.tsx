@@ -286,18 +286,48 @@ export default function Home() {
       return;
     }
 
+    // Trim whitespace
+    const cleanToken = githubToken.trim();
+    
+    // Basic token format validation
+    if (cleanToken.length < 20) {
+      alert("Invalid token format. GitHub tokens are typically 40+ characters long.");
+      return;
+    }
+
     setIsLoadingRepos(true);
     try {
-      const repos = await fetchUserRepositories(githubToken);
+      console.log("🔑 Attempting to fetch repositories with provided token...");
+      const repos = await fetchUserRepositories(cleanToken);
+      
+      if (repos.length === 0) {
+        alert("No repositories found. This could mean:\n" +
+              "1. Your account has no repositories\n" +
+              "2. Your token doesn't have 'repo' scope permissions\n" +
+              "3. Your token is for an organization without repos\n\n" +
+              "Please check your token permissions at:\n" +
+              "https://github.com/settings/tokens");
+        return;
+      }
+      
       setAvailableRepos(repos);
       setConnectionStep("repos");
-      setToken(githubToken); // Store token in state for later use
+      setToken(cleanToken);
+      setGithubToken(cleanToken);
     } catch (error: any) {
       console.error("Failed to fetch repositories:", error);
-      alert(error.message || "Failed to fetch repositories. Please check your token.");
+      
+      // Show detailed error message
+      const errorMessage = error.message || "Unknown error occurred";
+      alert(`❌ Error: ${errorMessage}\n\n` +
+            "Need help?\n" +
+            "1. Verify your token at: https://github.com/settings/tokens\n" +
+            "2. Ensure token has 'repo' scope\n" +
+            "3. Check if token is not expired\n" +
+            "4. Try generating a new token");
       
       // Clear stored credentials if token is invalid
-      if (error.message.includes("Invalid") || error.message.includes("401")) {
+      if (error.message.includes("Invalid") || error.message.includes("401") || error.message.includes("expired")) {
         clearStoredCredentials();
         setIsStoredConnection(false);
       }
