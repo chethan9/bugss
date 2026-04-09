@@ -870,7 +870,6 @@ export default function Home() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <div className="flex items-center px-2 py-1.5 cursor-pointer">
-                        <LayoutGrid className="h-4 w-4 mr-2" />
                         <WidgetSettings 
                           visibility={widgetVisibility}
                           onVisibilityChange={handleVisibilityChange}
@@ -1007,11 +1006,7 @@ export default function Home() {
                               totalRepos={selectedRepos.length}
                               totalIssues={filteredIssues.length}
                               openIssues={metrics.statusCounts.open}
-                              inProgressIssues={metrics.statusCounts.inProgress || 0}
                               closedIssues={metrics.statusCounts.closed}
-                              openSparkline={analytics.sparklines.open}
-                              closedSparkline={analytics.sparklines.closed}
-                              createdSparkline={analytics.sparklines.created}
                             />
                           </div>
                         );
