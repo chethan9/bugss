@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Github, Mail, Lock, User, LayoutGrid, AlertCircle, Loader2 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { Logo } from "@/components/Logo";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function AuthPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center gap-2">
-                <LayoutGrid className="h-6 w-6 text-primary" />
+                <Logo className="h-6 w-6 text-primary" />
                 <span className="text-xl font-semibold text-foreground">FixFlix</span>
               </div>
               <ThemeSwitch />
