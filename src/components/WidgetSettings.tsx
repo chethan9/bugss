@@ -29,6 +29,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 export interface WidgetVisibility {
+  repositoryFilter: boolean;
   smartInsights: boolean;
   summaryMetrics: boolean;
   progressBar: boolean;
@@ -59,6 +60,7 @@ export interface WidgetVisibility {
 }
 
 export const DEFAULT_VISIBILITY: WidgetVisibility = {
+  repositoryFilter: true,
   smartInsights: true,
   summaryMetrics: true,
   progressBar: true,
@@ -89,6 +91,7 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
 };
 
 export const DEFAULT_WIDGET_ORDER: (keyof WidgetVisibility)[] = [
+  "repositoryFilter",
   "smartInsights",
   "summaryMetrics",
   "progressBar",
@@ -119,6 +122,7 @@ export const DEFAULT_WIDGET_ORDER: (keyof WidgetVisibility)[] = [
 ];
 
 const WIDGET_LABELS: Record<keyof WidgetVisibility, string> = {
+  repositoryFilter: "📁 Repository Filter",
   smartInsights: "Smart Insights",
   summaryMetrics: "Summary Metrics",
   progressBar: "Progress Bar",
