@@ -1,6 +1,6 @@
 ---
 title: Engineering Health & Smart Recommendations - Phase 3B
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [analytics, ai, recommendations, team]
@@ -13,11 +13,11 @@ position: 16
 Add engineering health metrics and AI-like smart recommendation engine. Detects patterns, identifies systemic issues, and suggests actionable focus areas.
 
 ## Checklist
-- [ ] Create RepeatBugDetector widget (labels appearing repeatedly)
-- [ ] Detect systemic issues from repeat patterns
-- [ ] Create DeveloperLoad widget (issues per developer)
-- [ ] Calculate average load and identify overloaded devs
-- [ ] Create FocusRecommendations widget (AI-like suggestions)
-- [ ] Generate recommendations from data
-- [ ] Highlight actionable insights
-- [ ] Add drill-down from recommendations
+- [x] Create RepeatBugDetector widget (labels appearing repeatedly)
+- [x] Detect systemic issues from repeat patterns
+- [x] Create DeveloperLoad widget (issues per developer)
+- [x] Calculate average load and identify overloaded devs
+- [x] Create FocusRecommendations widget (AI-like suggestions)
+- [x] Generate recommendations from data
+- [x] Highlight actionable insights
+- [x] Add drill-down from recommendations
