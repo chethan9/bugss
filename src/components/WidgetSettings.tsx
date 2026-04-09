@@ -6,9 +6,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Settings2, LayoutGrid } from "lucide-react";
 
 export interface WidgetVisibility {
@@ -151,195 +151,223 @@ export function WidgetSettings({
           
           <DropdownMenuGroup>
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Core</div>
-            <DropdownMenuCheckboxItem
+            <WidgetCheckbox
+              id="smartInsights"
+              label="Smart Insights"
               checked={visibility.smartInsights}
               onCheckedChange={(checked) => handleToggle("smartInsights", checked)}
-            >
-              Smart Insights
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="summaryMetrics"
+              label="Summary Metrics"
               checked={visibility.summaryMetrics}
               onCheckedChange={(checked) => handleToggle("summaryMetrics", checked)}
-            >
-              Summary Metrics
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="progressBar"
+              label="Progress Bar"
               checked={visibility.progressBar}
               onCheckedChange={(checked) => handleToggle("progressBar", checked)}
-            >
-              Progress Bar
-            </DropdownMenuCheckboxItem>
+            />
           </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Analytics</div>
-            <DropdownMenuCheckboxItem
+            <WidgetCheckbox
+              id="severityHeatmap"
+              label="Bug Severity Heatmap"
               checked={visibility.severityHeatmap}
               onCheckedChange={(checked) => handleToggle("severityHeatmap", checked)}
-            >
-              Bug Severity Heatmap
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="resolutionTime"
+              label="Avg Resolution Time"
               checked={visibility.resolutionTime}
               onCheckedChange={(checked) => handleToggle("resolutionTime", checked)}
-            >
-              Avg Resolution Time
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="trendChart"
+              label="Issue Trend Chart"
               checked={visibility.trendChart}
               onCheckedChange={(checked) => handleToggle("trendChart", checked)}
-            >
-              Issue Trend Chart
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="moduleStability"
+              label="Module Stability"
               checked={visibility.moduleStability}
               onCheckedChange={(checked) => handleToggle("moduleStability", checked)}
-            >
-              Module Stability
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="reopenedIssues"
+              label="Reopened Issues"
               checked={visibility.reopenedIssues}
               onCheckedChange={(checked) => handleToggle("reopenedIssues", checked)}
-            >
-              Reopened Issues
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="categoryBreakdown"
+              label="Category Breakdown"
               checked={visibility.categoryBreakdown}
               onCheckedChange={(checked) => handleToggle("categoryBreakdown", checked)}
-            >
-              Category Breakdown
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="bugHotspots"
+              label="Bug Hotspots"
               checked={visibility.bugHotspots}
               onCheckedChange={(checked) => handleToggle("bugHotspots", checked)}
-            >
-              Bug Hotspots
-            </DropdownMenuCheckboxItem>
+            />
           </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Critical</div>
-            <DropdownMenuCheckboxItem
+            <WidgetCheckbox
+              id="atRiskRelease"
+              label="🔥 At Risk Release"
               checked={visibility.atRiskRelease}
               onCheckedChange={(checked) => handleToggle("atRiskRelease", checked)}
-            >
-              🔥 At Risk Release
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="agingIssues"
+              label="⏳ Aging Issues"
               checked={visibility.agingIssues}
               onCheckedChange={(checked) => handleToggle("agingIssues", checked)}
-            >
-              ⏳ Aging Issues
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="criticalUntouched"
+              label="🧨 Critical Untouched"
               checked={visibility.criticalUntouched}
               onCheckedChange={(checked) => handleToggle("criticalUntouched", checked)}
-            >
-              🧨 Critical Untouched
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="backlogGrowth"
+              label="📉 Backlog Growth"
               checked={visibility.backlogGrowth}
               onCheckedChange={(checked) => handleToggle("backlogGrowth", checked)}
-            >
-              📉 Backlog Growth
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="bugFixEfficiency"
+              label="🧯 Bug Fix Efficiency"
               checked={visibility.bugFixEfficiency}
               onCheckedChange={(checked) => handleToggle("bugFixEfficiency", checked)}
-            >
-              🧯 Bug Fix Efficiency
-            </DropdownMenuCheckboxItem>
+            />
           </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Health & AI</div>
-            <DropdownMenuCheckboxItem
+            <WidgetCheckbox
+              id="repeatBugDetector"
+              label="🧠 Repeat Bug Detector"
               checked={visibility.repeatBugDetector}
               onCheckedChange={(checked) => handleToggle("repeatBugDetector", checked)}
-            >
-              🧠 Repeat Bug Detector
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="developerLoad"
+              label="🧑‍💻 Developer Load"
               checked={visibility.developerLoad}
               onCheckedChange={(checked) => handleToggle("developerLoad", checked)}
-            >
-              🧑‍💻 Developer Load
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="focusRecommendations"
+              label="🎯 Focus Recommendations"
               checked={visibility.focusRecommendations}
               onCheckedChange={(checked) => handleToggle("focusRecommendations", checked)}
-            >
-              🎯 Focus Recommendations
-            </DropdownMenuCheckboxItem>
+            />
           </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Visualizations</div>
-            <DropdownMenuCheckboxItem
+            <WidgetCheckbox
+              id="bugHeatmap"
+              label="📊 Bug Heatmap"
               checked={visibility.bugHeatmap}
               onCheckedChange={(checked) => handleToggle("bugHeatmap", checked)}
-            >
-              📊 Bug Heatmap
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="resolutionHistogram"
+              label="📍 Resolution Histogram"
               checked={visibility.resolutionHistogram}
               onCheckedChange={(checked) => handleToggle("resolutionHistogram", checked)}
-            >
-              📍 Resolution Histogram
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="priorityScatterPlot"
+              label="⚪ Priority Scatter"
               checked={visibility.priorityScatterPlot}
               onCheckedChange={(checked) => handleToggle("priorityScatterPlot", checked)}
-            >
-              ⚪ Priority Scatter
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="stackedAreaChart"
+              label="📉 Stacked Area"
               checked={visibility.stackedAreaChart}
               onCheckedChange={(checked) => handleToggle("stackedAreaChart", checked)}
-            >
-              📉 Stacked Area
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="issueFunnelChart"
+              label="🎯 Issue Funnel"
               checked={visibility.issueFunnelChart}
               onCheckedChange={(checked) => handleToggle("issueFunnelChart", checked)}
-            >
-              🎯 Issue Funnel
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="backlogWaterfallChart"
+              label="💧 Backlog Waterfall"
               checked={visibility.backlogWaterfallChart}
               onCheckedChange={(checked) => handleToggle("backlogWaterfallChart", checked)}
-            >
-              💧 Backlog Waterfall
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="moduleTreemap"
+              label="🌳 Module Treemap"
               checked={visibility.moduleTreemap}
               onCheckedChange={(checked) => handleToggle("moduleTreemap", checked)}
-            >
-              🌳 Module Treemap
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="moduleRadarChart"
+              label="🧭 Module Radar"
               checked={visibility.moduleRadarChart}
               onCheckedChange={(checked) => handleToggle("moduleRadarChart", checked)}
-            >
-              🧭 Module Radar
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
+            />
+            <WidgetCheckbox
+              id="kpiBulletChart"
+              label="🎯 KPI Bullet Chart"
               checked={visibility.kpiBulletChart}
               onCheckedChange={(checked) => handleToggle("kpiBulletChart", checked)}
-            >
-              🎯 KPI Bullet Chart
-            </DropdownMenuCheckboxItem>
+            />
           </DropdownMenuGroup>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// Custom checkbox item component
+function WidgetCheckbox({ 
+  id, 
+  label, 
+  checked, 
+  onCheckedChange 
+}: { 
+  id: string;
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm cursor-pointer"
+    >
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        className="h-4 w-4"
+      />
+      <span className="text-sm">{label}</span>
+    </label>
   );
 }
