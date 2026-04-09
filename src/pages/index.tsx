@@ -214,40 +214,46 @@ export default function Home() {
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user || null);
         
-        if (session?.user) {
-          // Load user settings from database
-          const settings = await getUserSettings(session.user.id);
-          if (settings) {
-            if (settings.widget_visibility) {
-              setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
-            }
-            if (settings.widget_order) {
-              setWidgetOrder(settings.widget_order as (keyof WidgetVisibility)[]);
-            }
-            if (settings.widgets_per_row) {
-              setWidgetsPerRow(settings.widgets_per_row);
-            }
-            if (settings.app_name) {
-              setAppName(settings.app_name);
-            }
-            if (settings.logo_url) {
-              setLogoUrl(settings.logo_url);
-            }
-            if (settings.github_token) {
-              const storedToken = settings.github_token;
-              setGithubToken(storedToken);
-              setToken(storedToken);
-              if (settings.selected_repos && settings.selected_repos.length > 0) {
-                setSelectedRepos(settings.selected_repos);
-                fetchSelectedIssues(settings.selected_repos, storedToken);
-              }
+        // Redirect to login if not authenticated
+        if (!session?.user) {
+          router.push("/auth");
+          return;
+        }
+        
+        setUser(session.user);
+        
+        // Load user settings from database
+        const settings = await getUserSettings(session.user.id);
+        if (settings) {
+          if (settings.widget_visibility) {
+            setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
+          }
+          if (settings.widget_order) {
+            setWidgetOrder(settings.widget_order as (keyof WidgetVisibility)[]);
+          }
+          if (settings.widgets_per_row) {
+            setWidgetsPerRow(settings.widgets_per_row);
+          }
+          if (settings.app_name) {
+            setAppName(settings.app_name);
+          }
+          if (settings.logo_url) {
+            setLogoUrl(settings.logo_url);
+          }
+          if (settings.github_token) {
+            const storedToken = settings.github_token;
+            setGithubToken(storedToken);
+            setToken(storedToken);
+            if (settings.selected_repos && settings.selected_repos.length > 0) {
+              setSelectedRepos(settings.selected_repos);
+              fetchSelectedIssues(settings.selected_repos, storedToken);
             }
           }
         }
       } catch (error) {
         console.error("Auth check error:", error);
+        router.push("/auth");
       } finally {
         setIsAuthLoading(false);
       }
@@ -256,10 +262,11 @@ export default function Home() {
     checkAuth();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user || null);
-      if (event === "SIGNED_OUT") {
-        handleDisconnect();
+      if (event === "SIGNED_OUT" || !session?.user) {
+        router.push("/auth");
+        return;
       }
+      setUser(session.user);
     });
     
     return () => subscription.unsubscribe();
