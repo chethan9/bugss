@@ -1,6 +1,6 @@
 ---
 title: Bug Category & Hotspots Analysis
-status: todo
+status: done
 priority: high
 type: feature
 tags: [analytics, categories, hotspots]
@@ -13,10 +13,10 @@ position: 11
 Break down issues by category (UI/Validation/API/Backend) and identify top buggy features. Helps prioritize engineering efforts and identify weak areas.
 
 ## Checklist
-- [ ] Create BugCategoryBreakdown widget (pie/donut chart)
-- [ ] Implement category detection from labels
-- [ ] Create BugHotspots widget (top 5 features with most bugs)
-- [ ] Parse feature names from labels or titles
-- [ ] Add drill-down: click category/hotspot → filter issues
-- [ ] Add percentage and count for each category
-- [ ] Show trend arrows for categories
+- [x] Create BugCategoryBreakdown widget (pie/donut chart)
+- [x] Implement category detection from labels
+- [x] Create BugHotspots widget (top 5 features with most bugs)
+- [x] Parse feature names from labels or titles
+- [x] Add drill-down: click category/hotspot → filter issues
+- [x] Add percentage and count for each category
+- [x] Show trend arrows for categories
