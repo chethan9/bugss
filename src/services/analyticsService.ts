@@ -1190,7 +1190,7 @@ export function calculateKPIMetrics(issues: GitHubIssue[]): BulletChartMetric[] 
   const metrics: BulletChartMetric[] = [];
   
   // 1. Average Resolution Time (target: ≤48 hours)
-  const actualResolutionHours = resolutionTimeStats.averageHours;
+  const actualResolutionHours = resolutionTimeStats.overall;
   let resolutionStatus: "excellent" | "good" | "warning" | "poor" = "poor";
   if (actualResolutionHours <= 24) resolutionStatus = "excellent";
   else if (actualResolutionHours <= 48) resolutionStatus = "good";
