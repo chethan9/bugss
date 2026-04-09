@@ -592,18 +592,31 @@ export default function Home() {
               <BugHotspots hotspots={analytics.hotspots} />
             </div>
 
-            {/* Label Choice Chips */}
+            {/* Label Choice Chips - Compact & Soft Style */}
             {availableLabels.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                  Filter by Labels
-                </h3>
-                <div className="flex flex-wrap gap-2">
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    Filter by Labels
+                    {filters.labels.length > 0 && (
+                      <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                        {filters.labels.length} selected
+                      </span>
+                    )}
+                  </h3>
+                  {filters.labels.length > 0 && (
+                    <button
+                      onClick={() => setFilters({ ...filters, labels: [] })}
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-2">
                   {availableLabels.map((label) => (
-                    <Badge
+                    <button
                       key={label}
-                      variant={filters.labels.includes(label) ? "default" : "outline"}
-                      className="cursor-pointer hover:bg-primary/10 transition-colors px-3 py-1.5"
                       onClick={() => {
                         if (filters.labels.includes(label)) {
                           setFilters({
@@ -617,26 +630,47 @@ export default function Home() {
                           });
                         }
                       }}
+                      className={`
+                        px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
+                        transition-smooth active-scale
+                        ${filters.labels.includes(label)
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : "bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200"
+                        }
+                      `}
                     >
                       {label}
-                    </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
             {issuesError && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{issuesError}</AlertDescription>
-              </Alert>
+              <div className="mb-6 border-l-4 border-red-500 bg-red-50 p-4 rounded-r-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <p className="text-sm text-red-600">{issuesError}</p>
+                  </div>
+                  <button
+                    onClick={() => setIssuesError("")}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             )}
 
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-heading font-semibold">
-                  Issues ({filteredIssues.length})
+                <h2 className="text-base font-semibold">
+                  Issues
                 </h2>
+                <span className="text-xs text-muted-foreground">
+                  Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
+                </span>
                 <FilterMenu
                   repositories={availableRepositories}
                   selectedRepos={filters.repositories}
