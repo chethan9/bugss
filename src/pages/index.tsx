@@ -99,10 +99,6 @@ import {
   calculateSparklineData,
 } from "@/services/analyticsService";
 
-// ==========================================
-// Token Storage Utilities (Security: localStorage)
-// ==========================================
-
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
   REPOS: "github_selected_repos",
@@ -116,7 +112,6 @@ function saveTokenToStorage(token: string, repos: string[], remember: boolean) {
   }
   
   try {
-    // Base64 encode for basic obfuscation (NOT encryption)
     const encodedToken = btoa(token);
     localStorage.setItem(STORAGE_KEYS.TOKEN, encodedToken);
     localStorage.setItem(STORAGE_KEYS.REPOS, JSON.stringify(repos));
@@ -163,7 +158,6 @@ export default function Home() {
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
   
-  // Repository selection state
   const [availableRepos, setAvailableRepos] = useState<GitHubRepository[]>([]);
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [repoSearchQuery, setRepoSearchQuery] = useState("");
@@ -192,7 +186,6 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Load widget visibility preferences from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("widgetVisibility");
     if (saved) {
@@ -213,19 +206,16 @@ export default function Home() {
     }
   }, []);
 
-  // Save widget visibility preferences to localStorage
   const handleVisibilityChange = (newVisibility: WidgetVisibility) => {
     setWidgetVisibility(newVisibility);
     localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
   };
 
-  // Save report config to localStorage
   const handleReportConfigChange = (newConfig: ReportConfig) => {
     setReportConfig(newConfig);
     localStorage.setItem("reportConfig", JSON.stringify(newConfig));
   };
 
-  // Auto-connect on mount if credentials stored
   useEffect(() => {
     const stored = loadTokenFromStorage();
     if (stored) {
@@ -234,7 +224,6 @@ export default function Home() {
       setIsStoredConnection(true);
       setToken(stored.token);
       
-      // Auto-fetch issues
       if (stored.token && stored.repos.length > 0) {
         handleFetchIssues(stored.token, stored.repos);
       }
@@ -253,13 +242,10 @@ export default function Home() {
     setLoading(true);
     setIsLoadingIssues(true);
     try {
-      // Use fetchSelectedIssues which correctly uses token and selectedRepos state
-      // We'll set the token and repos state first
       setToken(tokenToUse);
       setSelectedRepos(reposToUse);
       await fetchSelectedIssues(reposToUse, tokenToUse);
       
-      // Save to storage if "Remember me" is checked
       if (rememberMe && !tokenParam) {
         saveTokenToStorage(tokenToUse, reposToUse, true);
         setIsStoredConnection(true);
@@ -268,7 +254,6 @@ export default function Home() {
       console.error("Failed to fetch issues:", error);
       alert(`Error: ${error.message}`);
       
-      // Clear stored credentials if token is invalid
       if (error.message.includes("401") || error.message.includes("Bad credentials")) {
         clearStoredCredentials();
         setIsStoredConnection(false);
@@ -292,7 +277,6 @@ export default function Home() {
     setShowConnectionDialog(false);
   };
 
-  // Handle token submission - fetch repositories
   const handleTokenSubmit = async () => {
     if (!githubToken) {
       alert("Please enter a GitHub token");
@@ -333,7 +317,6 @@ export default function Home() {
     }
   };
 
-  // Handle repository selection and issue fetching
   const handleRepoSelectionComplete = async () => {
     if (selectedRepos.length === 0) {
       alert("Please select at least one repository");
@@ -429,7 +412,6 @@ export default function Home() {
     }
   };
 
-  // Filter repositories based on search query
   const filteredRepos = useMemo(() => {
     if (!repoSearchQuery) return availableRepos;
     
@@ -441,7 +423,6 @@ export default function Home() {
     );
   }, [availableRepos, repoSearchQuery]);
 
-  // Toggle repo selection
   const toggleRepoSelection = (repoFullName: string) => {
     setSelectedRepos(prev => 
       prev.includes(repoFullName)
@@ -450,7 +431,6 @@ export default function Home() {
     );
   };
 
-  // Select all filtered repos
   const selectAllFilteredRepos = () => {
     const allFilteredNames = filteredRepos.map(r => r.full_name);
     setSelectedRepos(prev => {
@@ -459,16 +439,40 @@ export default function Home() {
     });
   };
 
-  // Deselect all repos
   const deselectAllRepos = () => {
     setSelectedRepos([]);
   };
 
-  // Close dialog manually
-  const closeConnectionDialog = () => {
-    setShowConnectionDialog(false);
+  const handleManageRepositories = async () => {
+    const tokenToUse = token || githubToken;
+    
+    if (!tokenToUse) {
+      alert("No GitHub token found. Please reconnect.");
+      handleDisconnect();
+      return;
+    }
+
+    setShowConnectionDialog(true);
+    setIsLoadingRepos(true);
     setConnectionStep("token");
-    setRepoSearchQuery("");
+    
+    try {
+      console.log("🔄 Fetching repositories for management...");
+      const repos = await fetchUserRepositories(tokenToUse);
+      setAvailableRepos(repos);
+      setConnectionStep("repos");
+    } catch (error: any) {
+      console.error("Failed to fetch repositories:", error);
+      alert(`Error: ${error.message}`);
+      setShowConnectionDialog(false);
+      
+      if (error.message.includes("Invalid") || error.message.includes("401")) {
+        clearStoredCredentials();
+        setIsStoredConnection(false);
+      }
+    } finally {
+      setIsLoadingRepos(false);
+    }
   };
 
   const handleIssueClick = (issue: GitHubIssue) => {
@@ -476,7 +480,6 @@ export default function Home() {
     setIsIssueModalOpen(true);
   };
 
-  // Extract unique labels and repositories for filters
   const availableLabels = useMemo(() => {
     const labelSet = new Set<string>();
     issues.forEach((issue) => issue.labels.forEach((l) => labelSet.add(l)));
@@ -489,7 +492,6 @@ export default function Home() {
     return Array.from(repoSet).sort();
   }, [issues]);
 
-  // Filter issues based on all active filters
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
       if (filters.repositories.length > 0 && !filters.repositories.includes(issue.repository)) return false;
@@ -510,7 +512,6 @@ export default function Home() {
     });
   }, [issues, filters, dateRange]);
 
-  // Calculate analytics
   const analytics = useMemo(() => {
     return {
       insights: generateSmartInsights(filteredIssues),
@@ -546,7 +547,6 @@ export default function Home() {
     };
   }, [filteredIssues]);
 
-  // Basic Metrics
   const metrics = useMemo(() => {
     const statusCounts = { open: 0, inProgress: 0, closed: 0 };
     filteredIssues.forEach((issue) => {
@@ -557,7 +557,6 @@ export default function Home() {
     return { statusCounts };
   }, [filteredIssues]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
   const paginatedIssues = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -573,42 +572,8 @@ export default function Home() {
     });
   };
 
-  // Open manage repositories dialog
-  const handleManageRepositories = async () => {
-    const tokenToUse = token || githubToken;
-    
-    if (!tokenToUse) {
-      alert("No GitHub token found. Please reconnect.");
-      handleDisconnect();
-      return;
-    }
-
-    setShowConnectionDialog(true);
-    setIsLoadingRepos(true);
-    setConnectionStep("token");
-    
-    try {
-      console.log("🔄 Fetching repositories for management...");
-      const repos = await fetchUserRepositories(tokenToUse);
-      setAvailableRepos(repos);
-      setConnectionStep("repos");
-    } catch (error: any) {
-      console.error("Failed to fetch repositories:", error);
-      alert(`Error: ${error.message}`);
-      setShowConnectionDialog(false);
-      
-      if (error.message.includes("Invalid") || error.message.includes("401")) {
-        clearStoredCredentials();
-        setIsStoredConnection(false);
-      }
-    } finally {
-      setIsLoadingRepos(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -668,14 +633,18 @@ export default function Home() {
                 )}
               </>
             ) : (
-              <Dialog open={showConnectionDialog}>
+              <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
+                  <Button variant="default">
                     <GitBranch className="h-4 w-4 mr-2" />
                     Connect GitHub
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent 
+                  className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto" 
+                  onInteractOutside={(e) => e.preventDefault()}
+                  onEscapeKeyDown={(e) => e.preventDefault()}
+                >
                   <DialogHeader>
                     <DialogTitle>
                       {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
@@ -746,7 +715,6 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="space-y-4 py-4">
-                      {/* Search and bulk actions */}
                       <div className="flex items-center gap-2">
                         <div className="relative flex-1">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -773,12 +741,10 @@ export default function Home() {
                         </Button>
                       </div>
 
-                      {/* Selected count */}
                       <div className="text-sm text-muted-foreground">
                         {selectedRepos.length} repositories selected
                       </div>
 
-                      {/* Repository list */}
                       <div className="border rounded-md max-h-[400px] overflow-y-auto">
                         {filteredRepos.length === 0 ? (
                           <div className="p-8 text-center text-muted-foreground">
@@ -864,7 +830,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         {selectedRepos.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -878,7 +843,6 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* Smart Insights - Top of Dashboard */}
             {widgetVisibility.smartInsights && analytics.insights.length > 0 && (
               <div className="mb-8" id="smart-insights-section">
                 <SmartInsights insights={analytics.insights} />
@@ -911,7 +875,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* Analytics Widgets Grid */}
             <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6" id="analytics-widgets-section">
               {widgetVisibility.severityHeatmap && (
                 <BugSeverityHeatmap severities={analytics.severities} />
@@ -990,7 +953,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* Label Choice Chips - Compact & Soft Style */}
             {availableLabels.length > 0 && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
