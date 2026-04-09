@@ -46,11 +46,11 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     .from("user_settings")
     .insert({
       user_id: userId,
-      widget_visibility: DEFAULT_VISIBILITY,
-      widget_order: DEFAULT_WIDGET_ORDER,
+      widget_visibility: DEFAULT_VISIBILITY as unknown as Record<string, unknown>,
+      widget_order: DEFAULT_WIDGET_ORDER as unknown as string[],
       widgets_per_row: 3,
       theme: "system",
-      selected_repos: [],
+      selected_repos: [] as unknown as string[],
       app_name: "FixFlix",
       logo_url: null,
     })
@@ -85,17 +85,8 @@ export async function saveUserSettings(
     logo_url: string | null;
   }>
 ): Promise<boolean> {
-  const updateData: {
-    updated_at: string;
-    widget_visibility?: WidgetVisibility;
-    widget_order?: (keyof WidgetVisibility)[];
-    widgets_per_row?: number;
-    theme?: string;
-    github_token?: string | null;
-    selected_repos?: string[];
-    app_name?: string;
-    logo_url?: string | null;
-  } = {
+  // Build update object with proper type casting for Supabase
+  const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
 
