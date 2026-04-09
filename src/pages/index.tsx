@@ -17,6 +17,11 @@ import { DateRangeFilter, type DateRange } from "@/components/analytics/DateRang
 import { ReopenedIssuesTracker } from "@/components/analytics/ReopenedIssuesTracker";
 import { BugCategoryBreakdown } from "@/components/analytics/BugCategoryBreakdown";
 import { BugHotspots } from "@/components/analytics/BugHotspots";
+import { AtRiskRelease } from "@/components/analytics/AtRiskRelease";
+import { AgingIssues } from "@/components/analytics/AgingIssues";
+import { CriticalUntouched } from "@/components/analytics/CriticalUntouched";
+import { BacklogGrowth } from "@/components/analytics/BacklogGrowth";
+import { BugFixEfficiency } from "@/components/analytics/BugFixEfficiency";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -27,6 +32,11 @@ import {
   calculateReopenedIssues,
   calculateCategoryBreakdown,
   calculateBugHotspots,
+  calculateAtRiskRelease,
+  calculateAgingIssues,
+  calculateCriticalUntouched,
+  calculateBacklogGrowth,
+  calculateBugFixEfficiency,
 } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -321,6 +331,11 @@ export default function Home() {
       reopened: calculateReopenedIssues(filteredIssues),
       categories: calculateCategoryBreakdown(filteredIssues),
       hotspots: calculateBugHotspots(filteredIssues, 5),
+      atRiskRelease: calculateAtRiskRelease(filteredIssues),
+      agingIssues: calculateAgingIssues(filteredIssues),
+      criticalUntouched: calculateCriticalUntouched(filteredIssues, 3),
+      backlogGrowth: calculateBacklogGrowth(filteredIssues),
+      bugFixEfficiency: calculateBugFixEfficiency(filteredIssues, 30),
     };
   }, [filteredIssues]);
 
@@ -633,6 +648,21 @@ export default function Home() {
               )}
               {widgetVisibility.bugHotspots && (
                 <BugHotspots hotspots={analytics.hotspots} />
+              )}
+              {widgetVisibility.atRiskRelease && (
+                <AtRiskRelease stats={analytics.atRiskRelease} />
+              )}
+              {widgetVisibility.agingIssues && (
+                <AgingIssues stats={analytics.agingIssues} />
+              )}
+              {widgetVisibility.criticalUntouched && (
+                <CriticalUntouched stats={analytics.criticalUntouched} />
+              )}
+              {widgetVisibility.backlogGrowth && (
+                <BacklogGrowth stats={analytics.backlogGrowth} />
+              )}
+              {widgetVisibility.bugFixEfficiency && (
+                <BugFixEfficiency stats={analytics.bugFixEfficiency} />
               )}
             </div>
 

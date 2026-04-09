@@ -23,9 +23,14 @@ export interface WidgetVisibility {
   reopenedIssues: boolean;
   categoryBreakdown: boolean;
   bugHotspots: boolean;
+  atRiskRelease: boolean;
+  agingIssues: boolean;
+  criticalUntouched: boolean;
+  backlogGrowth: boolean;
+  bugFixEfficiency: boolean;
 }
 
-const DEFAULT_VISIBILITY: WidgetVisibility = {
+export const DEFAULT_VISIBILITY: WidgetVisibility = {
   smartInsights: true,
   summaryMetrics: true,
   progressBar: true,
@@ -36,6 +41,11 @@ const DEFAULT_VISIBILITY: WidgetVisibility = {
   reopenedIssues: true,
   categoryBreakdown: true,
   bugHotspots: true,
+  atRiskRelease: true,
+  agingIssues: true,
+  criticalUntouched: true,
+  backlogGrowth: true,
+  bugFixEfficiency: true,
 };
 
 interface WidgetSettingsProps {
@@ -95,28 +105,119 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup className="max-h-[400px] overflow-y-auto">
-          {widgets.map((widget) => (
-            <DropdownMenuItem
-              key={widget.key}
-              className="cursor-pointer"
-              onSelect={(e) => {
-                e.preventDefault();
-                handleToggle(widget.key);
-              }}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Core Metrics
+            </DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={visibility.smartInsights}
+              onCheckedChange={(checked) => handleToggle("smartInsights", checked)}
             >
-              <div className="flex items-center gap-3 w-full">
-                <Checkbox
-                  checked={visibility[widget.key]}
-                  onCheckedChange={() => handleToggle(widget.key)}
-                />
-                <span className="text-sm">{widget.label}</span>
-              </div>
-            </DropdownMenuItem>
-          ))}
+              Smart Insights
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.summaryMetrics}
+              onCheckedChange={(checked) => handleToggle("summaryMetrics", checked)}
+            >
+              Summary Metrics
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.progressBar}
+              onCheckedChange={(checked) => handleToggle("progressBar", checked)}
+            >
+              Progress Bar
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Analytics Widgets
+            </DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={visibility.severityHeatmap}
+              onCheckedChange={(checked) => handleToggle("severityHeatmap", checked)}
+            >
+              Bug Severity Heatmap
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.resolutionTime}
+              onCheckedChange={(checked) => handleToggle("resolutionTime", checked)}
+            >
+              Average Resolution Time
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.trendChart}
+              onCheckedChange={(checked) => handleToggle("trendChart", checked)}
+            >
+              Issue Trend Chart
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.moduleStability}
+              onCheckedChange={(checked) => handleToggle("moduleStability", checked)}
+            >
+              Module Stability Score
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.reopenedIssues}
+              onCheckedChange={(checked) => handleToggle("reopenedIssues", checked)}
+            >
+              Reopened Issues Tracker
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.categoryBreakdown}
+              onCheckedChange={(checked) => handleToggle("categoryBreakdown", checked)}
+            >
+              Bug Category Breakdown
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.bugHotspots}
+              onCheckedChange={(checked) => handleToggle("bugHotspots", checked)}
+            >
+              Bug Hotspots
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Critical Decision Widgets
+            </DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={visibility.atRiskRelease}
+              onCheckedChange={(checked) => handleToggle("atRiskRelease", checked)}
+            >
+              🔥 At Risk Release
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.agingIssues}
+              onCheckedChange={(checked) => handleToggle("agingIssues", checked)}
+            >
+              ⏳ Aging Issues
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.criticalUntouched}
+              onCheckedChange={(checked) => handleToggle("criticalUntouched", checked)}
+            >
+              🧨 Critical Bugs Not Touched
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.backlogGrowth}
+              onCheckedChange={(checked) => handleToggle("backlogGrowth", checked)}
+            >
+              📉 Backlog Growth Rate
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.bugFixEfficiency}
+              onCheckedChange={(checked) => handleToggle("bugFixEfficiency", checked)}
+            >
+              🧯 Bug Fix Efficiency
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
-
-export { DEFAULT_VISIBILITY };
