@@ -1081,13 +1081,13 @@ export default function Home() {
                     .map((label) => ({ label, count: labelCounts.get(label) || 0 }))
                     .sort((a, b) => b.count - a.count);
                   
-                  const top10Labels = sortedLabels.slice(0, 10);
-                  const remainingLabels = sortedLabels.slice(10);
+                  const top7Labels = sortedLabels.slice(0, 7);
+                  const remainingLabels = sortedLabels.slice(7);
                   const hasMore = remainingLabels.length > 0;
                   
                   return (
                     <div className="flex gap-2 flex-wrap">
-                      {top10Labels.map(({ label, count }) => (
+                      {top7Labels.map(({ label, count }) => (
                         <button
                           key={label}
                           onClick={() => {
