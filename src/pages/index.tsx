@@ -26,6 +26,9 @@ import { BugFixEfficiency } from "@/components/analytics/BugFixEfficiency";
 import { RepeatBugDetector } from "@/components/analytics/RepeatBugDetector";
 import { DeveloperLoad } from "@/components/analytics/DeveloperLoad";
 import { FocusRecommendations } from "@/components/analytics/FocusRecommendations";
+import { BugHeatmap } from "@/components/analytics/BugHeatmap";
+import { ResolutionHistogram } from "@/components/analytics/ResolutionHistogram";
+import { PriorityScatterPlot } from "@/components/analytics/PriorityScatterPlot";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -44,6 +47,9 @@ import {
   detectRepeatBugs,
   calculateDeveloperLoad,
   generateFocusRecommendations,
+  calculateBugHeatmap,
+  calculateResolutionHistogram,
+  calculatePriorityResolutionScatter,
 } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -362,6 +368,9 @@ export default function Home() {
       repeatBugs: detectRepeatBugs(filteredIssues, 7),
       developerLoad: calculateDeveloperLoad(filteredIssues),
       focusRecommendations: generateFocusRecommendations(filteredIssues),
+      bugHeatmap: calculateBugHeatmap(filteredIssues, 30),
+      resolutionHistogram: calculateResolutionHistogram(filteredIssues),
+      priorityScatter: calculatePriorityResolutionScatter(filteredIssues),
     };
   }, [filteredIssues]);
 
@@ -708,6 +717,15 @@ export default function Home() {
               )}
               {widgetVisibility.focusRecommendations && (
                 <FocusRecommendations recommendations={analytics.focusRecommendations} />
+              )}
+              {widgetVisibility.bugHeatmap && (
+                <BugHeatmap data={analytics.bugHeatmap} />
+              )}
+              {widgetVisibility.resolutionHistogram && (
+                <ResolutionHistogram data={analytics.resolutionHistogram} />
+              )}
+              {widgetVisibility.priorityScatterPlot && (
+                <PriorityScatterPlot data={analytics.priorityScatter} />
               )}
             </div>
 

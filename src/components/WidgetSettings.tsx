@@ -32,6 +32,9 @@ export interface WidgetVisibility {
   repeatBugDetector: boolean;
   developerLoad: boolean;
   focusRecommendations: boolean;
+  bugHeatmap: boolean;
+  resolutionHistogram: boolean;
+  priorityScatterPlot: boolean;
 }
 
 export const DEFAULT_VISIBILITY: WidgetVisibility = {
@@ -53,6 +56,9 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
   repeatBugDetector: true,
   developerLoad: true,
   focusRecommendations: true,
+  bugHeatmap: true,
+  resolutionHistogram: true,
+  priorityScatterPlot: true,
 };
 
 interface WidgetSettingsProps {
@@ -247,6 +253,32 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               onCheckedChange={(checked) => handleToggle("focusRecommendations", checked)}
             >
               🎯 Focus Recommendations
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Advanced Visualizations
+            </DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={visibility.bugHeatmap}
+              onCheckedChange={(checked) => handleToggle("bugHeatmap", checked)}
+            >
+              📊 Bug Heatmap
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.resolutionHistogram}
+              onCheckedChange={(checked) => handleToggle("resolutionHistogram", checked)}
+            >
+              📍 Resolution Histogram
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.priorityScatterPlot}
+              onCheckedChange={(checked) => handleToggle("priorityScatterPlot", checked)}
+            >
+              ⚪ Priority Scatter Plot
             </DropdownMenuCheckboxItem>
           </DropdownMenuGroup>
         </DropdownMenuGroup>
