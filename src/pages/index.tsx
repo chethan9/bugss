@@ -516,6 +516,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -524,7 +525,7 @@ export default function Home() {
               GitHub Issue Dashboard
             </h1>
           </div>
-
+          
           <div className="flex items-center gap-3">
             {selectedRepos.length > 0 && (
               <>
@@ -660,175 +661,18 @@ export default function Home() {
         </div>
       </header>
 
-      <Dialog open={showTokenDialog} onOpenChange={setShowTokenDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Github className="h-5 w-5" />
-              Connect to GitHub
-            </DialogTitle>
-            <DialogDescription>
-              Enter your GitHub Personal Access Token to fetch repositories
-            </DialogDescription>
-          </DialogHeader>
-
-          {tokenError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{tokenError}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="token">Personal Access Token</Label>
-              <Input
-                id="token"
-                type="password"
-                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                disabled={isLoadingRepos}
-                onKeyDown={(e) => e.key === "Enter" && handleTokenSave()}
-              />
-              <p className="text-xs text-muted-foreground">
-                Create a token at{" "}
-                <a
-                  href="https://github.com/settings/tokens/new?scopes=repo,read:user"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  GitHub Settings → Developer settings → Personal access tokens
-                </a>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Required scopes:{" "}
-                <code className="rounded bg-muted px-1 py-0.5">repo</code>,{" "}
-                <code className="rounded bg-muted px-1 py-0.5">read:user</code>
-              </p>
-            </div>
-            <Button
-              onClick={handleTokenSave}
-              disabled={isLoadingRepos || !tokenInput.trim()}
-              className="w-full gap-2"
-            >
-              {isLoadingRepos ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Key className="h-4 w-4" />
-              )}
-              Connect and Load Repositories
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showRepoDialog} onOpenChange={setShowRepoDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Select Repositories to Track</DialogTitle>
-            <DialogDescription>
-              Choose which repositories you want to monitor for issues
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search repositories..."
-                value={repoSearchQuery}
-                onChange={(e) => setRepoSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <div className="max-h-[400px] overflow-y-auto space-y-2 border rounded-md p-4">
-              {filteredRepos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No repositories found
-                </p>
-              ) : (
-                filteredRepos.map((repo) => (
-                  <div
-                    key={repo.id}
-                    className="flex items-start space-x-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
-                  >
-                    <Checkbox
-                      id={repo.full_name}
-                      checked={tempSelectedRepos.includes(repo.full_name)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setTempSelectedRepos([...tempSelectedRepos, repo.full_name]);
-                        } else {
-                          setTempSelectedRepos(
-                            tempSelectedRepos.filter((r) => r !== repo.full_name)
-                          );
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <Label
-                        htmlFor={repo.full_name}
-                        className="font-medium cursor-pointer flex items-center gap-2"
-                      >
-                        {repo.full_name}
-                        {repo.private && (
-                          <Badge variant="secondary" className="text-xs">
-                            Private
-                          </Badge>
-                        )}
-                      </Label>
-                      {repo.description && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {repo.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="flex justify-between items-center pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
-                {tempSelectedRepos.length} selected
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowRepoDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleRepoSelection}
-                  disabled={tempSelectedRepos.length === 0}
-                >
-                  Save & Fetch Issues
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         {selectedRepos.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Github className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-xl font-heading font-semibold mb-2">
-              No Repositories Selected
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+            <GitBranch className="h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-heading font-bold mb-2">
+              Connect to GitHub
             </h2>
-            <p className="text-muted-foreground mb-6">
-              Connect your GitHub account and select repositories to view issues
+            <p className="text-muted-foreground mb-6 max-w-md">
+              Connect your GitHub repositories to start analyzing issues and generating insights.
             </p>
-            <Button onClick={() => setShowTokenDialog(true)} className="gap-2">
-              <Github className="h-4 w-4" />
-              Connect GitHub Account
-            </Button>
-          </Card>
+          </div>
         ) : (
           <>
             {/* Smart Insights - Top of Dashboard */}
