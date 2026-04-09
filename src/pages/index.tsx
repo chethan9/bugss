@@ -41,7 +41,7 @@ import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
 import { PDFExport } from "@/components/PDFExport";
 import { ReportSettings, DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/components/ReportSettings";
-import { WidgetSettings, DEFAULT_VISIBILITY, type WidgetVisibility } from "@/components/WidgetSettings";
+import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
@@ -179,6 +179,7 @@ export default function Home() {
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const [widgetsPerRow, setWidgetsPerRow] = useState(2);
+  const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [token, setToken] = useState("");
@@ -627,6 +628,8 @@ export default function Home() {
                   onVisibilityChange={handleVisibilityChange}
                   widgetsPerRow={widgetsPerRow}
                   onWidgetsPerRowChange={setWidgetsPerRow}
+                  widgetOrder={widgetOrder}
+                  onWidgetOrderChange={setWidgetOrder}
                 />
                 
                 {/* Refresh Controls */}
