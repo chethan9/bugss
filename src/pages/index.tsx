@@ -1080,36 +1080,117 @@ export default function Home() {
                     </button>
                   )}
                 </div>
-                <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-2">
-                  {availableLabels.map((label) => (
-                    <button
-                      key={label}
-                      onClick={() => {
-                        if (filters.labels.includes(label)) {
-                          setFilters({
-                            ...filters,
-                            labels: filters.labels.filter((l) => l !== label),
-                          });
-                        } else {
-                          setFilters({
-                            ...filters,
-                            labels: [...filters.labels, label],
-                          });
-                        }
-                      }}
-                      className={`
-                        px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
-                        transition-smooth active-scale
-                        ${filters.labels.includes(label)
-                          ? "bg-primary/10 text-primary border border-primary/20"
-                          : "bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200"
-                        }
-                      `}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                {(() => {
+                  // Calculate label counts
+                  const labelCounts = new Map<string, number>();
+                  filteredIssues.forEach((issue) => {
+                    issue.labels.forEach((label) => {
+                      labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+                    });
+                  });
+                  
+                  // Sort by count and get top 10
+                  const sortedLabels = availableLabels
+                    .map((label) => ({ label, count: labelCounts.get(label) || 0 }))
+                    .sort((a, b) => b.count - a.count);
+                  
+                  const top10Labels = sortedLabels.slice(0, 10);
+                  const remainingLabels = sortedLabels.slice(10);
+                  const hasMore = remainingLabels.length > 0;
+                  
+                  return (
+                    <div className="flex gap-2 flex-wrap">
+                      {top10Labels.map(({ label, count }) => (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            if (filters.labels.includes(label)) {
+                              setFilters({
+                                ...filters,
+                                labels: filters.labels.filter((l) => l !== label),
+                              });
+                            } else {
+                              setFilters({
+                                ...filters,
+                                labels: [...filters.labels, label],
+                              });
+                            }
+                          }}
+                          className={`
+                            px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
+                            transition-all duration-200 flex items-center gap-1.5
+                            ${filters.labels.includes(label)
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                            }
+                          `}
+                        >
+                          {label}
+                          <span className={`
+                            text-[10px] px-1.5 py-0.5 rounded-full
+                            ${filters.labels.includes(label)
+                              ? "bg-primary-foreground/20 text-primary-foreground"
+                              : "bg-background text-muted-foreground"
+                            }
+                          `}>
+                            {count}
+                          </span>
+                        </button>
+                      ))}
+                      
+                      {hasMore && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
+                                bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground
+                                transition-all duration-200 flex items-center gap-1"
+                            >
+                              +{remainingLabels.length} more
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
+                            <div className="p-2">
+                              <div className="text-xs font-medium text-muted-foreground mb-2">
+                                All Labels ({sortedLabels.length})
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {sortedLabels.map(({ label, count }) => (
+                                  <button
+                                    key={label}
+                                    onClick={() => {
+                                      if (filters.labels.includes(label)) {
+                                        setFilters({
+                                          ...filters,
+                                          labels: filters.labels.filter((l) => l !== label),
+                                        });
+                                      } else {
+                                        setFilters({
+                                          ...filters,
+                                          labels: [...filters.labels, label],
+                                        });
+                                      }
+                                    }}
+                                    className={`
+                                      px-2 py-1 text-xs rounded flex items-center gap-1
+                                      ${filters.labels.includes(label)
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted hover:bg-muted/80"
+                                      }
+                                    `}
+                                  >
+                                    {label}
+                                    <span className="text-[10px] opacity-70">({count})</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
