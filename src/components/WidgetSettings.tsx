@@ -35,6 +35,9 @@ export interface WidgetVisibility {
   bugHeatmap: boolean;
   resolutionHistogram: boolean;
   priorityScatterPlot: boolean;
+  stackedAreaChart: boolean;
+  issueFunnelChart: boolean;
+  backlogWaterfallChart: boolean;
 }
 
 export const DEFAULT_VISIBILITY: WidgetVisibility = {
@@ -59,6 +62,9 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
   bugHeatmap: true,
   resolutionHistogram: true,
   priorityScatterPlot: true,
+  stackedAreaChart: true,
+  issueFunnelChart: true,
+  backlogWaterfallChart: true,
 };
 
 interface WidgetSettingsProps {
@@ -279,6 +285,24 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               onCheckedChange={(checked) => handleToggle("priorityScatterPlot", checked)}
             >
               ⚪ Priority Scatter Plot
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.stackedAreaChart}
+              onCheckedChange={(checked) => handleToggle("stackedAreaChart", checked)}
+            >
+              📉 Stacked Area Chart
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.issueFunnelChart}
+              onCheckedChange={(checked) => handleToggle("issueFunnelChart", checked)}
+            >
+              🎯 Issue Funnel
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.backlogWaterfallChart}
+              onCheckedChange={(checked) => handleToggle("backlogWaterfallChart", checked)}
+            >
+              💧 Backlog Waterfall
             </DropdownMenuCheckboxItem>
           </DropdownMenuGroup>
         </DropdownMenuGroup>

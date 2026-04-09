@@ -29,6 +29,9 @@ import { FocusRecommendations } from "@/components/analytics/FocusRecommendation
 import { BugHeatmap } from "@/components/analytics/BugHeatmap";
 import { ResolutionHistogram } from "@/components/analytics/ResolutionHistogram";
 import { PriorityScatterPlot } from "@/components/analytics/PriorityScatterPlot";
+import { StackedAreaChart } from "@/components/analytics/StackedAreaChart";
+import { IssueFunnelChart } from "@/components/analytics/IssueFunnelChart";
+import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallChart";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -50,6 +53,9 @@ import {
   calculateBugHeatmap,
   calculateResolutionHistogram,
   calculatePriorityResolutionScatter,
+  calculateStackedAreaData,
+  calculateIssueFunnel,
+  calculateBacklogWaterfall,
 } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -371,6 +377,9 @@ export default function Home() {
       bugHeatmap: calculateBugHeatmap(filteredIssues, 30),
       resolutionHistogram: calculateResolutionHistogram(filteredIssues),
       priorityScatter: calculatePriorityResolutionScatter(filteredIssues),
+      stackedAreaData: calculateStackedAreaData(filteredIssues, 30),
+      issueFunnel: calculateIssueFunnel(filteredIssues),
+      backlogWaterfall: calculateBacklogWaterfall(filteredIssues, 4),
     };
   }, [filteredIssues]);
 
@@ -726,6 +735,15 @@ export default function Home() {
               )}
               {widgetVisibility.priorityScatterPlot && (
                 <PriorityScatterPlot data={analytics.priorityScatter} />
+              )}
+              {widgetVisibility.stackedAreaChart && (
+                <StackedAreaChart data={analytics.stackedAreaData} />
+              )}
+              {widgetVisibility.issueFunnelChart && (
+                <IssueFunnelChart stages={analytics.issueFunnel} />
+              )}
+              {widgetVisibility.backlogWaterfallChart && (
+                <BacklogWaterfallChart data={analytics.backlogWaterfall} />
               )}
             </div>
 
