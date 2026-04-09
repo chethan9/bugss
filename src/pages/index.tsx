@@ -44,7 +44,8 @@ import { FilterMenu } from "@/components/FilterMenu";
 import { PDFExport } from "@/components/PDFExport";
 import { ReportSettings, DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/components/ReportSettings";
 import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
@@ -686,8 +687,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <LayoutGrid className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-heading font-bold text-foreground">
@@ -816,7 +817,7 @@ export default function Home() {
                   </Badge>
                 )}
                 
-                <ThemeSwitch />
+                <ThemeToggle />
                 
                 {user ? (
                   <DropdownMenu>
@@ -833,6 +834,11 @@ export default function Home() {
                         {user.email}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => router.push("/profile")}>
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut}>
                         <LogOut className="h-4 w-4 mr-2" />
                         Sign Out
@@ -847,7 +853,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                <ThemeSwitch />
+                <ThemeToggle />
                 
                 {user ? (
                   <DropdownMenu>
