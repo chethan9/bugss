@@ -1137,6 +1137,10 @@ export default function Home() {
                                   return { ...prev, repositories: newRepos };
                                 });
                               }}
+                              issueCounts={issues.reduce((acc, issue) => {
+                                acc[issue.repository] = (acc[issue.repository] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>)}
                             />
                           </div>
                         ) : null;
