@@ -14,7 +14,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Copy } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { Copy, ExternalLink, ArrowUp, ArrowDown } from "lucide-react";
