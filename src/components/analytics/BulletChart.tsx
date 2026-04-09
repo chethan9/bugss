@@ -53,6 +53,12 @@ export function BulletChart({ metrics }: BulletChartProps) {
     }
   };
 
+  const formatValue = (value: number, unit: string) => {
+    const formatted = unit === "ratio" ? value.toFixed(2) : Math.round(value);
+    const suffix = unit === "hours" ? "h" : unit === "%" ? "%" : "x";
+    return `${formatted}${suffix}`;
+  };
+
   return (
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
@@ -63,70 +69,68 @@ export function BulletChart({ metrics }: BulletChartProps) {
       <div className="space-y-6">
         {metrics.map((metric, idx) => {
           const maxValue = metric.poor;
-          const actualPercent = (metric.actual / maxValue) * 100;
-          const targetPercent = (metric.target / maxValue) * 100;
+          const actualPercent = Math.min((metric.actual / maxValue) * 100, 100);
+          const targetPercent = Math.min((metric.target / maxValue) * 100, 100);
           const goodPercent = (metric.good / maxValue) * 100;
           const satisfactoryPercent = (metric.satisfactory / maxValue) * 100;
 
           return (
             <div key={idx} className="space-y-2">
+              {/* Header row */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {getStatusIcon(metric.status)}
                   <span className="font-medium text-sm">{metric.label}</span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">
                     {getStatusLabel(metric.status)}
                   </Badge>
-                  <span className="text-sm font-semibold">
-                    {metric.actual.toFixed(metric.unit === "ratio" ? 2 : 0)}
-                    {metric.unit === "hours" ? "h" : metric.unit === "%" ? "%" : "x"}
+                  <span className="text-sm font-semibold tabular-nums">
+                    {formatValue(metric.actual, metric.unit)}
                   </span>
                 </div>
               </div>
 
-              {/* Bullet Chart Visualization */}
-              <div className="relative h-8 bg-muted rounded">
-                {/* Background ranges */}
+              {/* Bullet Chart Bar */}
+              <div className="relative h-6 rounded overflow-hidden bg-muted">
+                {/* Background ranges - stacked from left */}
                 <div className="absolute inset-0 flex">
                   <div
-                    className="bg-red-200/50 dark:bg-red-900/20"
-                    style={{ width: `${(metric.satisfactory / maxValue) * 100}%` }}
+                    className="h-full bg-green-100 dark:bg-green-900/30"
+                    style={{ width: `${goodPercent}%` }}
                   />
                   <div
-                    className="bg-yellow-200/50 dark:bg-yellow-900/20"
-                    style={{ width: `${((metric.good - metric.satisfactory) / maxValue) * 100}%` }}
+                    className="h-full bg-yellow-100 dark:bg-yellow-900/30"
+                    style={{ width: `${satisfactoryPercent - goodPercent}%` }}
                   />
                   <div
-                    className="bg-green-200/50 dark:bg-green-900/20"
-                    style={{ width: `${((maxValue - metric.good) / maxValue) * 100}%` }}
+                    className="h-full bg-red-100 dark:bg-red-900/30"
+                    style={{ width: `${100 - satisfactoryPercent}%` }}
                   />
-                </div>
-
-                {/* Target marker */}
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-foreground/40"
-                  style={{ left: `${targetPercent}%` }}
-                >
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-foreground/60 rotate-45" />
                 </div>
 
                 {/* Actual value bar */}
                 <div
-                  className={`absolute top-2 bottom-2 ${getStatusColor(metric.status)} rounded-sm transition-all`}
-                  style={{ width: `${Math.min(actualPercent, 100)}%` }}
+                  className={`absolute top-1.5 bottom-1.5 left-0 ${getStatusColor(metric.status)} rounded-sm`}
+                  style={{ width: `${actualPercent}%` }}
+                />
+
+                {/* Target marker */}
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-foreground/70"
+                  style={{ left: `${targetPercent}%` }}
                 />
               </div>
 
-              {/* Legend */}
+              {/* Legend row */}
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>0{metric.unit === "hours" ? "h" : metric.unit === "%" ? "%" : ""}</span>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 border border-foreground/40" />
-                  <span>Target: {metric.target.toFixed(metric.unit === "ratio" ? 1 : 0)}{metric.unit === "hours" ? "h" : metric.unit === "%" ? "%" : "x"}</span>
-                </div>
-                <span>{metric.poor}{metric.unit === "hours" ? "h" : metric.unit === "%" ? "%" : ""}</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-foreground/70 rounded-sm" />
+                  Target: {formatValue(metric.target, metric.unit)}
+                </span>
+                <span>{formatValue(metric.poor, metric.unit)}</span>
               </div>
             </div>
           );
@@ -135,7 +139,7 @@ export function BulletChart({ metrics }: BulletChartProps) {
 
       <div className="mt-4 pt-4 border-t border-border">
         <p className="text-xs text-muted-foreground">
-          <strong>Bullet charts</strong> show actual performance vs target. The colored bar represents current value, the vertical line shows the target, and background shading indicates poor/satisfactory/good ranges.
+          Colored bar shows actual value. Vertical line marks target. Background shading: green (good), yellow (satisfactory), red (poor).
         </p>
       </div>
     </Card>
