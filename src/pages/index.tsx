@@ -289,8 +289,25 @@ export default function Home() {
     for (const repo of repos) {
       try {
         const [owner, name] = repo.split('/');
-        const issues = await fetchRepositoryIssues(owner, name, tokenToUse);
-        allIssues.push(...issues);
+        const apiIssues = await fetchRepositoryIssues(owner, name, tokenToUse);
+        
+        // Transform API response to match IssueTable format
+        const transformedIssues = apiIssues.map((issue: any) => ({
+          id: issue.id,
+          number: issue.number,
+          title: issue.title,
+          body: issue.body || "",
+          status: issue.state === "open" ? "open" : "closed",
+          labels: issue.labels.map((l: any) => l.name),
+          assignees: issue.assignees.map((a: any) => a.login),
+          repository: repo,
+          url: issue.html_url,
+          createdAt: issue.created_at,
+          updatedAt: issue.updated_at,
+          closedAt: issue.closed_at,
+        }));
+        
+        allIssues.push(...transformedIssues);
       } catch (error) {
         console.error(`Failed to fetch issues for ${repo}:`, error);
       }
