@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { WidgetVisibility } from "@/components/WidgetSettings";
 import { DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER } from "@/components/WidgetSettings";
-import type { Json } from "@/integrations/supabase/types";
 
 export interface UserSettings {
   id: string;
@@ -43,20 +42,18 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 }
 
 export async function createUserSettings(userId: string): Promise<UserSettings | null> {
-  const insertData = {
-    user_id: userId,
-    widget_visibility: DEFAULT_VISIBILITY as unknown as Json,
-    widget_order: DEFAULT_WIDGET_ORDER as unknown as Json,
-    widgets_per_row: 3,
-    theme: "system",
-    selected_repos: [] as unknown as Json,
-    app_name: "FixFlix",
-    logo_url: null,
-  };
-
   const { data, error } = await supabase
     .from("user_settings")
-    .insert(insertData)
+    .insert({
+      user_id: userId,
+      widget_visibility: DEFAULT_VISIBILITY,
+      widget_order: DEFAULT_WIDGET_ORDER,
+      widgets_per_row: 3,
+      theme: "system",
+      selected_repos: [],
+      app_name: "FixFlix",
+      logo_url: null,
+    })
     .select()
     .single();
 
@@ -88,15 +85,25 @@ export async function saveUserSettings(
     logo_url: string | null;
   }>
 ): Promise<boolean> {
-  const updateData: Record<string, unknown> = {
+  const updateData: {
+    updated_at: string;
+    widget_visibility?: WidgetVisibility;
+    widget_order?: (keyof WidgetVisibility)[];
+    widgets_per_row?: number;
+    theme?: string;
+    github_token?: string | null;
+    selected_repos?: string[];
+    app_name?: string;
+    logo_url?: string | null;
+  } = {
     updated_at: new Date().toISOString(),
   };
 
   if (settings.widget_visibility !== undefined) {
-    updateData.widget_visibility = settings.widget_visibility as unknown as Json;
+    updateData.widget_visibility = settings.widget_visibility;
   }
   if (settings.widget_order !== undefined) {
-    updateData.widget_order = settings.widget_order as unknown as Json;
+    updateData.widget_order = settings.widget_order;
   }
   if (settings.widgets_per_row !== undefined) {
     updateData.widgets_per_row = settings.widgets_per_row;
@@ -108,7 +115,7 @@ export async function saveUserSettings(
     updateData.github_token = settings.github_token;
   }
   if (settings.selected_repos !== undefined) {
-    updateData.selected_repos = settings.selected_repos as unknown as Json;
+    updateData.selected_repos = settings.selected_repos;
   }
   if (settings.app_name !== undefined) {
     updateData.app_name = settings.app_name;
