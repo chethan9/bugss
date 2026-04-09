@@ -761,17 +761,133 @@ export default function Home() {
           <div className="flex items-center gap-2">
             {selectedRepos.length > 0 && (
               <>
+                {/* Refresh Controls */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleManualRefresh}
+                    disabled={isRefreshing}
+                    title="Refresh issues"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+                
+                {/* Time Frame Filter */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Menu
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-xs hidden sm:inline">
+                        {dateRange.start && dateRange.end 
+                          ? `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`
+                          : dateRange.start 
+                            ? `Since ${dateRange.start.toLocaleDateString()}`
+                            : "All Time"
+                        }
+                      </span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuContent align="end" className="w-48">
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                      Time Frame
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setDateRange({ start: null, end: null })}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      All Time
+                      {!dateRange.start && <span className="ml-auto">✓</span>}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      const now = new Date();
+                      const start = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+                      setDateRange({ start, end: now });
+                    }}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Last 3 Days
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      const now = new Date();
+                      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                      setDateRange({ start, end: now });
+                    }}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Last 7 Days
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      const now = new Date();
+                      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                      setDateRange({ start, end: now });
+                    }}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Last 30 Days
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      const now = new Date();
+                      const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                      setDateRange({ start, end: now });
+                    }}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Last 90 Days
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+            
+            <ThemeToggle />
+            
+            {/* Main Menu - Rightmost */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Menu
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {user && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      {user.email}
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push("/profile")}>
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                
+                {selectedRepos.length > 0 && (
+                  <>
                     <DropdownMenuItem onClick={handleManageRepositories}>
                       <GitBranch className="h-4 w-4 mr-2" />
                       Manage Repositories
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <div className="flex items-center px-2 py-1.5 cursor-pointer">
+                        <LayoutGrid className="h-4 w-4 mr-2" />
+                        <WidgetSettings 
+                          visibility={widgetVisibility}
+                          onVisibilityChange={handleVisibilityChange}
+                          widgetsPerRow={widgetsPerRow}
+                          onWidgetsPerRowChange={setWidgetsPerRow}
+                          widgetOrder={widgetOrder}
+                          onWidgetOrderChange={setWidgetOrder}
+                        />
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <div className="flex items-center px-2 py-1.5 cursor-pointer">
+                        <PDFExport 
+                          disabled={filteredIssues.length === 0} 
+                          reportConfig={reportConfig}
+                        />
+                      </div>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -779,304 +895,34 @@ export default function Home() {
                       className="text-destructive focus:text-destructive"
                     >
                       <LogOut className="h-4 w-4 mr-2" />
-                      Disconnect
+                      Disconnect GitHub
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </>
+                )}
                 
-                <ThemeToggle />
+                {!selectedRepos.length && (
+                  <DropdownMenuItem onClick={() => setShowConnectionDialog(true)}>
+                    <GitBranch className="h-4 w-4 mr-2" />
+                    Connect GitHub
+                  </DropdownMenuItem>
+                )}
                 
                 {user ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="gap-2">
-                        <User className="h-4 w-4" />
-                        <span className="max-w-[100px] truncate text-xs">
-                          {user.email?.split("@")[0]}
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                        {user.email}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => router.push("/profile")}>
-                        <User className="h-4 w-4 mr-2" />
-                        Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleSignOut}>
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={() => router.push("/auth")}>
+                  <DropdownMenuItem onClick={() => router.push("/auth")}>
+                    <User className="h-4 w-4 mr-2" />
                     Sign In
-                  </Button>
+                  </DropdownMenuItem>
                 )}
-              </>
-            )}
-            
-            {selectedRepos.length > 0 ? (
-              <>
-                <ThemeToggle />
-                
-                {user ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="gap-2">
-                        <User className="h-4 w-4" />
-                        <span className="max-w-[100px] truncate text-xs">
-                          {user.email?.split("@")[0]}
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                        {user.email}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleSignOut}>
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => router.push("/auth")}>
-                    Sign In
-                  </Button>
-                )}
-                
-                <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
-                  <GitBranch className="h-4 w-4 mr-2" />
-                  Connect GitHub
-                </Button>
-              </>
-            ) : (
-              <>
-                <ThemeToggle />
-                
-                {user ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="gap-2">
-                        <User className="h-4 w-4" />
-                        <span className="max-w-[100px] truncate text-xs">
-                          {user.email?.split("@")[0]}
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                        {user.email}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleSignOut}>
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => router.push("/auth")}>
-                    Sign In
-                  </Button>
-                )}
-                
-                <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
-                  <GitBranch className="h-4 w-4 mr-2" />
-                  Connect GitHub
-                </Button>
-              </>
-            )}
-            
-            {/* Dialog is now OUTSIDE the conditional - always exists in DOM */}
-            <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
-              <DialogContent 
-                className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto" 
-                onInteractOutside={(e) => e.preventDefault()}
-                onEscapeKeyDown={(e) => e.preventDefault()}
-              >
-                <DialogHeader>
-                  <DialogTitle>
-                    {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {connectionStep === "token" 
-                      ? "Enter your GitHub personal access token to get started." 
-                      : `Found ${availableRepos.length} repositories. Select the ones you want to analyze.`
-                    }
-                  </DialogDescription>
-                </DialogHeader>
-                
-                {connectionStep === "token" ? (
-                  <div className="space-y-4 py-4">
-                    {isLoadingRepos ? (
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <RefreshCw className="h-12 w-12 text-primary animate-spin mb-4" />
-                        <p className="text-sm text-muted-foreground">Fetching your repositories...</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          <label htmlFor="token" className="text-sm font-medium">
-                            GitHub Personal Access Token
-                          </label>
-                          <Input
-                            id="token"
-                            type="password"
-                            placeholder="ghp_xxxxxxxxxxxx"
-                            value={githubToken}
-                            onChange={(e) => setGithubToken(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleTokenSubmit()}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Create a token at{" "}
-                            <a
-                              href="https://github.com/settings/tokens"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
-                            >
-                              GitHub Settings → Developer settings → Personal access tokens
-                            </a>
-                          </p>
-                        </div>
-
-                        <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
-                          <div className="flex items-center h-5">
-                            <input
-                              type="checkbox"
-                              id="remember"
-                              checked={rememberMe}
-                              onChange={(e) => setRememberMe(e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
-                              Remember me (store token locally)
-                            </label>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
-                            </p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search repositories..."
-                          value={repoSearchQuery}
-                          onChange={(e) => setRepoSearchQuery(e.target.value)}
-                          className="pl-9"
-                        />
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllFilteredRepos}
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={deselectAllRepos}
-                      >
-                        Clear
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        {selectedRepos.length} repositories selected
-                      </span>
-                      <Button
-                        onClick={handleRepoSelectionComplete}
-                        disabled={selectedRepos.length === 0 || isLoadingIssues}
-                        size="sm"
-                      >
-                        {isLoadingIssues ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          "Load Selected"
-                        )}
-                      </Button>
-                    </div>
-
-                    <div className="border rounded-md max-h-[400px] overflow-y-auto">
-                      {filteredRepos.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground">
-                          No repositories found
-                        </div>
-                      ) : (
-                        <div className="divide-y">
-                          {filteredRepos.map((repo) => (
-                            <label
-                              key={repo.id}
-                              htmlFor={`repo-${repo.id}`}
-                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer"
-                            >
-                              <Checkbox
-                                id={`repo-${repo.id}`}
-                                checked={selectedRepos.includes(repo.full_name)}
-                                onCheckedChange={() => toggleRepoSelection(repo.full_name)}
-                                className="flex-shrink-0"
-                              />
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <span className="font-medium text-sm truncate">
-                                  {repo.full_name}
-                                </span>
-                                {repo.private && (
-                                  <Badge variant="outline" className="text-xs flex-shrink-0">
-                                    Private
-                                  </Badge>
-                                )}
-                                {repo.language && (
-                                  <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                    {repo.language}
-                                  </Badge>
-                                )}
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {connectionStep === "repos" && (
-                      <div className="flex justify-start">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setConnectionStep("token");
-                            setAvailableRepos([]);
-                            setRepoSearchQuery("");
-                            setSelectedRepos([]);
-                          }}
-                        >
-                          Back
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
