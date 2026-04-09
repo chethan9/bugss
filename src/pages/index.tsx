@@ -62,7 +62,6 @@ import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallCh
 import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
 import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
 import { BulletChart } from "@/components/analytics/BulletChart";
-import { fetchIssues } from "@/services/githubService";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -92,19 +91,6 @@ import {
   calculateKPIMetrics,
   calculateSparklineData,
 } from "@/services/analyticsService";
-
-interface GitHubIssue {
-  id: string;
-  number: number;
-  title: string;
-  status: "open" | "in_progress" | "closed";
-  repository: string;
-  labels: string[];
-  assignee?: string;
-  url: string;
-  createdAt: string;
-  closedAt?: string;
-}
 
 // ==========================================
 // Token Storage Utilities (Security: localStorage)
