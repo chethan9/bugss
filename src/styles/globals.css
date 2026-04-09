@@ -47,6 +47,46 @@
     /* Chart radius */
     --radius: 0.75rem;
   }
+
+  .dark {
+    /* Dark theme colors - Developer focused */
+    --background: 222 47% 6%;  /* Deep dark */
+    --foreground: 210 40% 98%;  /* Near white */
+    --card: 222 47% 9%;  /* Elevated dark */
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Primary - Vibrant Blue */
+    --primary: 217 91% 60%;  /* Brighter blue for dark mode */
+    --primary-foreground: 222 47% 6%;
+    
+    /* Secondary */
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    
+    /* Accent - Purple */
+    --accent: 270 70% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Muted */
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    
+    /* Destructive */
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+    
+    /* Border */
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+    
+    /* Status colors - slightly brighter for dark mode */
+    --status-open: 142 76% 50%;
+    --status-progress: 45 93% 55%;
+    --status-closed: 215 20% 55%;
+  }
 }
 
 @layer base {
