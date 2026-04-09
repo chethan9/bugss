@@ -85,8 +85,8 @@ export async function saveUserSettings(
     logo_url: string | null;
   }>
 ): Promise<boolean> {
-  // Build update object - use explicit typing to satisfy Supabase
-  const updateData: Parameters<typeof supabase.from<"user_settings">["prototype"]["update"]>[0] = {
+  // Build update object
+  const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
 
@@ -117,7 +117,7 @@ export async function saveUserSettings(
 
   const { error } = await supabase
     .from("user_settings")
-    .update(updateData)
+    .update(updateData as any)
     .eq("user_id", userId);
 
   if (error) {
