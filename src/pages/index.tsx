@@ -1358,6 +1358,187 @@ export default function Home() {
           </>
         )}
       </main>
+      {/* GitHub Connection Dialog */}
+      <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Github className="h-5 w-5" />
+              {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
+            </DialogTitle>
+            <DialogDescription>
+              {connectionStep === "token" 
+                ? "Enter your GitHub Personal Access Token to connect your repositories."
+                : `Select repositories to track (${selectedRepos.length} selected)`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {connectionStep === "token" ? (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="token">Personal Access Token</Label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="token"
+                    type="password"
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                    value={githubToken}
+                    onChange={(e) => setGithubToken(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Need a token? Go to GitHub → Settings → Developer settings → Personal access tokens → Generate new token (classic) with &quot;repo&quot; scope.
+                </p>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="remember" 
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                  Remember me on this device
+                </Label>
+              </div>
+              
+              {tokenError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{tokenError}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden flex flex-col py-4">
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search repositories..."
+                  value={repoSearchQuery}
+                  onChange={(e) => setRepoSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <div className="flex items-center justify-between mb-2 text-xs text-muted-foreground">
+                <span>{filteredRepos.length} repositories</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={selectAllFilteredRepos}
+                    className="hover:text-primary transition-colors"
+                  >
+                    Select all
+                  </button>
+                  <span>|</span>
+                  <button 
+                    onClick={deselectAllRepos}
+                    className="hover:text-primary transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto border rounded-md">
+                {isLoadingRepos ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading repositories...</span>
+                  </div>
+                ) : filteredRepos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <Github className="h-8 w-8 mb-2 opacity-50" />
+                    <p className="text-sm">No repositories found</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {filteredRepos.map((repo) => (
+                      <label
+                        key={repo.id}
+                        className="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <Checkbox
+                          checked={selectedRepos.includes(repo.full_name)}
+                          onCheckedChange={() => toggleRepoSelection(repo.full_name)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm truncate">{repo.full_name}</span>
+                            {repo.private && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5">Private</Badge>
+                            )}
+                          </div>
+                          {repo.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                              {repo.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            {repo.language && <span>{repo.language}</span>}
+                            <span>⭐ {repo.stargazers_count}</span>
+                            <span>Issues: {repo.open_issues_count}</span>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="flex-shrink-0">
+            {connectionStep === "token" ? (
+              <Button 
+                onClick={handleTokenSubmit} 
+                disabled={!githubToken || isLoadingRepos}
+                className="w-full sm:w-auto"
+              >
+                {isLoadingRepos ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-4 w-4 mr-2" />
+                    Connect
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setConnectionStep("token")}
+                >
+                  Back
+                </Button>
+                <Button 
+                  onClick={handleRepoSelectionComplete}
+                  disabled={selectedRepos.length === 0 || loading}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Fetching...
+                    </>
+                  ) : (
+                    <>
+                      Fetch Issues ({selectedRepos.length})
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
