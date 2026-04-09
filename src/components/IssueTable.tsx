@@ -1,5 +1,14 @@
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -8,17 +17,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
-import { Copy, ExternalLink, ArrowUp, ArrowDown } from "lucide-react";
+import { ExternalLink, Search, X } from "lucide-react";
 
-export interface GitHubIssue {
+interface Issue {
   id: string;
   number: number;
   title: string;
@@ -32,181 +33,283 @@ export interface GitHubIssue {
 }
 
 interface IssueTableProps {
-  issues: GitHubIssue[];
-  onIssueClick: (issue: GitHubIssue) => void;
+  issues: Issue[];
+  onIssueClick: (issue: Issue) => void;
 }
 
-type SortField = "createdAt" | "title" | "status";
-type SortDirection = "asc" | "desc" | null;
-
 export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [titleSearch, setTitleSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      if (sortDirection === "asc") {
-        setSortDirection("desc");
-      } else if (sortDirection === "desc") {
-        setSortDirection(null);
-        setSortField(null);
+  // Extract unique values for filters
+  const uniqueAssignees = useMemo(() => {
+    const assignees = new Set(issues.filter(i => i.assignee).map(i => i.assignee!));
+    return Array.from(assignees).sort();
+  }, [issues]);
+
+  // Apply filters
+  const filteredIssues = useMemo(() => {
+    return issues.filter(issue => {
+      // Title search
+      if (titleSearch && !issue.title.toLowerCase().includes(titleSearch.toLowerCase())) {
+        return false;
       }
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
+
+      // Status filter
+      if (statusFilter !== "all" && issue.status !== statusFilter) {
+        return false;
+      }
+
+      // Severity filter
+      if (severityFilter !== "all") {
+        const severity = getSeverityFromLabels(issue.labels);
+        if (severity !== severityFilter) return false;
+      }
+
+      // Assignee filter
+      if (assigneeFilter !== "all") {
+        if (assigneeFilter === "unassigned" && issue.assignee) return false;
+        if (assigneeFilter !== "unassigned" && issue.assignee !== assigneeFilter) return false;
+      }
+
+      return true;
+    });
+  }, [issues, titleSearch, statusFilter, severityFilter, assigneeFilter]);
+
+  const getSeverityFromLabels = (labels: string[]): string => {
+    const labelText = labels.join(" ").toLowerCase();
+    if (labelText.includes("critical")) return "critical";
+    if (labelText.includes("high")) return "high";
+    if (labelText.includes("medium")) return "medium";
+    if (labelText.includes("low")) return "low";
+    return "none";
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "open":
+        return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20";
+      case "in_progress":
+        return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
+      case "closed":
+        return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+      default:
+        return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
     }
   };
 
-  const sortedIssues = [...issues].sort((a, b) => {
-    let compareResult = 0;
-
-    if (sortField === "createdAt") {
-      compareResult = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    } else if (sortField === "title") {
-      compareResult = a.title.localeCompare(b.title);
-    } else if (sortField === "status") {
-      compareResult = a.status.localeCompare(b.status);
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "critical":
+        return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20";
+      case "high":
+        return "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20";
+      case "medium":
+        return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20";
+      case "low":
+        return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
+      default:
+        return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
     }
-
-    return sortDirection === "asc" ? compareResult : -compareResult;
-  });
-
-  const handleCopyId = (e: React.MouseEvent, issueNumber: number) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(`#${issueNumber}`);
-    setCopiedId(`#${issueNumber}`);
-    setTimeout(() => setCopiedId(null), 2000);
   };
+
+  const clearAllFilters = () => {
+    setTitleSearch("");
+    setStatusFilter("all");
+    setSeverityFilter("all");
+    setAssigneeFilter("all");
+  };
+
+  const hasActiveFilters = titleSearch || statusFilter !== "all" || severityFilter !== "all" || assigneeFilter !== "all";
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
-      <div className="overflow-x-auto">
+    <div className="space-y-3">
+      {/* Active filters indicator */}
+      {hasActiveFilters && (
+        <div className="flex items-center justify-between bg-muted/50 px-4 py-2 rounded-md">
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredIssues.length} of {issues.length} issues
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearAllFilters}
+            className="h-7 text-xs"
+          >
+            <X className="h-3 w-3 mr-1" />
+            Clear all filters
+          </Button>
+        </div>
+      )}
+
+      <div className="rounded-md border bg-card overflow-hidden">
         <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-            <TableRow className="hover:bg-transparent border-b-2 border-border">
-              <TableHead className="sticky left-0 z-20 bg-muted/80 backdrop-blur-sm w-[100px] font-semibold">
-                Issue ID
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/60 transition-colors font-semibold"
-                onClick={() => handleSort("title")}
-              >
-                <div className="flex items-center gap-2">
-                  Title
-                  {sortField === "title" && (
-                    sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                  )}
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[80px]">#</TableHead>
+              <TableHead className="min-w-[300px]">
+                <div className="space-y-2">
+                  <span className="font-semibold">Title</span>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      placeholder="Search titles..."
+                      value={titleSearch}
+                      onChange={(e) => setTitleSearch(e.target.value)}
+                      className="h-8 pl-7 text-xs"
+                    />
+                    {titleSearch && (
+                      <button
+                        onClick={() => setTitleSearch("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/60 transition-colors text-center font-semibold"
-                onClick={() => handleSort("status")}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  Status
-                  {sortField === "status" && (
-                    sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                  )}
+              <TableHead className="w-[140px]">
+                <div className="space-y-2">
+                  <span className="font-semibold">Status</span>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </TableHead>
-              <TableHead className="font-semibold">Repository</TableHead>
-              <TableHead className="font-semibold">Labels</TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/60 transition-colors text-right font-semibold"
-                onClick={() => handleSort("createdAt")}
-              >
-                <div className="flex items-center justify-end gap-2">
-                  Created
-                  {sortField === "createdAt" && (
-                    sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                  )}
+              <TableHead className="w-[140px]">
+                <div className="space-y-2">
+                  <span className="font-semibold">Severity</span>
+                  <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </TableHead>
+              <TableHead className="w-[160px]">
+                <div className="space-y-2">
+                  <span className="font-semibold">Assignee</span>
+                  <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {uniqueAssignees.map(assignee => (
+                        <SelectItem key={assignee} value={assignee}>
+                          {assignee}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TableHead>
+              <TableHead className="w-[200px]">Repository</TableHead>
+              <TableHead className="w-[80px]">Link</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedIssues.map((issue, idx) => (
-              <TableRow
-                key={issue.id}
-                onClick={() => onIssueClick(issue)}
-                className={`
-                  cursor-pointer transition-smooth active-scale
-                  hover:bg-blue-50/50
-                  ${idx % 2 === 0 ? "bg-gray-50/50" : "bg-white"}
-                `}
-              >
-                <TableCell className="sticky left-0 z-10 bg-inherit">
-                  <div className="flex items-center gap-2 group">
-                    <code className="text-xs font-mono font-medium text-primary">
-                      #{issue.number}
-                    </code>
-                    <button
-                      onClick={(e) => handleCopyId(e, issue.number)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Copy issue ID"
-                    >
-                      <Copy className="h-3 w-3 text-muted-foreground hover:text-primary" />
-                    </button>
-                    {copiedId === `#${issue.number}` && (
-                      <span className="text-[10px] text-green-600">Copied!</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="max-w-md">
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium line-clamp-2 leading-snug">
-                      {issue.title}
-                    </p>
-                    {issue.labels.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {issue.labels.slice(0, 3).map((label, idx) => (
-                          <Badge 
-                            key={idx} 
-                            variant="secondary" 
-                            className="text-[10px] px-1.5 py-0 h-5 bg-gray-100 text-gray-700 font-normal"
-                          >
-                            {label}
-                          </Badge>
-                        ))}
-                        {issue.labels.length > 3 && (
-                          <Badge 
-                            variant="secondary" 
-                            className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary font-medium"
-                          >
-                            +{issue.labels.length - 3} more
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Badge
-                    className={`
-                      px-2.5 py-1 text-xs font-medium rounded-full
-                      ${issue.status === "open" 
-                        ? "bg-green-100 text-green-700 border border-green-200" 
-                        : issue.status === "in_progress"
-                        ? "bg-yellow-100 text-yellow-700 border border-yellow-200"
-                        : "bg-gray-100 text-gray-600 border border-gray-200"
-                      }
-                    `}
-                  >
-                    {issue.status === "open" ? "Open" : issue.status === "in_progress" ? "In Progress" : "Closed"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {issue.repository.split("/")[1] || issue.repository}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {issue.labels.length} label{issue.labels.length !== 1 ? "s" : ""}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground text-right">
-                  {formatDistanceToNow(new Date(issue.createdAt))} ago
+            {filteredIssues.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                  {hasActiveFilters ? "No issues match your filters" : "No issues found"}
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredIssues.map((issue) => {
+                const severity = getSeverityFromLabels(issue.labels);
+                return (
+                  <TableRow
+                    key={issue.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => onIssueClick(issue)}
+                  >
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      #{issue.number}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <p className="font-medium text-sm line-clamp-1">{issue.title}</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {issue.labels.slice(0, 3).map((label) => (
+                            <Badge
+                              key={label}
+                              variant="outline"
+                              className="text-xs px-1.5 py-0 h-5"
+                            >
+                              {label}
+                            </Badge>
+                          ))}
+                          {issue.labels.length > 3 && (
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
+                              +{issue.labels.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={`${getStatusColor(issue.status)} capitalize`}
+                      >
+                        {issue.status.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {severity !== "none" && (
+                        <Badge
+                          variant="outline"
+                          className={`${getSeverityColor(severity)} capitalize`}
+                        >
+                          {severity}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {issue.assignee ? (
+                        <span className="text-foreground">{issue.assignee}</span>
+                      ) : (
+                        <span className="text-muted-foreground italic">Unassigned</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {issue.repository}
+                    </TableCell>
+                    <TableCell>
+                      <a
+                        href={issue.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-primary hover:text-primary/80"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>

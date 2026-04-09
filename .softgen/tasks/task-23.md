@@ -1,6 +1,6 @@
 ---
 title: Table Header Filters
-status: todo
+status: in_progress
 priority: high
 type: feature
 tags: [table, filters, ux, ui]
