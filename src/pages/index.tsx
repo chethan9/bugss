@@ -582,9 +582,44 @@ export default function Home() {
   };
 
   // Open manage repositories dialog
-  const handleManageRepositories = () => {
-    setConnectionStep("repos");
+  const handleManageRepositories = async () => {
+    // If we already have repos loaded, just open the dialog
+    if (availableRepos.length > 0) {
+      setConnectionStep("repos");
+      setShowConnectionDialog(true);
+      return;
+    }
+
+    // Otherwise, fetch repos first
+    if (!token && !githubToken) {
+      alert("No GitHub token found. Please reconnect.");
+      handleDisconnect();
+      return;
+    }
+
+    const tokenToUse = token || githubToken;
+    setIsLoadingRepos(true);
     setShowConnectionDialog(true);
+    setConnectionStep("token"); // Show loading in dialog
+    
+    try {
+      console.log("🔄 Fetching repositories for management...");
+      const repos = await fetchUserRepositories(tokenToUse);
+      setAvailableRepos(repos);
+      setConnectionStep("repos");
+    } catch (error: any) {
+      console.error("Failed to fetch repositories:", error);
+      alert(`Error: ${error.message}\n\nPlease reconnect with a valid token.`);
+      setShowConnectionDialog(false);
+      
+      // Clear stored credentials if token is invalid
+      if (error.message.includes("Invalid") || error.message.includes("401")) {
+        clearStoredCredentials();
+        setIsStoredConnection(false);
+      }
+    } finally {
+      setIsLoadingRepos(false);
+    }
   };
 
   return (
@@ -671,50 +706,59 @@ export default function Home() {
                   
                   {connectionStep === "token" ? (
                     <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <label htmlFor="token" className="text-sm font-medium">
-                          GitHub Personal Access Token
-                        </label>
-                        <Input
-                          id="token"
-                          type="password"
-                          placeholder="ghp_xxxxxxxxxxxx"
-                          value={githubToken}
-                          onChange={(e) => setGithubToken(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleTokenSubmit()}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Create a token at{" "}
-                          <a
-                            href="https://github.com/settings/tokens"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            GitHub Settings → Developer settings → Personal access tokens
-                          </a>
-                        </p>
-                      </div>
+                      {isLoadingRepos ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <RefreshCw className="h-12 w-12 text-primary animate-spin mb-4" />
+                          <p className="text-sm text-muted-foreground">Fetching your repositories...</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <label htmlFor="token" className="text-sm font-medium">
+                              GitHub Personal Access Token
+                            </label>
+                            <Input
+                              id="token"
+                              type="password"
+                              placeholder="ghp_xxxxxxxxxxxx"
+                              value={githubToken}
+                              onChange={(e) => setGithubToken(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && handleTokenSubmit()}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Create a token at{" "}
+                              <a
+                                href="https://github.com/settings/tokens"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                GitHub Settings → Developer settings → Personal access tokens
+                              </a>
+                            </p>
+                          </div>
 
-                      <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
-                        <div className="flex items-center h-5">
-                          <input
-                            type="checkbox"
-                            id="remember"
-                            checked={rememberMe}
-                            onChange={(e) => setRememberMe(e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
-                            Remember me (store token locally)
-                          </label>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
-                          </p>
-                        </div>
-                      </div>
+                          <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
+                            <div className="flex items-center h-5">
+                              <input
+                                type="checkbox"
+                                id="remember"
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
+                                Remember me (store token locally)
+                              </label>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-4 py-4">
