@@ -753,12 +753,13 @@ export default function Home() {
                       ) : (
                         <div className="divide-y">
                           {filteredRepos.map((repo) => (
-                            <div
+                            <label
                               key={repo.id}
+                              htmlFor={`repo-${repo.id}`}
                               className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer"
-                              onClick={() => toggleRepoSelection(repo.full_name)}
                             >
                               <Checkbox
+                                id={`repo-${repo.id}`}
                                 checked={selectedRepos.includes(repo.full_name)}
                                 onCheckedChange={() => toggleRepoSelection(repo.full_name)}
                                 className="flex-shrink-0"
@@ -778,7 +779,7 @@ export default function Home() {
                                   </Badge>
                                 )}
                               </div>
-                            </div>
+                            </label>
                           ))}
                         </div>
                       )}
@@ -786,7 +787,7 @@ export default function Home() {
                   </div>
                 )}
 
-                <DialogFooter>
+                <DialogFooter className="pt-4 border-t">
                   {connectionStep === "repos" && (
                     <Button
                       variant="outline"
@@ -794,6 +795,7 @@ export default function Home() {
                         setConnectionStep("token");
                         setAvailableRepos([]);
                         setRepoSearchQuery("");
+                        setSelectedRepos([]);
                       }}
                     >
                       Back
@@ -820,7 +822,7 @@ export default function Home() {
                     ) : connectionStep === "token" ? (
                       "Continue"
                     ) : (
-                      "Fetch Issues"
+                      `Fetch Issues${selectedRepos.length > 0 ? ` (${selectedRepos.length})` : ""}`
                     )}
                   </Button>
                 </DialogFooter>
