@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,10 +7,26 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings2, LayoutGrid } from "lucide-react";
+import { Settings2, LayoutGrid, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export interface WidgetVisibility {
   smartInsights: boolean;
@@ -71,11 +88,73 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
   kpiBulletChart: true,
 };
 
+export const DEFAULT_WIDGET_ORDER: (keyof WidgetVisibility)[] = [
+  "smartInsights",
+  "summaryMetrics",
+  "progressBar",
+  "severityHeatmap",
+  "resolutionTime",
+  "trendChart",
+  "moduleStability",
+  "reopenedIssues",
+  "categoryBreakdown",
+  "bugHotspots",
+  "atRiskRelease",
+  "agingIssues",
+  "criticalUntouched",
+  "backlogGrowth",
+  "bugFixEfficiency",
+  "repeatBugDetector",
+  "developerLoad",
+  "focusRecommendations",
+  "bugHeatmap",
+  "resolutionHistogram",
+  "priorityScatterPlot",
+  "stackedAreaChart",
+  "issueFunnelChart",
+  "backlogWaterfallChart",
+  "moduleTreemap",
+  "moduleRadarChart",
+  "kpiBulletChart",
+];
+
+const WIDGET_LABELS: Record<keyof WidgetVisibility, string> = {
+  smartInsights: "Smart Insights",
+  summaryMetrics: "Summary Metrics",
+  progressBar: "Progress Bar",
+  severityHeatmap: "Bug Severity Heatmap",
+  resolutionTime: "Avg Resolution Time",
+  trendChart: "Issue Trend Chart",
+  moduleStability: "Module Stability",
+  reopenedIssues: "Reopened Issues",
+  categoryBreakdown: "Category Breakdown",
+  bugHotspots: "Bug Hotspots",
+  atRiskRelease: "🔥 At Risk Release",
+  agingIssues: "⏳ Aging Issues",
+  criticalUntouched: "🧨 Critical Untouched",
+  backlogGrowth: "📉 Backlog Growth",
+  bugFixEfficiency: "🧯 Bug Fix Efficiency",
+  repeatBugDetector: "🧠 Repeat Bug Detector",
+  developerLoad: "🧑‍💻 Developer Load",
+  focusRecommendations: "🎯 Focus Recommendations",
+  bugHeatmap: "📊 Bug Heatmap",
+  resolutionHistogram: "📍 Resolution Histogram",
+  priorityScatterPlot: "⚪ Priority Scatter",
+  stackedAreaChart: "📉 Stacked Area",
+  issueFunnelChart: "🎯 Issue Funnel",
+  backlogWaterfallChart: "💧 Backlog Waterfall",
+  moduleTreemap: "🌳 Module Treemap",
+  moduleRadarChart: "🧭 Module Radar",
+  kpiBulletChart: "🎯 KPI Bullet Chart",
+};
+
 interface WidgetSettingsProps {
   visibility: WidgetVisibility;
   onVisibilityChange: (visibility: WidgetVisibility) => void;
   widgetsPerRow: number;
   onWidgetsPerRowChange: (count: number) => void;
+  widgetOrder: (keyof WidgetVisibility)[];
+  onWidgetOrderChange: (order: (keyof WidgetVisibility)[]) => void;
 }
 
 export function WidgetSettings({ 
@@ -83,7 +162,22 @@ export function WidgetSettings({
   onVisibilityChange,
   widgetsPerRow,
   onWidgetsPerRowChange,
+  widgetOrder,
+  onWidgetOrderChange,
 }: WidgetSettingsProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const handleToggle = (key: keyof WidgetVisibility, checked?: boolean) => {
     onVisibilityChange({
       ...visibility,
@@ -94,20 +188,31 @@ export function WidgetSettings({
   const handleResetDefaults = () => {
     onVisibilityChange(DEFAULT_VISIBILITY);
     onWidgetsPerRowChange(2);
+    onWidgetOrderChange(DEFAULT_WIDGET_ORDER);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = widgetOrder.indexOf(active.id as keyof WidgetVisibility);
+      const newIndex = widgetOrder.indexOf(over.id as keyof WidgetVisibility);
+      onWidgetOrderChange(arrayMove(widgetOrder, oldIndex, newIndex));
+    }
   };
 
   const visibleCount = Object.values(visibility).filter(Boolean).length;
   const totalCount = Object.keys(visibility).length;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Settings2 className="h-4 w-4" />
           Widgets
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
+      <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Widget Settings</span>
           <Button
@@ -144,209 +249,43 @@ export function WidgetSettings({
         
         <DropdownMenuSeparator />
         
-        <DropdownMenuGroup className="max-h-[350px] overflow-y-auto">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Visible Widgets ({visibleCount}/{totalCount})
+        <DropdownMenuGroup className="max-h-[400px] overflow-y-auto">
+          <DropdownMenuLabel className="text-xs text-muted-foreground flex items-center justify-between">
+            <span>Widgets ({visibleCount}/{totalCount})</span>
+            <span className="text-[10px] opacity-70">Drag to reorder</span>
           </DropdownMenuLabel>
           
-          <DropdownMenuGroup>
-            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Core</div>
-            <WidgetCheckbox
-              id="smartInsights"
-              label="Smart Insights"
-              checked={visibility.smartInsights}
-              onCheckedChange={(checked) => handleToggle("smartInsights", checked)}
-            />
-            <WidgetCheckbox
-              id="summaryMetrics"
-              label="Summary Metrics"
-              checked={visibility.summaryMetrics}
-              onCheckedChange={(checked) => handleToggle("summaryMetrics", checked)}
-            />
-            <WidgetCheckbox
-              id="progressBar"
-              label="Progress Bar"
-              checked={visibility.progressBar}
-              onCheckedChange={(checked) => handleToggle("progressBar", checked)}
-            />
-          </DropdownMenuGroup>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuGroup>
-            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Analytics</div>
-            <WidgetCheckbox
-              id="severityHeatmap"
-              label="Bug Severity Heatmap"
-              checked={visibility.severityHeatmap}
-              onCheckedChange={(checked) => handleToggle("severityHeatmap", checked)}
-            />
-            <WidgetCheckbox
-              id="resolutionTime"
-              label="Avg Resolution Time"
-              checked={visibility.resolutionTime}
-              onCheckedChange={(checked) => handleToggle("resolutionTime", checked)}
-            />
-            <WidgetCheckbox
-              id="trendChart"
-              label="Issue Trend Chart"
-              checked={visibility.trendChart}
-              onCheckedChange={(checked) => handleToggle("trendChart", checked)}
-            />
-            <WidgetCheckbox
-              id="moduleStability"
-              label="Module Stability"
-              checked={visibility.moduleStability}
-              onCheckedChange={(checked) => handleToggle("moduleStability", checked)}
-            />
-            <WidgetCheckbox
-              id="reopenedIssues"
-              label="Reopened Issues"
-              checked={visibility.reopenedIssues}
-              onCheckedChange={(checked) => handleToggle("reopenedIssues", checked)}
-            />
-            <WidgetCheckbox
-              id="categoryBreakdown"
-              label="Category Breakdown"
-              checked={visibility.categoryBreakdown}
-              onCheckedChange={(checked) => handleToggle("categoryBreakdown", checked)}
-            />
-            <WidgetCheckbox
-              id="bugHotspots"
-              label="Bug Hotspots"
-              checked={visibility.bugHotspots}
-              onCheckedChange={(checked) => handleToggle("bugHotspots", checked)}
-            />
-          </DropdownMenuGroup>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuGroup>
-            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Critical</div>
-            <WidgetCheckbox
-              id="atRiskRelease"
-              label="🔥 At Risk Release"
-              checked={visibility.atRiskRelease}
-              onCheckedChange={(checked) => handleToggle("atRiskRelease", checked)}
-            />
-            <WidgetCheckbox
-              id="agingIssues"
-              label="⏳ Aging Issues"
-              checked={visibility.agingIssues}
-              onCheckedChange={(checked) => handleToggle("agingIssues", checked)}
-            />
-            <WidgetCheckbox
-              id="criticalUntouched"
-              label="🧨 Critical Untouched"
-              checked={visibility.criticalUntouched}
-              onCheckedChange={(checked) => handleToggle("criticalUntouched", checked)}
-            />
-            <WidgetCheckbox
-              id="backlogGrowth"
-              label="📉 Backlog Growth"
-              checked={visibility.backlogGrowth}
-              onCheckedChange={(checked) => handleToggle("backlogGrowth", checked)}
-            />
-            <WidgetCheckbox
-              id="bugFixEfficiency"
-              label="🧯 Bug Fix Efficiency"
-              checked={visibility.bugFixEfficiency}
-              onCheckedChange={(checked) => handleToggle("bugFixEfficiency", checked)}
-            />
-          </DropdownMenuGroup>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuGroup>
-            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Health & AI</div>
-            <WidgetCheckbox
-              id="repeatBugDetector"
-              label="🧠 Repeat Bug Detector"
-              checked={visibility.repeatBugDetector}
-              onCheckedChange={(checked) => handleToggle("repeatBugDetector", checked)}
-            />
-            <WidgetCheckbox
-              id="developerLoad"
-              label="🧑‍💻 Developer Load"
-              checked={visibility.developerLoad}
-              onCheckedChange={(checked) => handleToggle("developerLoad", checked)}
-            />
-            <WidgetCheckbox
-              id="focusRecommendations"
-              label="🎯 Focus Recommendations"
-              checked={visibility.focusRecommendations}
-              onCheckedChange={(checked) => handleToggle("focusRecommendations", checked)}
-            />
-          </DropdownMenuGroup>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuGroup>
-            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Visualizations</div>
-            <WidgetCheckbox
-              id="bugHeatmap"
-              label="📊 Bug Heatmap"
-              checked={visibility.bugHeatmap}
-              onCheckedChange={(checked) => handleToggle("bugHeatmap", checked)}
-            />
-            <WidgetCheckbox
-              id="resolutionHistogram"
-              label="📍 Resolution Histogram"
-              checked={visibility.resolutionHistogram}
-              onCheckedChange={(checked) => handleToggle("resolutionHistogram", checked)}
-            />
-            <WidgetCheckbox
-              id="priorityScatterPlot"
-              label="⚪ Priority Scatter"
-              checked={visibility.priorityScatterPlot}
-              onCheckedChange={(checked) => handleToggle("priorityScatterPlot", checked)}
-            />
-            <WidgetCheckbox
-              id="stackedAreaChart"
-              label="📉 Stacked Area"
-              checked={visibility.stackedAreaChart}
-              onCheckedChange={(checked) => handleToggle("stackedAreaChart", checked)}
-            />
-            <WidgetCheckbox
-              id="issueFunnelChart"
-              label="🎯 Issue Funnel"
-              checked={visibility.issueFunnelChart}
-              onCheckedChange={(checked) => handleToggle("issueFunnelChart", checked)}
-            />
-            <WidgetCheckbox
-              id="backlogWaterfallChart"
-              label="💧 Backlog Waterfall"
-              checked={visibility.backlogWaterfallChart}
-              onCheckedChange={(checked) => handleToggle("backlogWaterfallChart", checked)}
-            />
-            <WidgetCheckbox
-              id="moduleTreemap"
-              label="🌳 Module Treemap"
-              checked={visibility.moduleTreemap}
-              onCheckedChange={(checked) => handleToggle("moduleTreemap", checked)}
-            />
-            <WidgetCheckbox
-              id="moduleRadarChart"
-              label="🧭 Module Radar"
-              checked={visibility.moduleRadarChart}
-              onCheckedChange={(checked) => handleToggle("moduleRadarChart", checked)}
-            />
-            <WidgetCheckbox
-              id="kpiBulletChart"
-              label="🎯 KPI Bullet Chart"
-              checked={visibility.kpiBulletChart}
-              onCheckedChange={(checked) => handleToggle("kpiBulletChart", checked)}
-            />
-          </DropdownMenuGroup>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={widgetOrder}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-0.5 px-1">
+                {widgetOrder.map((key) => (
+                  <SortableWidgetItem
+                    key={key}
+                    id={key}
+                    label={WIDGET_LABELS[key]}
+                    checked={visibility[key]}
+                    onCheckedChange={(checked) => handleToggle(key, checked)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-// Custom checkbox item component
-function WidgetCheckbox({ 
-  id, 
+// Sortable widget item component
+function SortableWidgetItem({ 
+  id,
   label, 
   checked, 
   onCheckedChange 
@@ -356,18 +295,50 @@ function WidgetCheckbox({
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   return (
-    <label
-      htmlFor={id}
-      className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm cursor-pointer"
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`
+        flex items-center gap-2 px-2 py-1.5 rounded-sm
+        ${isDragging ? "bg-muted/80 shadow-sm" : "hover:bg-muted/50"}
+      `}
     >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-muted rounded"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
       <Checkbox
         id={id}
         checked={checked}
         onCheckedChange={onCheckedChange}
         className="h-4 w-4"
       />
-      <span className="text-sm">{label}</span>
-    </label>
+      <label
+        htmlFor={id}
+        className="text-sm flex-1 cursor-pointer select-none"
+      >
+        {label}
+      </label>
+    </div>
   );
 }
