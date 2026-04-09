@@ -884,43 +884,44 @@ export default function Home() {
                 )}
 
                 <DialogFooter className="pt-4 border-t">
-                  {connectionStep === "repos" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setConnectionStep("token");
-                        setAvailableRepos([]);
-                        setRepoSearchQuery("");
-                        setSelectedRepos([]);
-                      }}
-                    >
-                      Back
-                    </Button>
-                  )}
-                  <Button
-                    onClick={connectionStep === "token" ? handleTokenSubmit : handleRepoSelectionComplete}
-                    disabled={
-                      connectionStep === "token" 
-                        ? !githubToken || isLoadingRepos 
-                        : selectedRepos.length === 0 || isLoadingIssues
-                    }
-                  >
-                    {isLoadingRepos ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Fetching Repos...
-                      </>
-                    ) : isLoadingIssues ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Fetching Issues...
-                      </>
-                    ) : connectionStep === "token" ? (
-                      "Continue"
-                    ) : (
-                      `Fetch Issues${selectedRepos.length > 0 ? ` (${selectedRepos.length})` : ""}`
-                    )}
-                  </Button>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      {selectedRepos.length} repositories selected
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {connectionStep === "repos" && (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setConnectionStep("token");
+                            setAvailableRepos([]);
+                            setRepoSearchQuery("");
+                            setSelectedRepos([]);
+                          }}
+                        >
+                          Back
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={connectionStep === "token" ? handleTokenSubmit : handleRepoSelectionComplete}
+                        disabled={
+                          connectionStep === "token" 
+                            ? !githubToken || isLoadingRepos 
+                            : selectedRepos.length === 0 || isLoadingIssues
+                        }
+                      >
+                        {isLoadingIssues ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          `Fetch Issues${selectedRepos.length > 0 ? ` (${selectedRepos.length})` : ""}`
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
