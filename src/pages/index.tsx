@@ -6,6 +6,18 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable } from "@/components/IssueTable";
 import { FilterMenu } from "@/components/FilterMenu";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
+import { SmartInsights } from "@/components/analytics/SmartInsights";
+import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
+import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
+import { IssueTrendChart } from "@/components/analytics/IssueTrendChart";
+import { ModuleStabilityScore } from "@/components/analytics/ModuleStabilityScore";
+import {
+  generateSmartInsights,
+  calculateSeverityDistribution,
+  calculateAverageResolutionTime,
+  calculateIssueTrend,
+  calculateModuleStability,
+} from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +63,7 @@ interface GitHubIssue {
   assignee?: string;
   url: string;
   createdAt: string;
+  closedAt?: string;
 }
 
 export default function Home() {
@@ -167,21 +180,18 @@ export default function Home() {
             const actualIssues = repoIssues.filter((item: any) => !item.pull_request);
 
             allFetchedIssues.push(
-              ...actualIssues.map(
-                (issue: any): GitHubIssue => ({
-                  id: String(issue.id),
-                  number: issue.number,
-                  title: issue.title,
-                  status: issue.state === "open" ? "open" : "closed",
-                  repository: repoFullName,
-                  labels: (issue.labels || []).map((l: any) =>
-                    typeof l === "string" ? l : l.name
-                  ),
-                  assignee: issue.assignees?.[0]?.login || issue.assignee?.login,
-                  url: issue.html_url,
-                  createdAt: issue.created_at,
-                })
-              )
+              ...actualIssues.map((issue: any): GitHubIssue => ({
+                id: String(issue.id),
+                number: issue.number,
+                title: issue.title,
+                status: issue.state === "open" ? "open" : "closed",
+                repository: repoFullName,
+                labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
+                assignee: issue.assignees?.[0]?.login || issue.assignee?.login,
+                url: issue.html_url,
+                createdAt: issue.created_at,
+                closedAt: issue.closed_at || undefined,
+              }))
             );
 
             if (repoIssues.length < 100) {
@@ -261,6 +271,16 @@ export default function Home() {
         inProgress: statusCounts.in_progress || 0,
         closed: statusCounts.closed || 0,
       },
+    };
+  }, [filteredIssues]);
+
+  const analytics = useMemo(() => {
+    return {
+      insights: generateSmartInsights(filteredIssues),
+      severities: calculateSeverityDistribution(filteredIssues),
+      resolutionTime: calculateAverageResolutionTime(filteredIssues),
+      trend: calculateIssueTrend(filteredIssues, 30),
+      stability: calculateModuleStability(filteredIssues),
     };
   }, [filteredIssues]);
 
@@ -511,6 +531,13 @@ export default function Home() {
           </Card>
         ) : (
           <>
+            {/* Smart Insights - Top of Dashboard */}
+            {analytics.insights.length > 0 && (
+              <div className="mb-8">
+                <SmartInsights insights={analytics.insights} />
+              </div>
+            )}
+
             <div className="mb-8">
               <DashboardMetrics
                 totalRepos={selectedRepos.length}
@@ -528,6 +555,14 @@ export default function Home() {
                 closed={metrics.statusCounts.closed}
                 total={filteredIssues.length}
               />
+            </div>
+
+            {/* Analytics Widgets Grid */}
+            <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <BugSeverityHeatmap severities={analytics.severities} />
+              <AverageResolutionTime stats={analytics.resolutionTime} />
+              <IssueTrendChart data={analytics.trend} days={30} />
+              <ModuleStabilityScore stability={analytics.stability} />
             </div>
 
             {/* Label Choice Chips */}
