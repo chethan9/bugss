@@ -105,6 +105,32 @@ export function parsePlatform(labels: string[]): string {
   return "other";
 }
 
+export function parseModule(labels: string[]): string {
+  // Look for labels that represent modules/features
+  for (const label of labels) {
+    const lower = label.toLowerCase();
+    if (
+      lower.includes("panel") || 
+      lower.includes("page") || 
+      lower.includes("module") || 
+      lower.includes("feature") ||
+      lower.includes("auth") ||
+      lower.includes("api") ||
+      lower.includes("core")
+    ) {
+      return label;
+    }
+  }
+  
+  // Fallbacks based on common keywords
+  const labelText = labels.join(" ").toLowerCase();
+  if (labelText.includes("ui") || labelText.includes("design") || labelText.includes("frontend")) return "Frontend / UI";
+  if (labelText.includes("backend") || labelText.includes("database") || labelText.includes("server")) return "Backend";
+  if (labelText.includes("auth") || labelText.includes("login")) return "Authentication";
+  
+  return "Other";
+}
+
 // ==========================================
 // Phase 1 Analytics
 // ==========================================
@@ -759,20 +785,20 @@ export function calculateBugHeatmap(issues: GitHubIssue[], days: number = 30): H
   // Count bugs per date per module
   recentIssues.forEach(issue => {
     const dateStr = new Date(issue.createdAt).toISOString().split("T")[0];
-    const module = parseModule(issue.labels) || "Other";
+    const moduleName = parseModule(issue.labels) || "Other";
     
     if (!dateModuleMap.has(dateStr)) {
       dateModuleMap.set(dateStr, new Map());
     }
     
     const moduleMap = dateModuleMap.get(dateStr)!;
-    moduleMap.set(module, (moduleMap.get(module) || 0) + 1);
+    moduleMap.set(moduleName, (moduleMap.get(moduleName) || 0) + 1);
   });
   
   // Convert to array format
   dateModuleMap.forEach((moduleMap, date) => {
-    moduleMap.forEach((count, module) => {
-      heatmapData.push({ date, module, count });
+    moduleMap.forEach((count, moduleName) => {
+      heatmapData.push({ date, module: moduleName, count });
     });
   });
   
