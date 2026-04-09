@@ -19,6 +19,19 @@ import {
 } from "@/components/ui/table";
 import { ExternalLink, Search, X } from "lucide-react";
 
+export interface GitHubIssue {
+  id: string;
+  number: number;
+  title: string;
+  status: "open" | "in_progress" | "closed";
+  repository: string;
+  labels: string[];
+  assignee?: string;
+  url: string;
+  createdAt: string;
+  closedAt?: string;
+}
+
 interface Issue {
   id: string;
   number: number;

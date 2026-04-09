@@ -1,20 +1,34 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { LayoutGrid, GitBranch, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueTable } from "@/components/IssueTable";
-import { FilterMenu } from "@/components/FilterMenu";
+import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
-import { WidgetSettings, DEFAULT_VISIBILITY, type WidgetVisibility } from "@/components/WidgetSettings";
+import { FilterMenu } from "@/components/FilterMenu";
 import { PDFExport } from "@/components/PDFExport";
 import { ReportSettings, DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/components/ReportSettings";
+import { WidgetSettings, DEFAULT_VISIBILITY, type WidgetVisibility } from "@/components/WidgetSettings";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
 import { IssueTrendChart } from "@/components/analytics/IssueTrendChart";
 import { ModuleStabilityScore } from "@/components/analytics/ModuleStabilityScore";
-import { DateRangeFilter, type DateRange } from "@/components/analytics/DateRangeFilter";
+import { DateRangeFilter } from "@/components/analytics/DateRangeFilter";
 import { ReopenedIssuesTracker } from "@/components/analytics/ReopenedIssuesTracker";
 import { BugCategoryBreakdown } from "@/components/analytics/BugCategoryBreakdown";
 import { BugHotspots } from "@/components/analytics/BugHotspots";
@@ -35,6 +49,7 @@ import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallCh
 import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
 import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
 import { BulletChart } from "@/components/analytics/BulletChart";
+import { fetchIssuesFromRepos } from "@/services/githubService";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -64,44 +79,6 @@ import {
   calculateKPIMetrics,
   calculateSparklineData,
 } from "@/services/analyticsService";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  LayoutGrid,
-  Github,
-  RefreshCw,
-  Settings,
-  FolderGit2,
-  Search,
-  AlertCircle,
-  Key,
-  X,
-  LogOut,
-  GitBranch,
-} from "lucide-react";
 
 interface GitHubIssue {
   id: string;
@@ -170,10 +147,20 @@ function clearStoredCredentials() {
 }
 
 export default function Home() {
+  const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [githubToken, setGithubToken] = useState("");
   const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
   const [rememberMe, setRememberMe] = useState(false);
   const [isStoredConnection, setIsStoredConnection] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
+    start: null,
+    end: null,
+  });
+  
+  const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
+  const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [token, setToken] = useState("");
   const [showTokenDialog, setShowTokenDialog] = useState(false);
@@ -186,8 +173,6 @@ export default function Home() {
   const [repoSearchQuery, setRepoSearchQuery] = useState("");
   const [tempSelectedRepos, setTempSelectedRepos] = useState<string[]>([]);
 
-  const [issues, setIssues] = useState<GitHubIssue[]>([]);
-  const [isLoadingIssues, setIsLoadingIssues] = useState(false);
   const [issuesError, setIssuesError] = useState("");
 
   const [filters, setFilters] = useState({
@@ -197,13 +182,7 @@ export default function Home() {
     search: "",
   });
 
-  const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
-  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
-
   const [currentPage, setCurrentPage] = useState(1);
-  const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
-  const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
   const itemsPerPage = 20;
 
   // Load widget visibility preferences from localStorage
@@ -447,8 +426,8 @@ export default function Home() {
     });
 
     // Apply date range filter
-    if (dateRange) {
-      filtered = filterIssuesByDateRange(filtered, dateRange.from, dateRange.to);
+    if (dateRange.start || dateRange.end) {
+      filtered = filterIssuesByDateRange(filtered, dateRange.start, dateRange.end);
     }
 
     return filtered;
