@@ -74,6 +74,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Pagination,
@@ -97,6 +99,8 @@ import {
   AlertCircle,
   Key,
   X,
+  LogOut,
+  GitBranch,
 } from "lucide-react";
 
 interface GitHubIssue {
@@ -112,7 +116,65 @@ interface GitHubIssue {
   closedAt?: string;
 }
 
+// ==========================================
+// Token Storage Utilities (Security: localStorage)
+// ==========================================
+
+const STORAGE_KEYS = {
+  TOKEN: "github_token_encoded",
+  REPOS: "github_selected_repos",
+  REMEMBER: "github_remember_me",
+} as const;
+
+function saveTokenToStorage(token: string, repos: string[], remember: boolean) {
+  if (!remember) {
+    clearStoredCredentials();
+    return;
+  }
+  
+  try {
+    // Base64 encode for basic obfuscation (NOT encryption)
+    const encodedToken = btoa(token);
+    localStorage.setItem(STORAGE_KEYS.TOKEN, encodedToken);
+    localStorage.setItem(STORAGE_KEYS.REPOS, JSON.stringify(repos));
+    localStorage.setItem(STORAGE_KEYS.REMEMBER, "true");
+  } catch (error) {
+    console.error("Failed to save credentials:", error);
+  }
+}
+
+function loadTokenFromStorage(): { token: string; repos: string[] } | null {
+  try {
+    const remember = localStorage.getItem(STORAGE_KEYS.REMEMBER);
+    if (remember !== "true") return null;
+    
+    const encodedToken = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const reposJson = localStorage.getItem(STORAGE_KEYS.REPOS);
+    
+    if (!encodedToken || !reposJson) return null;
+    
+    const token = atob(encodedToken);
+    const repos = JSON.parse(reposJson);
+    
+    return { token, repos };
+  } catch (error) {
+    console.error("Failed to load credentials:", error);
+    return null;
+  }
+}
+
+function clearStoredCredentials() {
+  localStorage.removeItem(STORAGE_KEYS.TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.REPOS);
+  localStorage.removeItem(STORAGE_KEYS.REMEMBER);
+}
+
 export default function Home() {
+  const [githubToken, setGithubToken] = useState("");
+  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isStoredConnection, setIsStoredConnection] = useState(false);
+
   const [token, setToken] = useState("");
   const [showTokenDialog, setShowTokenDialog] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
@@ -120,7 +182,6 @@ export default function Home() {
   const [tokenError, setTokenError] = useState("");
 
   const [allRepositories, setAllRepositories] = useState<any[]>([]);
-  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
   const [showRepoDialog, setShowRepoDialog] = useState(false);
   const [repoSearchQuery, setRepoSearchQuery] = useState("");
   const [tempSelectedRepos, setTempSelectedRepos] = useState<string[]>([]);
@@ -178,14 +239,62 @@ export default function Home() {
     localStorage.setItem("reportConfig", JSON.stringify(newConfig));
   };
 
+  // Auto-connect on mount if credentials stored
   useEffect(() => {
-    const savedToken = localStorage.getItem("github_token");
-    if (savedToken) {
-      setToken(savedToken);
-    } else {
-      setShowTokenDialog(true);
+    const stored = loadTokenFromStorage();
+    if (stored) {
+      setGithubToken(stored.token);
+      setSelectedRepos(stored.repos);
+      setIsStoredConnection(true);
+      
+      // Auto-fetch issues
+      if (stored.token && stored.repos.length > 0) {
+        handleFetchIssues(stored.token, stored.repos);
+      }
     }
   }, []);
+
+  const handleFetchIssues = async (token?: string, repos?: string[]) => {
+    const tokenToUse = token || githubToken;
+    const reposToUse = repos || selectedRepos;
+    
+    if (!tokenToUse || reposToUse.length === 0) {
+      alert("Please provide a GitHub token and select repositories");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const allIssues = await fetchIssuesFromRepos(tokenToUse, reposToUse);
+      setIssues(allIssues);
+      
+      // Save to storage if "Remember me" is checked
+      if (rememberMe && !token) {
+        saveTokenToStorage(tokenToUse, reposToUse, true);
+        setIsStoredConnection(true);
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch issues:", error);
+      alert(`Error: ${error.message}`);
+      
+      // Clear stored credentials if token is invalid
+      if (error.message.includes("401") || error.message.includes("Bad credentials")) {
+        clearStoredCredentials();
+        setIsStoredConnection(false);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    setGithubToken("");
+    setSelectedRepos([]);
+    setIssues([]);
+    clearStoredCredentials();
+    setIsStoredConnection(false);
+    setRememberMe(false);
+  };
 
   const handleTokenSave = async () => {
     if (!tokenInput.trim()) {
@@ -444,49 +553,122 @@ export default function Home() {
                   visibility={widgetVisibility}
                   onVisibilityChange={handleVisibilityChange}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowRepoDialog(true)}
-                  className="gap-2"
-                >
-                  <FolderGit2 className="h-4 w-4" />
-                  Manage Repos
-                  <Badge variant="secondary" className="ml-1 bg-primary/10 text-primary">
-                    {selectedRepos.length}
-                  </Badge>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchSelectedIssues()}
-                  disabled={isLoadingIssues}
-                  className="gap-2"
-                >
-                  {isLoadingIssues ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  Refresh
-                </Button>
               </>
             )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowTokenDialog(true)}
-              className="gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Change Token
-            </Button>
             
-            <DateRangeFilter 
-              dateRange={dateRange} 
-              onDateRangeChange={setDateRange}
-            />
+            <ThemeSwitch />
+            
+            {selectedRepos.length > 0 ? (
+              <div className="flex items-center gap-2">
+                {isStoredConnection && (
+                  <Badge variant="outline" className="text-xs">
+                    🔓 Stored
+                  </Badge>
+                )}
+                <Button
+                  onClick={handleDisconnect}
+                  variant="outline"
+                  size="sm"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="default">
+                    <GitBranch className="h-4 w-4 mr-2" />
+                    Connect GitHub
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px]">
+                  <DialogHeader>
+                    <DialogTitle>Connect to GitHub</DialogTitle>
+                    <DialogDescription>
+                      Enter your GitHub personal access token and select repositories to analyze.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <label htmlFor="token" className="text-sm font-medium">
+                        GitHub Personal Access Token
+                      </label>
+                      <Input
+                        id="token"
+                        type="password"
+                        placeholder="ghp_xxxxxxxxxxxx"
+                        value={githubToken}
+                        onChange={(e) => setGithubToken(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Create a token at{" "}
+                        <a
+                          href="https://github.com/settings/tokens"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          GitHub Settings → Developer settings → Personal access tokens
+                        </a>
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="repos" className="text-sm font-medium">
+                        Repository Names (comma-separated)
+                      </label>
+                      <Input
+                        id="repos"
+                        placeholder="owner/repo1, owner/repo2"
+                        value={selectedRepos.join(", ")}
+                        onChange={(e) =>
+                          setSelectedRepos(
+                            e.target.value
+                              .split(",")
+                              .map((r) => r.trim())
+                              .filter(Boolean)
+                          )
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Example: facebook/react, vercel/next.js
+                      </p>
+                    </div>
+
+                    <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
+                      <div className="flex items-center h-5">
+                        <input
+                          type="checkbox"
+                          id="remember"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
+                          Remember me (store token locally)
+                        </label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      onClick={() => handleFetchIssues()}
+                      disabled={!githubToken || selectedRepos.length === 0}
+                    >
+                      Connect & Fetch Issues
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
       </header>
