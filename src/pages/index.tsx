@@ -192,7 +192,7 @@ export default function Home() {
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const [widgetsPerRow, setWidgetsPerRow] = useState(2);
-  const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(["repositoryFilter", ...DEFAULT_WIDGET_ORDER]);
+  const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [user, setUser] = useState<any>(null);
@@ -214,7 +214,7 @@ export default function Home() {
   });
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 50;
 
   // Auth check and settings loading
   useEffect(() => {
