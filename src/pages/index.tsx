@@ -179,6 +179,7 @@ export default function Home() {
   const [repoSearchQuery, setRepoSearchQuery] = useState("");
   const [connectionStep, setConnectionStep] = useState<"token" | "repos">("token");
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
+  const [dialogSelectedRepos, setDialogSelectedRepos] = useState<string[]>([]);
   
   // Log whenever dialog state changes
   useEffect(() => {
@@ -488,6 +489,7 @@ export default function Home() {
       setConnectionStep("repos");
       setToken(cleanToken);
       setGithubToken(cleanToken);
+      setDialogSelectedRepos([...selectedRepos]); // Initialize with current selection
     } catch (error: any) {
       console.error("Failed to fetch repositories:", error);
       
@@ -505,10 +507,10 @@ export default function Home() {
 
   const handleRepoSelectionComplete = async () => {
     console.log("🔴 handleRepoSelectionComplete called");
-    console.log("🔴 selectedRepos:", selectedRepos);
+    console.log("🔴 dialogSelectedRepos:", dialogSelectedRepos);
     console.log("🔴 token:", token ? "present" : "MISSING");
     
-    if (selectedRepos.length === 0) {
+    if (dialogSelectedRepos.length === 0) {
       alert("Please select at least one repository");
       return;
     }
@@ -516,21 +518,24 @@ export default function Home() {
     setLoading(true);
     setIsLoadingIssues(true);
     try {
+      // Apply the dialog selection to main state
+      setSelectedRepos(dialogSelectedRepos);
+      
       console.log("🔴 Calling fetchSelectedIssues...");
-      await fetchSelectedIssues(selectedRepos, token);
+      await fetchSelectedIssues(dialogSelectedRepos, token);
       console.log("🔴 fetchSelectedIssues completed");
       
       // Save token and repos to Supabase for persistence
       if (user) {
         await saveUserSettings(user.id, {
           github_token: token,
-          selected_repos: selectedRepos,
+          selected_repos: dialogSelectedRepos,
         });
         console.log("🔴 Saved token and repos to Supabase");
       }
       
       if (rememberMe) {
-        saveTokenToStorage(githubToken, selectedRepos, true);
+        saveTokenToStorage(githubToken, dialogSelectedRepos, true);
         setIsStoredConnection(true);
       }
       
@@ -561,11 +566,11 @@ export default function Home() {
 
   const toggleRepoSelection = (repoFullName: string) => {
     console.log("🔵 toggleRepoSelection called for:", repoFullName);
-    setSelectedRepos(prev => {
+    setDialogSelectedRepos(prev => {
       const newSelection = prev.includes(repoFullName)
         ? prev.filter(r => r !== repoFullName)
         : [...prev, repoFullName];
-      console.log("🔵 New selection:", newSelection);
+      console.log("🔵 New dialog selection:", newSelection);
       return newSelection;
     });
   };
@@ -573,7 +578,7 @@ export default function Home() {
   const selectAllFilteredRepos = () => {
     console.log("🔵 selectAllFilteredRepos called");
     const allFilteredNames = filteredRepos.map(r => r.full_name);
-    setSelectedRepos(prev => {
+    setDialogSelectedRepos(prev => {
       const newSet = new Set([...prev, ...allFilteredNames]);
       return Array.from(newSet);
     });
@@ -581,7 +586,7 @@ export default function Home() {
 
   const deselectAllRepos = () => {
     console.log("🔵 deselectAllRepos called");
-    setSelectedRepos([]);
+    setDialogSelectedRepos([]);
   };
 
   const handleManageRepositories = async () => {
@@ -590,11 +595,13 @@ export default function Home() {
     if (!tokenToUse) {
       // No token - show token entry screen
       setConnectionStep("token");
+      setDialogSelectedRepos([]);
       setShowConnectionDialog(true);
       return;
     }
 
     // Token exists - go directly to repo selection
+    setDialogSelectedRepos([...selectedRepos]); // Initialize with current selection
     setShowConnectionDialog(true);
     setIsLoadingRepos(true);
     setConnectionStep("repos");
@@ -1377,7 +1384,7 @@ export default function Home() {
             <DialogDescription>
               {connectionStep === "token" 
                 ? "Enter your GitHub Personal Access Token to connect your repositories."
-                : `Select repositories to track (${selectedRepos.length} selected)`
+                : `Select repositories to track (${dialogSelectedRepos.length} selected)`
               }
             </DialogDescription>
           </DialogHeader>
@@ -1470,7 +1477,7 @@ export default function Home() {
                         className="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer transition-colors"
                       >
                         <Checkbox
-                          checked={selectedRepos.includes(repo.full_name)}
+                          checked={dialogSelectedRepos.includes(repo.full_name)}
                           onCheckedChange={() => toggleRepoSelection(repo.full_name)}
                           className="mt-0.5"
                         />
@@ -1529,7 +1536,7 @@ export default function Home() {
                 </Button>
                 <Button 
                   onClick={handleRepoSelectionComplete}
-                  disabled={selectedRepos.length === 0 || loading}
+                  disabled={dialogSelectedRepos.length === 0 || loading}
                 >
                   {loading ? (
                     <>
@@ -1538,7 +1545,7 @@ export default function Home() {
                     </>
                   ) : (
                     <>
-                      Fetch Issues ({selectedRepos.length})
+                      Fetch Issues ({dialogSelectedRepos.length})
                     </>
                   )}
                 </Button>
