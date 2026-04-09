@@ -52,6 +52,10 @@ export default function ProfilePage() {
   const [githubToken, setGithubToken] = useState("");
   const [hasGithubToken, setHasGithubToken] = useState(false);
   const [isGithubOAuth, setIsGithubOAuth] = useState(false);
+  
+  // Branding settings
+  const [appName, setAppName] = useState("FixFlix");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -69,10 +73,16 @@ export default function ProfilePage() {
         const isOAuth = session.user.app_metadata?.provider === "github";
         setIsGithubOAuth(isOAuth);
         
-        // Load settings to check for GitHub token
+        // Load settings to check for GitHub token and branding
         const settings = await getUserSettings(session.user.id);
         if (settings?.github_token) {
           setHasGithubToken(true);
+        }
+        if (settings?.app_name) {
+          setAppName(settings.app_name);
+        }
+        if (settings?.logo_url) {
+          setLogoUrl(settings.logo_url);
         }
       } catch (error) {
         console.error("Auth error:", error);
@@ -170,6 +180,25 @@ export default function ProfilePage() {
       setMessage({ type: "success", text: "GitHub token removed" });
     } catch (error: any) {
       setMessage({ type: "error", text: error.message || "Failed to remove GitHub token" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveBranding = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    setMessage(null);
+    
+    try {
+      await saveUserSettings(user.id, { 
+        app_name: appName,
+        logo_url: logoUrl 
+      });
+      setMessage({ type: "success", text: "Branding updated successfully" });
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to update branding" });
     } finally {
       setIsSaving(false);
     }
@@ -411,6 +440,66 @@ export default function ProfilePage() {
                     </a>
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Branding Customization */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bug className="h-5 w-5" />
+                  Branding Customization
+                </CardTitle>
+                <CardDescription>
+                  Customize the app name and logo for your dashboard
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="appName">App Name</Label>
+                  <Input
+                    id="appName"
+                    value={appName}
+                    onChange={(e) => setAppName(e.target.value)}
+                    placeholder="FixFlix"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The name displayed in the header and login page
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="logoUrl">Custom Logo URL</Label>
+                  <Input
+                    id="logoUrl"
+                    value={logoUrl || ""}
+                    onChange={(e) => setLogoUrl(e.target.value || null)}
+                    placeholder="https://example.com/logo.png"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to use the default bug icon. Recommended size: 32x32px
+                  </p>
+                </div>
+                
+                {logoUrl && (
+                  <div className="flex items-center gap-4 p-3 border rounded-lg bg-muted/50">
+                    <span className="text-sm text-muted-foreground">Preview:</span>
+                    <img 
+                      src={logoUrl} 
+                      alt="Logo preview" 
+                      className="h-8 w-8 object-contain rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                    <span className="font-bold">{appName}</span>
+                  </div>
+                )}
+                
+                <Button onClick={handleSaveBranding} disabled={isSaving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? "Saving..." : "Save Branding"}
+                </Button>
               </CardContent>
             </Card>
 
