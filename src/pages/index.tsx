@@ -46,6 +46,7 @@ import { ReportSettings, DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/comp
 import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
+import { DataFetchingLoader } from "@/components/LoadingSpinner";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
@@ -1156,378 +1157,386 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <Masonry
-              breakpointCols={{
-                default: widgetsPerRow,
-                1280: Math.min(widgetsPerRow, 3),
-                1024: Math.min(widgetsPerRow, 2),
-                768: 1
-              }}
-              className="flex -ml-6 w-auto"
-              columnClassName="pl-6 bg-clip-padding"
-              id="analytics-widgets-section"
-            >
-              {widgetOrder.map((widgetKey) => {
-                if (!widgetVisibility[widgetKey]) return null;
-                
-                switch (widgetKey) {
-                  case "smartInsights":
-                    return analytics.insights.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <SmartInsights insights={analytics.insights} />
-                      </div>
-                    ) : null;
-                  case "summaryMetrics":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <DashboardMetrics
-                          totalRepos={selectedRepos.length}
-                          totalIssues={filteredIssues.length}
-                          openIssues={metrics.statusCounts.open}
-                          inProgressIssues={metrics.statusCounts.inProgress || 0}
-                          closedIssues={metrics.statusCounts.closed}
-                          openSparkline={analytics.sparklines.open}
-                          closedSparkline={analytics.sparklines.closed}
-                          createdSparkline={analytics.sparklines.created}
-                        />
-                      </div>
-                    );
-                  case "progressBar":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <ProgressBar
-                          open={metrics.statusCounts.open}
-                          inProgress={metrics.statusCounts.inProgress || 0}
-                          closed={metrics.statusCounts.closed}
-                          total={filteredIssues.length}
-                        />
-                      </div>
-                    );
-                  case "severityHeatmap":
-                    return Object.values(analytics.severities).some(v => v > 0) ? (
-                      <div key={widgetKey} className="mb-6">
-                        <BugSeverityHeatmap severities={analytics.severities} />
-                      </div>
-                    ) : null;
-                  case "resolutionTime":
-                    return analytics.resolutionTime.overall > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <AverageResolutionTime stats={analytics.resolutionTime} />
-                      </div>
-                    ) : null;
-                  case "trendChart":
-                    return analytics.trend.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <IssueTrendChart data={analytics.trend} days={30} />
-                      </div>
-                    ) : null;
-                  case "moduleStability":
-                    return analytics.stability.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <ModuleStabilityScore stability={analytics.stability} />
-                      </div>
-                    ) : null;
-                  case "reopenedIssues":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <ReopenedIssuesTracker stats={analytics.reopened} />
-                      </div>
-                    );
-                  case "categoryBreakdown":
-                    return Object.values(analytics.categories).some(v => v > 0) ? (
-                      <div key={widgetKey} className="mb-6">
-                        <BugCategoryBreakdown categories={analytics.categories} />
-                      </div>
-                    ) : null;
-                  case "bugHotspots":
-                    return analytics.hotspots.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <BugHotspots hotspots={analytics.hotspots} />
-                      </div>
-                    ) : null;
-                  case "atRiskRelease":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <AtRiskRelease stats={analytics.atRiskRelease} />
-                      </div>
-                    );
-                  case "agingIssues":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <AgingIssues stats={analytics.agingIssues} />
-                      </div>
-                    );
-                  case "criticalUntouched":
-                    return analytics.criticalUntouched.issues.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <CriticalUntouched stats={analytics.criticalUntouched} />
-                      </div>
-                    ) : null;
-                  case "backlogGrowth":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <BacklogGrowth stats={analytics.backlogGrowth} />
-                      </div>
-                    );
-                  case "bugFixEfficiency":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <BugFixEfficiency stats={analytics.bugFixEfficiency} />
-                      </div>
-                    );
-                  case "repeatBugDetector":
-                    return analytics.repeatBugs.topRepeatingLabels.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <RepeatBugDetector stats={analytics.repeatBugs} />
-                      </div>
-                    ) : null;
-                  case "developerLoad":
-                    return analytics.developerLoad.developers.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <DeveloperLoad stats={analytics.developerLoad} />
-                      </div>
-                    ) : null;
-                  case "focusRecommendations":
-                    return analytics.focusRecommendations.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <FocusRecommendations recommendations={analytics.focusRecommendations} />
-                      </div>
-                    ) : null;
-                  case "bugHeatmap":
-                    return analytics.bugHeatmap.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <BugHeatmap data={analytics.bugHeatmap} />
-                      </div>
-                    ) : null;
-                  case "resolutionHistogram":
-                    return analytics.resolutionHistogram.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <ResolutionHistogram data={analytics.resolutionHistogram} />
-                      </div>
-                    ) : null;
-                  case "priorityScatterPlot":
-                    return analytics.priorityScatter.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <PriorityScatterPlot data={analytics.priorityScatter} />
-                      </div>
-                    ) : null;
-                  case "stackedAreaChart":
-                    return analytics.stackedAreaData.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <StackedAreaChart data={analytics.stackedAreaData} />
-                      </div>
-                    ) : null;
-                  case "issueFunnelChart":
-                    return analytics.issueFunnel.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <IssueFunnelChart stages={analytics.issueFunnel} />
-                      </div>
-                    ) : null;
-                  case "backlogWaterfallChart":
-                    return analytics.backlogWaterfall.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <BacklogWaterfallChart data={analytics.backlogWaterfall} />
-                      </div>
-                    ) : null;
-                  case "moduleTreemap":
-                    return analytics.moduleTreemap.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <ModuleTreemap data={analytics.moduleTreemap} />
-                      </div>
-                    ) : null;
-                  case "moduleRadarChart":
-                    return analytics.moduleRadar.length > 0 ? (
-                      <div key={widgetKey} className="mb-6">
-                        <ModuleRadarChart data={analytics.moduleRadar} />
-                      </div>
-                    ) : null;
-                  case "kpiBulletChart":
-                    return (
-                      <div key={widgetKey} className="mb-6">
-                        <BulletChart metrics={analytics.kpiMetrics} />
-                      </div>
-                    );
-                  default:
-                    return null;
-                }
-              })}
-            </Masonry>
+            {isLoadingIssues ? (
+              <DataFetchingLoader 
+                repoCount={selectedRepos.length}
+              />
+            ) : (
+              <>
+                <Masonry
+                  breakpointCols={{
+                    default: widgetsPerRow,
+                    1280: Math.min(widgetsPerRow, 3),
+                    1024: Math.min(widgetsPerRow, 2),
+                    768: 1
+                  }}
+                  className="flex -ml-6 w-auto"
+                  columnClassName="pl-6 bg-clip-padding"
+                  id="analytics-widgets-section"
+                >
+                  {widgetOrder.map((widgetKey) => {
+                    if (!widgetVisibility[widgetKey]) return null;
+                    
+                    switch (widgetKey) {
+                      case "smartInsights":
+                        return analytics.insights.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <SmartInsights insights={analytics.insights} />
+                          </div>
+                        ) : null;
+                      case "summaryMetrics":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <DashboardMetrics
+                              totalRepos={selectedRepos.length}
+                              totalIssues={filteredIssues.length}
+                              openIssues={metrics.statusCounts.open}
+                              inProgressIssues={metrics.statusCounts.inProgress || 0}
+                              closedIssues={metrics.statusCounts.closed}
+                              openSparkline={analytics.sparklines.open}
+                              closedSparkline={analytics.sparklines.closed}
+                              createdSparkline={analytics.sparklines.created}
+                            />
+                          </div>
+                        );
+                      case "progressBar":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <ProgressBar
+                              open={metrics.statusCounts.open}
+                              inProgress={metrics.statusCounts.inProgress || 0}
+                              closed={metrics.statusCounts.closed}
+                              total={filteredIssues.length}
+                            />
+                          </div>
+                        );
+                      case "severityHeatmap":
+                        return Object.values(analytics.severities).some(v => v > 0) ? (
+                          <div key={widgetKey} className="mb-6">
+                            <BugSeverityHeatmap severities={analytics.severities} />
+                          </div>
+                        ) : null;
+                      case "resolutionTime":
+                        return analytics.resolutionTime.overall > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <AverageResolutionTime stats={analytics.resolutionTime} />
+                          </div>
+                        ) : null;
+                      case "trendChart":
+                        return analytics.trend.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <IssueTrendChart data={analytics.trend} days={30} />
+                          </div>
+                        ) : null;
+                      case "moduleStability":
+                        return analytics.stability.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <ModuleStabilityScore stability={analytics.stability} />
+                          </div>
+                        ) : null;
+                      case "reopenedIssues":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <ReopenedIssuesTracker stats={analytics.reopened} />
+                          </div>
+                        );
+                      case "categoryBreakdown":
+                        return Object.values(analytics.categories).some(v => v > 0) ? (
+                          <div key={widgetKey} className="mb-6">
+                            <BugCategoryBreakdown categories={analytics.categories} />
+                          </div>
+                        ) : null;
+                      case "bugHotspots":
+                        return analytics.hotspots.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <BugHotspots hotspots={analytics.hotspots} />
+                          </div>
+                        ) : null;
+                      case "atRiskRelease":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <AtRiskRelease stats={analytics.atRiskRelease} />
+                          </div>
+                        );
+                      case "agingIssues":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <AgingIssues stats={analytics.agingIssues} />
+                          </div>
+                        );
+                      case "criticalUntouched":
+                        return analytics.criticalUntouched.issues.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <CriticalUntouched stats={analytics.criticalUntouched} />
+                          </div>
+                        ) : null;
+                      case "backlogGrowth":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <BacklogGrowth stats={analytics.backlogGrowth} />
+                          </div>
+                        );
+                      case "bugFixEfficiency":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <BugFixEfficiency stats={analytics.bugFixEfficiency} />
+                          </div>
+                        );
+                      case "repeatBugDetector":
+                        return analytics.repeatBugs.topRepeatingLabels.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <RepeatBugDetector stats={analytics.repeatBugs} />
+                          </div>
+                        ) : null;
+                      case "developerLoad":
+                        return analytics.developerLoad.developers.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <DeveloperLoad stats={analytics.developerLoad} />
+                          </div>
+                        ) : null;
+                      case "focusRecommendations":
+                        return analytics.focusRecommendations.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <FocusRecommendations recommendations={analytics.focusRecommendations} />
+                          </div>
+                        ) : null;
+                      case "bugHeatmap":
+                        return analytics.bugHeatmap.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <BugHeatmap data={analytics.bugHeatmap} />
+                          </div>
+                        ) : null;
+                      case "resolutionHistogram":
+                        return analytics.resolutionHistogram.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <ResolutionHistogram data={analytics.resolutionHistogram} />
+                          </div>
+                        ) : null;
+                      case "priorityScatterPlot":
+                        return analytics.priorityScatter.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <PriorityScatterPlot data={analytics.priorityScatter} />
+                          </div>
+                        ) : null;
+                      case "stackedAreaChart":
+                        return analytics.stackedAreaData.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <StackedAreaChart data={analytics.stackedAreaData} />
+                          </div>
+                        ) : null;
+                      case "issueFunnelChart":
+                        return analytics.issueFunnel.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <IssueFunnelChart stages={analytics.issueFunnel} />
+                          </div>
+                        ) : null;
+                      case "backlogWaterfallChart":
+                        return analytics.backlogWaterfall.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <BacklogWaterfallChart data={analytics.backlogWaterfall} />
+                          </div>
+                        ) : null;
+                      case "moduleTreemap":
+                        return analytics.moduleTreemap.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <ModuleTreemap data={analytics.moduleTreemap} />
+                          </div>
+                        ) : null;
+                      case "moduleRadarChart":
+                        return analytics.moduleRadar.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <ModuleRadarChart data={analytics.moduleRadar} />
+                          </div>
+                        ) : null;
+                      case "kpiBulletChart":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <BulletChart metrics={analytics.kpiMetrics} />
+                          </div>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
+                </Masonry>
 
-            {availableLabels.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold">Issues</h3>
-                    <span className="text-sm text-muted-foreground">
-                      Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
-                    </span>
-                  </div>
-                  {filters.labels.length > 0 && (
-                    <button
-                      onClick={() => setFilters({ ...filters, labels: [] })}
-                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      Clear labels
-                    </button>
-                  )}
-                </div>
-                {(() => {
-                  // Calculate label counts
-                  const labelCounts = new Map<string, number>();
-                  filteredIssues.forEach((issue) => {
-                    issue.labels.forEach((label) => {
-                      labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
-                    });
-                  });
-                  
-                  // Sort by count and get top labels
-                  const sortedLabels = availableLabels
-                    .map((label) => ({ label, count: labelCounts.get(label) || 0 }))
-                    .sort((a, b) => b.count - a.count);
-                  
-                  const top7Labels = sortedLabels.slice(0, 7);
-                  const remainingLabels = sortedLabels.slice(7);
-                  const hasMore = remainingLabels.length > 0;
-                  
-                  return (
-                    <div className="flex gap-2 flex-wrap">
-                      {top7Labels.map(({ label, count }) => (
+                {availableLabels.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold">Issues</h3>
+                        <span className="text-sm text-muted-foreground">
+                          Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
+                        </span>
+                      </div>
+                      {filters.labels.length > 0 && (
                         <button
-                          key={label}
-                          onClick={() => {
-                            if (filters.labels.includes(label)) {
-                              setFilters({
-                                ...filters,
-                                labels: filters.labels.filter((l) => l !== label),
-                              });
-                            } else {
-                              setFilters({
-                                ...filters,
-                                labels: [...filters.labels, label],
-                              });
-                            }
-                          }}
-                          className={`
-                            px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
-                            transition-all duration-200 flex items-center gap-1.5
-                            ${filters.labels.includes(label)
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                            }
-                          `}
+                          onClick={() => setFilters({ ...filters, labels: [] })}
+                          className="text-xs text-muted-foreground hover:text-primary transition-colors"
                         >
-                          {label}
-                          <span className={`
-                            text-[10px] px-1.5 py-0.5 rounded-full
-                            ${filters.labels.includes(label)
-                              ? "bg-primary-foreground/20 text-primary-foreground"
-                              : "bg-background text-muted-foreground"
-                            }
-                          `}>
-                            {count}
-                          </span>
+                          Clear labels
                         </button>
-                      ))}
-                      
-                      {hasMore && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
-                                bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground
-                                transition-all duration-200 flex items-center gap-1"
-                            >
-                              +{remainingLabels.length} more
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
-                            <div className="p-2">
-                              <div className="text-xs font-medium text-muted-foreground mb-2">
-                                All Labels ({sortedLabels.length})
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {sortedLabels.map(({ label, count }) => (
-                                  <button
-                                    key={label}
-                                    onClick={() => {
-                                      if (filters.labels.includes(label)) {
-                                        setFilters({
-                                          ...filters,
-                                          labels: filters.labels.filter((l) => l !== label),
-                                        });
-                                      } else {
-                                        setFilters({
-                                          ...filters,
-                                          labels: [...filters.labels, label],
-                                        });
-                                      }
-                                    }}
-                                    className={`
-                                      px-2 py-1 text-xs rounded flex items-center gap-1
-                                      ${filters.labels.includes(label)
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted hover:bg-muted/80"
-                                      }
-                                    `}
-                                  >
-                                    {label}
-                                    <span className="text-[10px] opacity-70">({count})</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       )}
                     </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            {issuesError && (
-              <div className="mb-6 border-l-4 border-red-500 bg-red-50 p-4 rounded-r-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    <p className="text-sm text-red-600">{issuesError}</p>
+                    {(() => {
+                      // Calculate label counts
+                      const labelCounts = new Map<string, number>();
+                      filteredIssues.forEach((issue) => {
+                        issue.labels.forEach((label) => {
+                          labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+                        });
+                      });
+                      
+                      // Sort by count and get top labels
+                      const sortedLabels = availableLabels
+                        .map((label) => ({ label, count: labelCounts.get(label) || 0 }))
+                        .sort((a, b) => b.count - a.count);
+                      
+                      const top7Labels = sortedLabels.slice(0, 7);
+                      const remainingLabels = sortedLabels.slice(7);
+                      const hasMore = remainingLabels.length > 0;
+                      
+                      return (
+                        <div className="flex gap-2 flex-wrap">
+                          {top7Labels.map(({ label, count }) => (
+                            <button
+                              key={label}
+                              onClick={() => {
+                                if (filters.labels.includes(label)) {
+                                  setFilters({
+                                    ...filters,
+                                    labels: filters.labels.filter((l) => l !== label),
+                                  });
+                                } else {
+                                  setFilters({
+                                    ...filters,
+                                    labels: [...filters.labels, label],
+                                  });
+                                }
+                              }}
+                              className={`
+                                px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
+                                transition-all duration-200 flex items-center gap-1.5
+                                ${filters.labels.includes(label)
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                }
+                              `}
+                            >
+                              {label}
+                              <span className={`
+                                text-[10px] px-1.5 py-0.5 rounded-full
+                                ${filters.labels.includes(label)
+                                  ? "bg-primary-foreground/20 text-primary-foreground"
+                                  : "bg-background text-muted-foreground"
+                                }
+                              `}>
+                                {count}
+                              </span>
+                            </button>
+                          ))}
+                          
+                          {hasMore && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
+                                    bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground
+                                    transition-all duration-200 flex items-center gap-1"
+                                >
+                                  +{remainingLabels.length} more
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
+                                <div className="p-2">
+                                  <div className="text-xs font-medium text-muted-foreground mb-2">
+                                    All Labels ({sortedLabels.length})
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {sortedLabels.map(({ label, count }) => (
+                                      <button
+                                        key={label}
+                                        onClick={() => {
+                                          if (filters.labels.includes(label)) {
+                                            setFilters({
+                                              ...filters,
+                                              labels: filters.labels.filter((l) => l !== label),
+                                            });
+                                          } else {
+                                            setFilters({
+                                              ...filters,
+                                              labels: [...filters.labels, label],
+                                            });
+                                          }
+                                        }}
+                                        className={`
+                                          px-2 py-1 text-xs rounded flex items-center gap-1
+                                          ${filters.labels.includes(label)
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-muted hover:bg-muted/80"
+                                          }
+                                        `}
+                                      >
+                                        {label}
+                                        <span className="text-[10px] opacity-70">({count})</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <button
-                    onClick={() => setIssuesError("")}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+                )}
 
-            <div id="issue-table-section">
-              <div className="flex items-center justify-end mb-4">
-                <div className="relative w-80">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search issues..."
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className="pl-9"
+                {issuesError && (
+                  <div className="mb-6 border-l-4 border-red-500 bg-red-50 p-4 rounded-r-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <p className="text-sm text-red-600">{issuesError}</p>
+                      </div>
+                      <button
+                        onClick={() => setIssuesError("")}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div id="issue-table-section">
+                  <div className="flex items-center justify-end mb-4">
+                    <div className="relative w-80">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search issues..."
+                        value={filters.search}
+                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <IssueTable issues={paginatedIssues} onIssueClick={handleIssueClick} />
+                  </div>
+                </div>
+
+                {selectedIssue && (
+                  <IssueDetailsModal
+                    isOpen={isIssueModalOpen}
+                    onClose={() => setIsIssueModalOpen(false)}
+                    issueNumber={selectedIssue.number}
+                    repository={selectedIssue.repository}
+                    token={token}
                   />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <IssueTable issues={paginatedIssues} onIssueClick={handleIssueClick} />
-              </div>
-            </div>
-
-            {selectedIssue && (
-              <IssueDetailsModal
-                isOpen={isIssueModalOpen}
-                onClose={() => setIsIssueModalOpen(false)}
-                issueNumber={selectedIssue.number}
-                repository={selectedIssue.repository}
-                token={token}
-              />
+                )}
+              </>
             )}
           </>
         )}
