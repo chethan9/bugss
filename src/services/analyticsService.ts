@@ -1166,3 +1166,133 @@ export function calculateModuleRadarData(issues: GitHubIssue[], topN: number = 5
     .sort((a, b) => b.bugCount - a.bugCount)
     .slice(0, topN);
 }
+
+// ==========================================
+// Phase 4D - Executive Metrics: Bullet Charts & Sparklines
+// ==========================================
+
+export interface BulletChartMetric {
+  label: string;
+  actual: number;
+  target: number;
+  poor: number;
+  satisfactory: number;
+  good: number;
+  unit: string;
+  status: "excellent" | "good" | "warning" | "poor";
+}
+
+export function calculateKPIMetrics(issues: GitHubIssue[]): BulletChartMetric[] {
+  const resolutionTimeStats = calculateAverageResolutionTime(issues);
+  const efficiencyStats = calculateBugFixEfficiency(issues, 30);
+  const atRiskStats = calculateAtRiskRelease(issues);
+  
+  const metrics: BulletChartMetric[] = [];
+  
+  // 1. Average Resolution Time (target: ≤48 hours)
+  const actualResolutionHours = resolutionTimeStats.averageHours;
+  let resolutionStatus: "excellent" | "good" | "warning" | "poor" = "poor";
+  if (actualResolutionHours <= 24) resolutionStatus = "excellent";
+  else if (actualResolutionHours <= 48) resolutionStatus = "good";
+  else if (actualResolutionHours <= 72) resolutionStatus = "warning";
+  
+  metrics.push({
+    label: "Avg Resolution Time",
+    actual: actualResolutionHours,
+    target: 48,
+    poor: 96,
+    satisfactory: 72,
+    good: 48,
+    unit: "hours",
+    status: resolutionStatus,
+  });
+  
+  // 2. Bug Fix Efficiency (target: ≥1.0 ratio)
+  const actualRatio = efficiencyStats.ratio;
+  let efficiencyStatus: "excellent" | "good" | "warning" | "poor" = "poor";
+  if (actualRatio >= 1.2) efficiencyStatus = "excellent";
+  else if (actualRatio >= 1.0) efficiencyStatus = "good";
+  else if (actualRatio >= 0.8) efficiencyStatus = "warning";
+  
+  metrics.push({
+    label: "Bug Fix Efficiency",
+    actual: actualRatio,
+    target: 1.0,
+    poor: 0.6,
+    satisfactory: 0.8,
+    good: 1.0,
+    unit: "ratio",
+    status: efficiencyStatus,
+  });
+  
+  // 3. SLA Compliance (target: ≤10% critical bugs open)
+  const actualRiskPct = atRiskStats.riskPercentage;
+  let slaStatus: "excellent" | "good" | "warning" | "poor" = "poor";
+  if (actualRiskPct <= 5) slaStatus = "excellent";
+  else if (actualRiskPct <= 10) slaStatus = "good";
+  else if (actualRiskPct <= 20) slaStatus = "warning";
+  
+  metrics.push({
+    label: "SLA Compliance",
+    actual: 100 - actualRiskPct, // Invert so higher is better
+    target: 90, // 90% compliance = 10% critical open
+    poor: 70,
+    satisfactory: 80,
+    good: 90,
+    unit: "%",
+    status: slaStatus,
+  });
+  
+  return metrics;
+}
+
+export interface SparklineData {
+  values: number[];
+  trend: "up" | "down" | "stable";
+  change: number; // percentage change from first to last
+}
+
+export function calculateSparklineData(issues: GitHubIssue[], metric: "open" | "closed" | "created", days: number = 14): SparklineData {
+  const now = new Date();
+  const values: number[] = [];
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateStr = date.toISOString().split("T")[0];
+    
+    let count = 0;
+    
+    if (metric === "created") {
+      count = issues.filter(issue => {
+        const createdDate = new Date(issue.createdAt).toISOString().split("T")[0];
+        return createdDate === dateStr;
+      }).length;
+    } else if (metric === "closed") {
+      count = issues.filter(issue => {
+        if (!issue.closedAt) return false;
+        const closedDate = new Date(issue.closedAt).toISOString().split("T")[0];
+        return closedDate === dateStr;
+      }).length;
+    } else if (metric === "open") {
+      // Cumulative open issues on that day
+      count = issues.filter(issue => {
+        const created = new Date(issue.createdAt);
+        const closed = issue.closedAt ? new Date(issue.closedAt) : null;
+        return created <= date && (!closed || closed > date);
+      }).length;
+    }
+    
+    values.push(count);
+  }
+  
+  // Calculate trend
+  const firstValue = values[0] || 0;
+  const lastValue = values[values.length - 1] || 0;
+  const change = firstValue !== 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
+  
+  let trend: "up" | "down" | "stable" = "stable";
+  if (change > 5) trend = "up";
+  else if (change < -5) trend = "down";
+  
+  return { values, trend, change };
+}
