@@ -46,11 +46,11 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     .from("user_settings")
     .insert({
       user_id: userId,
-      widget_visibility: DEFAULT_VISIBILITY as unknown as Record<string, unknown>,
-      widget_order: DEFAULT_WIDGET_ORDER as unknown as string[],
+      widget_visibility: JSON.parse(JSON.stringify(DEFAULT_VISIBILITY)),
+      widget_order: JSON.parse(JSON.stringify(DEFAULT_WIDGET_ORDER)),
       widgets_per_row: 3,
       theme: "system",
-      selected_repos: [] as unknown as string[],
+      selected_repos: JSON.parse(JSON.stringify([])),
       app_name: "FixFlix",
       logo_url: null,
     })
@@ -85,16 +85,16 @@ export async function saveUserSettings(
     logo_url: string | null;
   }>
 ): Promise<boolean> {
-  // Build update object with proper type casting for Supabase
-  const updateData: Record<string, unknown> = {
+  // Build update object - use explicit typing to satisfy Supabase
+  const updateData: Parameters<typeof supabase.from<"user_settings">["prototype"]["update"]>[0] = {
     updated_at: new Date().toISOString(),
   };
 
   if (settings.widget_visibility !== undefined) {
-    updateData.widget_visibility = settings.widget_visibility;
+    updateData.widget_visibility = JSON.parse(JSON.stringify(settings.widget_visibility));
   }
   if (settings.widget_order !== undefined) {
-    updateData.widget_order = settings.widget_order;
+    updateData.widget_order = JSON.parse(JSON.stringify(settings.widget_order));
   }
   if (settings.widgets_per_row !== undefined) {
     updateData.widgets_per_row = settings.widgets_per_row;
@@ -106,7 +106,7 @@ export async function saveUserSettings(
     updateData.github_token = settings.github_token;
   }
   if (settings.selected_repos !== undefined) {
-    updateData.selected_repos = settings.selected_repos;
+    updateData.selected_repos = JSON.parse(JSON.stringify(settings.selected_repos));
   }
   if (settings.app_name !== undefined) {
     updateData.app_name = settings.app_name;
