@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { LayoutGrid, GitBranch, LogOut } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +14,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card } from "@/components/ui/card";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -49,7 +62,7 @@ import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallCh
 import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
 import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
 import { BulletChart } from "@/components/analytics/BulletChart";
-import { fetchIssuesFromRepos } from "@/services/githubService";
+import { fetchIssues } from "@/services/githubService";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -153,6 +166,8 @@ export default function Home() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isStoredConnection, setIsStoredConnection] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isLoadingIssues, setIsLoadingIssues] = useState(false);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
@@ -225,6 +240,7 @@ export default function Home() {
       setGithubToken(stored.token);
       setSelectedRepos(stored.repos);
       setIsStoredConnection(true);
+      setToken(stored.token);
       
       // Auto-fetch issues
       if (stored.token && stored.repos.length > 0) {
@@ -233,9 +249,9 @@ export default function Home() {
     }
   }, []);
 
-  const handleFetchIssues = async (token?: string, repos?: string[]) => {
-    const tokenToUse = token || githubToken;
-    const reposToUse = repos || selectedRepos;
+  const handleFetchIssues = async (tokenParam?: string, reposParam?: string[]) => {
+    const tokenToUse = tokenParam || githubToken;
+    const reposToUse = reposParam || selectedRepos;
     
     if (!tokenToUse || reposToUse.length === 0) {
       alert("Please provide a GitHub token and select repositories");
@@ -243,12 +259,16 @@ export default function Home() {
     }
 
     setLoading(true);
+    setIsLoadingIssues(true);
     try {
-      const allIssues = await fetchIssuesFromRepos(tokenToUse, reposToUse);
-      setIssues(allIssues);
+      // Use fetchSelectedIssues which correctly uses token and selectedRepos state
+      // We'll set the token and repos state first
+      setToken(tokenToUse);
+      setSelectedRepos(reposToUse);
+      await fetchSelectedIssues(reposToUse, tokenToUse);
       
       // Save to storage if "Remember me" is checked
-      if (rememberMe && !token) {
+      if (rememberMe && !tokenParam) {
         saveTokenToStorage(tokenToUse, reposToUse, true);
         setIsStoredConnection(true);
       }
@@ -263,6 +283,7 @@ export default function Home() {
       }
     } finally {
       setLoading(false);
+      setIsLoadingIssues(false);
     }
   };
 
@@ -270,6 +291,7 @@ export default function Home() {
     setGithubToken("");
     setSelectedRepos([]);
     setIssues([]);
+    setToken("");
     clearStoredCredentials();
     setIsStoredConnection(false);
     setRememberMe(false);
@@ -314,11 +336,11 @@ export default function Home() {
     setSelectedRepos(tempSelectedRepos);
     setShowRepoDialog(false);
     if (tempSelectedRepos.length > 0) {
-      fetchSelectedIssues(tempSelectedRepos);
+      fetchSelectedIssues(tempSelectedRepos, token);
     }
   };
 
-  const fetchSelectedIssues = async (repos: string[] = selectedRepos) => {
+  const fetchSelectedIssues = async (repos: string[] = selectedRepos, tokenToUse: string = token) => {
     setIsLoadingIssues(true);
     setIssuesError("");
 
@@ -335,7 +357,7 @@ export default function Home() {
               `https://api.github.com/repos/${repoFullName}/issues?state=all&per_page=100&page=${page}`,
               {
                 headers: {
-                  Authorization: `Bearer ${token}`,
+                  Authorization: `Bearer ${tokenToUse}`,
                   Accept: "application/vnd.github.v3+json",
                 },
               }
