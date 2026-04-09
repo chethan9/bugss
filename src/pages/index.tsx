@@ -32,6 +32,8 @@ import { PriorityScatterPlot } from "@/components/analytics/PriorityScatterPlot"
 import { StackedAreaChart } from "@/components/analytics/StackedAreaChart";
 import { IssueFunnelChart } from "@/components/analytics/IssueFunnelChart";
 import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallChart";
+import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
+import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -56,6 +58,8 @@ import {
   calculateStackedAreaData,
   calculateIssueFunnel,
   calculateBacklogWaterfall,
+  calculateModuleTreemap,
+  calculateModuleRadarData,
 } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -380,6 +384,8 @@ export default function Home() {
       stackedAreaData: calculateStackedAreaData(filteredIssues, 30),
       issueFunnel: calculateIssueFunnel(filteredIssues),
       backlogWaterfall: calculateBacklogWaterfall(filteredIssues, 4),
+      moduleTreemap: calculateModuleTreemap(filteredIssues),
+      moduleRadar: calculateModuleRadarData(filteredIssues, 5),
     };
   }, [filteredIssues]);
 
@@ -744,6 +750,12 @@ export default function Home() {
               )}
               {widgetVisibility.backlogWaterfallChart && (
                 <BacklogWaterfallChart data={analytics.backlogWaterfall} />
+              )}
+              {widgetVisibility.moduleTreemap && (
+                <ModuleTreemap data={analytics.moduleTreemap} />
+              )}
+              {widgetVisibility.moduleRadarChart && (
+                <ModuleRadarChart data={analytics.moduleRadar} />
               )}
             </div>
 

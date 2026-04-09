@@ -38,6 +38,8 @@ export interface WidgetVisibility {
   stackedAreaChart: boolean;
   issueFunnelChart: boolean;
   backlogWaterfallChart: boolean;
+  moduleTreemap: boolean;
+  moduleRadarChart: boolean;
 }
 
 export const DEFAULT_VISIBILITY: WidgetVisibility = {
@@ -65,6 +67,8 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
   stackedAreaChart: true,
   issueFunnelChart: true,
   backlogWaterfallChart: true,
+  moduleTreemap: true,
+  moduleRadarChart: true,
 };
 
 interface WidgetSettingsProps {
@@ -303,6 +307,18 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               onCheckedChange={(checked) => handleToggle("backlogWaterfallChart", checked)}
             >
               💧 Backlog Waterfall
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.moduleTreemap}
+              onCheckedChange={(checked) => handleToggle("moduleTreemap", checked)}
+            >
+              🌳 Module Treemap
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.moduleRadarChart}
+              onCheckedChange={(checked) => handleToggle("moduleRadarChart", checked)}
+            >
+              🧭 Module Radar Chart
             </DropdownMenuCheckboxItem>
           </DropdownMenuGroup>
         </DropdownMenuGroup>
