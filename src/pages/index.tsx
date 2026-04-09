@@ -173,16 +173,7 @@ export default function Home() {
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [token, setToken] = useState("");
-  const [showTokenDialog, setShowTokenDialog] = useState(false);
-  const [tokenInput, setTokenInput] = useState("");
-  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [tokenError, setTokenError] = useState("");
-
-  const [allRepositories, setAllRepositories] = useState<any[]>([]);
-  const [showRepoDialog, setShowRepoDialog] = useState(false);
-  const [repoSearchQuery, setRepoSearchQuery] = useState("");
-  const [tempSelectedRepos, setTempSelectedRepos] = useState<string[]>([]);
-
   const [issuesError, setIssuesError] = useState("");
 
   const [filters, setFilters] = useState({
@@ -405,45 +396,98 @@ export default function Home() {
     }
   };
 
-  // Filter repositories based on search query
-  const filteredRepos = useMemo(() => {
-    if (!repoSearchQuery) return availableRepos;
-    
-    const query = repoSearchQuery.toLowerCase();
-    return availableRepos.filter(repo => 
-      repo.full_name.toLowerCase().includes(query) ||
-      repo.description?.toLowerCase().includes(query) ||
-      repo.language?.toLowerCase().includes(query)
-    );
-  }, [availableRepos, repoSearchQuery]);
-
-  // Toggle repo selection
-  const toggleRepoSelection = (repoFullName: string) => {
-    setSelectedRepos(prev => 
-      prev.includes(repoFullName)
-        ? prev.filter(r => r !== repoFullName)
-        : [...prev, repoFullName]
-    );
-  };
-
-  // Select all filtered repos
-  const selectAllFilteredRepos = () => {
-    const allFilteredNames = filteredRepos.map(r => r.full_name);
-    setSelectedRepos(prev => {
-      const newSet = new Set([...prev, ...allFilteredNames]);
-      return Array.from(newSet);
-    });
-  };
-
   // Deselect all repos
   const deselectAllRepos = () => {
     setSelectedRepos([]);
   };
 
-  const handleIssueClick = (issue: GitHubIssue) => {
-    setSelectedIssue(issue);
-    setIsIssueModalOpen(true);
-  };
+  // Extract unique labels and repositories for filters
+  const availableLabels = useMemo(() => {
+    const labelSet = new Set<string>();
+    issues.forEach((issue) => issue.labels.forEach((l) => labelSet.add(l)));
+    return Array.from(labelSet).sort();
+  }, [issues]);
+
+  const availableRepositories = useMemo(() => {
+    const repoSet = new Set<string>();
+    issues.forEach((issue) => repoSet.add(issue.repository));
+    return Array.from(repoSet).sort();
+  }, [issues]);
+
+  // Filter issues based on all active filters
+  const filteredIssues = useMemo(() => {
+    return issues.filter((issue) => {
+      if (filters.repositories.length > 0 && !filters.repositories.includes(issue.repository)) return false;
+      if (filters.labels.length > 0) {
+        const hasAllLabels = filters.labels.every((l) => issue.labels.includes(l));
+        if (!hasAllLabels) return false;
+      }
+      if (filters.statuses.length > 0 && !filters.statuses.includes(issue.status)) return false;
+      if (dateRange.start && new Date(issue.createdAt) < dateRange.start) return false;
+      if (dateRange.end && new Date(issue.createdAt) > dateRange.end) return false;
+      if (filters.search) {
+        const query = filters.search.toLowerCase();
+        const matchesTitle = issue.title.toLowerCase().includes(query);
+        const matchesNumber = issue.number.toString().includes(query);
+        if (!matchesTitle && !matchesNumber) return false;
+      }
+      return true;
+    });
+  }, [issues, filters, dateRange]);
+
+  // Calculate analytics
+  const analytics = useMemo(() => {
+    return {
+      insights: generateSmartInsights(filteredIssues),
+      severities: calculateSeverityDistribution(filteredIssues),
+      resolutionTime: calculateAverageResolutionTime(filteredIssues),
+      trend: calculateIssueTrend(filteredIssues, 30),
+      stability: calculateModuleStability(filteredIssues),
+      reopened: calculateReopenedIssues(filteredIssues),
+      categories: calculateCategoryBreakdown(filteredIssues),
+      hotspots: calculateBugHotspots(filteredIssues, 5),
+      atRiskRelease: calculateAtRiskRelease(filteredIssues),
+      agingIssues: calculateAgingIssues(filteredIssues),
+      criticalUntouched: calculateCriticalUntouched(filteredIssues, 3),
+      backlogGrowth: calculateBacklogGrowth(filteredIssues),
+      bugFixEfficiency: calculateBugFixEfficiency(filteredIssues, 30),
+      repeatBugs: detectRepeatBugs(filteredIssues, 7),
+      developerLoad: calculateDeveloperLoad(filteredIssues),
+      focusRecommendations: generateFocusRecommendations(filteredIssues),
+      bugHeatmap: calculateBugHeatmap(filteredIssues, 30),
+      resolutionHistogram: calculateResolutionHistogram(filteredIssues),
+      priorityScatter: calculatePriorityResolutionScatter(filteredIssues),
+      stackedAreaData: calculateStackedAreaData(filteredIssues, 30),
+      issueFunnel: calculateIssueFunnel(filteredIssues),
+      backlogWaterfall: calculateBacklogWaterfall(filteredIssues, 4),
+      moduleTreemap: calculateModuleTreemap(filteredIssues),
+      moduleRadar: calculateModuleRadarData(filteredIssues, 5),
+      kpiMetrics: calculateKPIMetrics(filteredIssues),
+      sparklines: {
+        open: calculateSparklineData(filteredIssues, "open", 14),
+        closed: calculateSparklineData(filteredIssues, "closed", 14),
+        created: calculateSparklineData(filteredIssues, "created", 14),
+      },
+    };
+  }, [filteredIssues]);
+
+  // Basic Metrics
+  const metrics = useMemo(() => {
+    const statusCounts = { open: 0, inProgress: 0, closed: 0 };
+    filteredIssues.forEach((issue) => {
+      if (issue.status === "open") statusCounts.open++;
+      else if (issue.status === "in_progress") statusCounts.inProgress++;
+      else if (issue.status === "closed") statusCounts.closed++;
+    });
+    return { statusCounts };
+  }, [filteredIssues]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
+  const paginatedIssues = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredIssues.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredIssues, currentPage]);
 
   const clearFilters = () => {
     setFilters({
