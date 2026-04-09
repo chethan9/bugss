@@ -33,9 +33,9 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 
   return {
     ...data,
-    widget_visibility: (data.widget_visibility as WidgetVisibility) || DEFAULT_VISIBILITY,
-    widget_order: (data.widget_order as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
-    selected_repos: (data.selected_repos as string[]) || [],
+    widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
+    widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    selected_repos: (data.selected_repos as unknown as string[]) || [],
   };
 }
 
@@ -62,9 +62,9 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
 
   return {
     ...data,
-    widget_visibility: (data.widget_visibility as WidgetVisibility) || DEFAULT_VISIBILITY,
-    widget_order: (data.widget_order as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
-    selected_repos: (data.selected_repos as string[]) || [],
+    widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
+    widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    selected_repos: (data.selected_repos as unknown as string[]) || [],
   };
 }
 
