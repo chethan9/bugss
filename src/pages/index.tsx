@@ -632,199 +632,200 @@ export default function Home() {
                 )}
               </>
             ) : (
-              <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="default">
-                    <GitBranch className="h-4 w-4 mr-2" />
-                    Connect GitHub
-                  </Button>
-                </DialogTrigger>
-                <DialogContent 
-                  className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto" 
-                  onInteractOutside={(e) => e.preventDefault()}
-                  onEscapeKeyDown={(e) => e.preventDefault()}
-                >
-                  <DialogHeader>
-                    <DialogTitle>
-                      {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {connectionStep === "token" 
-                        ? "Enter your GitHub personal access token to get started." 
-                        : `Found ${availableRepos.length} repositories. Select the ones you want to analyze.`
-                      }
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  {connectionStep === "token" ? (
-                    <div className="space-y-4 py-4">
-                      {isLoadingRepos ? (
-                        <div className="flex flex-col items-center justify-center py-12">
-                          <RefreshCw className="h-12 w-12 text-primary animate-spin mb-4" />
-                          <p className="text-sm text-muted-foreground">Fetching your repositories...</p>
+              <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
+                <GitBranch className="h-4 w-4 mr-2" />
+                Connect GitHub
+              </Button>
+            )}
+            
+            {/* Dialog is now OUTSIDE the conditional - always exists in DOM */}
+            <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+              <DialogContent 
+                className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto" 
+                onInteractOutside={(e) => e.preventDefault()}
+                onEscapeKeyDown={(e) => e.preventDefault()}
+              >
+                <DialogHeader>
+                  <DialogTitle>
+                    {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {connectionStep === "token" 
+                      ? "Enter your GitHub personal access token to get started." 
+                      : `Found ${availableRepos.length} repositories. Select the ones you want to analyze.`
+                    }
+                  </DialogDescription>
+                </DialogHeader>
+                
+                {connectionStep === "token" ? (
+                  <div className="space-y-4 py-4">
+                    {isLoadingRepos ? (
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <RefreshCw className="h-12 w-12 text-primary animate-spin mb-4" />
+                        <p className="text-sm text-muted-foreground">Fetching your repositories...</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <label htmlFor="token" className="text-sm font-medium">
+                            GitHub Personal Access Token
+                          </label>
+                          <Input
+                            id="token"
+                            type="password"
+                            placeholder="ghp_xxxxxxxxxxxx"
+                            value={githubToken}
+                            onChange={(e) => setGithubToken(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleTokenSubmit()}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Create a token at{" "}
+                            <a
+                              href="https://github.com/settings/tokens"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              GitHub Settings → Developer settings → Personal access tokens
+                            </a>
+                          </p>
                         </div>
-                      ) : (
-                        <>
-                          <div className="space-y-2">
-                            <label htmlFor="token" className="text-sm font-medium">
-                              GitHub Personal Access Token
-                            </label>
-                            <Input
-                              id="token"
-                              type="password"
-                              placeholder="ghp_xxxxxxxxxxxx"
-                              value={githubToken}
-                              onChange={(e) => setGithubToken(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && handleTokenSubmit()}
+
+                        <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
+                          <div className="flex items-center h-5">
+                            <input
+                              type="checkbox"
+                              id="remember"
+                              checked={rememberMe}
+                              onChange={(e) => setRememberMe(e.target.checked)}
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                             />
-                            <p className="text-xs text-muted-foreground">
-                              Create a token at{" "}
-                              <a
-                                href="https://github.com/settings/tokens"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline"
-                              >
-                                GitHub Settings → Developer settings → Personal access tokens
-                              </a>
+                          </div>
+                          <div className="flex-1">
+                            <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
+                              Remember me (store token locally)
+                            </label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
                             </p>
                           </div>
-
-                          <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
-                            <div className="flex items-center h-5">
-                              <input
-                                type="checkbox"
-                                id="remember"
-                                checked={rememberMe}
-                                onChange={(e) => setRememberMe(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
-                                Remember me (store token locally)
-                              </label>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search repositories..."
-                            value={repoSearchQuery}
-                            onChange={(e) => setRepoSearchQuery(e.target.value)}
-                            className="pl-9"
-                          />
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={selectAllFilteredRepos}
-                        >
-                          Select All
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={deselectAllRepos}
-                        >
-                          Clear
-                        </Button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search repositories..."
+                          value={repoSearchQuery}
+                          onChange={(e) => setRepoSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
                       </div>
-
-                      <div className="text-sm text-muted-foreground">
-                        {selectedRepos.length} repositories selected
-                      </div>
-
-                      <div className="border rounded-md max-h-[400px] overflow-y-auto">
-                        {filteredRepos.length === 0 ? (
-                          <div className="p-8 text-center text-muted-foreground">
-                            No repositories found
-                          </div>
-                        ) : (
-                          <div className="divide-y">
-                            {filteredRepos.map((repo) => (
-                              <div
-                                key={repo.id}
-                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50"
-                              >
-                                <Checkbox
-                                  checked={selectedRepos.includes(repo.full_name)}
-                                  onCheckedChange={() => toggleRepoSelection(repo.full_name)}
-                                  className="flex-shrink-0"
-                                />
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <span className="font-medium text-sm truncate">
-                                    {repo.full_name}
-                                  </span>
-                                  {repo.private && (
-                                    <Badge variant="outline" className="text-xs flex-shrink-0">
-                                      Private
-                                    </Badge>
-                                  )}
-                                  {repo.language && (
-                                    <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                      {repo.language}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <DialogFooter>
-                    {connectionStep === "repos" && (
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          setConnectionStep("token");
-                          setAvailableRepos([]);
-                          setRepoSearchQuery("");
-                        }}
+                        size="sm"
+                        onClick={selectAllFilteredRepos}
                       >
-                        Back
+                        Select All
                       </Button>
-                    )}
-                    <Button
-                      onClick={connectionStep === "token" ? handleTokenSubmit : handleRepoSelectionComplete}
-                      disabled={
-                        connectionStep === "token" 
-                          ? !githubToken || isLoadingRepos 
-                          : selectedRepos.length === 0 || isLoadingIssues
-                      }
-                    >
-                      {isLoadingRepos ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Fetching Repos...
-                        </>
-                      ) : isLoadingIssues ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Fetching Issues...
-                        </>
-                      ) : connectionStep === "token" ? (
-                        "Continue"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={deselectAllRepos}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+
+                    <div className="text-sm text-muted-foreground">
+                      {selectedRepos.length} repositories selected
+                    </div>
+
+                    <div className="border rounded-md max-h-[400px] overflow-y-auto">
+                      {filteredRepos.length === 0 ? (
+                        <div className="p-8 text-center text-muted-foreground">
+                          No repositories found
+                        </div>
                       ) : (
-                        "Fetch Issues"
+                        <div className="divide-y">
+                          {filteredRepos.map((repo) => (
+                            <div
+                              key={repo.id}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer"
+                              onClick={() => toggleRepoSelection(repo.full_name)}
+                            >
+                              <Checkbox
+                                checked={selectedRepos.includes(repo.full_name)}
+                                onCheckedChange={() => toggleRepoSelection(repo.full_name)}
+                                className="flex-shrink-0"
+                              />
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className="font-medium text-sm truncate">
+                                  {repo.full_name}
+                                </span>
+                                {repo.private && (
+                                  <Badge variant="outline" className="text-xs flex-shrink-0">
+                                    Private
+                                  </Badge>
+                                )}
+                                {repo.language && (
+                                  <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                    {repo.language}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                <DialogFooter>
+                  {connectionStep === "repos" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setConnectionStep("token");
+                        setAvailableRepos([]);
+                        setRepoSearchQuery("");
+                      }}
+                    >
+                      Back
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+                  )}
+                  <Button
+                    onClick={connectionStep === "token" ? handleTokenSubmit : handleRepoSelectionComplete}
+                    disabled={
+                      connectionStep === "token" 
+                        ? !githubToken || isLoadingRepos 
+                        : selectedRepos.length === 0 || isLoadingIssues
+                    }
+                  >
+                    {isLoadingRepos ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Fetching Repos...
+                      </>
+                    ) : isLoadingIssues ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Fetching Issues...
+                      </>
+                    ) : connectionStep === "token" ? (
+                      "Continue"
+                    ) : (
+                      "Fetch Issues"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </header>
