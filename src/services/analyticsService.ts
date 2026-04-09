@@ -1037,14 +1037,14 @@ export function calculateModuleTreemap(issues: GitHubIssue[]): TreemapNode[] {
   const moduleMap = new Map<string, { count: number; severities: string[] }>();
   
   issues.forEach(issue => {
-    const module = parseModule(issue.labels) || "Other";
+    const moduleName = parseModule(issue.labels) || "Other";
     const severity = parseSeverity(issue.labels);
     
-    if (!moduleMap.has(module)) {
-      moduleMap.set(module, { count: 0, severities: [] });
+    if (!moduleMap.has(moduleName)) {
+      moduleMap.set(moduleName, { count: 0, severities: [] });
     }
     
-    const entry = moduleMap.get(module)!;
+    const entry = moduleMap.get(moduleName)!;
     entry.count++;
     entry.severities.push(severity);
   });
@@ -1052,7 +1052,7 @@ export function calculateModuleTreemap(issues: GitHubIssue[]): TreemapNode[] {
   const total = issues.length;
   const treemapData: TreemapNode[] = [];
   
-  moduleMap.forEach((data, module) => {
+  moduleMap.forEach((data, moduleName) => {
     // Determine dominant severity
     const severityCounts = {
       critical: data.severities.filter(s => s === "critical").length,
@@ -1073,7 +1073,7 @@ export function calculateModuleTreemap(issues: GitHubIssue[]): TreemapNode[] {
     }
     
     treemapData.push({
-      name: module,
+      name: moduleName,
       value: data.count,
       severity: dominantSeverity,
       percentage: total > 0 ? (data.count / total) * 100 : 0,
@@ -1102,10 +1102,10 @@ export function calculateModuleRadarData(issues: GitHubIssue[], topN: number = 5
   }>();
   
   issues.forEach(issue => {
-    const module = parseModule(issue.labels) || "Other";
+    const moduleName = parseModule(issue.labels) || "Other";
     
-    if (!moduleMap.has(module)) {
-      moduleMap.set(module, {
+    if (!moduleMap.has(moduleName)) {
+      moduleMap.set(moduleName, {
         total: 0,
         closed: 0,
         reopened: 0,
@@ -1114,7 +1114,7 @@ export function calculateModuleRadarData(issues: GitHubIssue[], topN: number = 5
       });
     }
     
-    const entry = moduleMap.get(module)!;
+    const entry = moduleMap.get(moduleName)!;
     entry.total++;
     entry.severities.push(parseSeverity(issue.labels));
     
@@ -1132,7 +1132,7 @@ export function calculateModuleRadarData(issues: GitHubIssue[], topN: number = 5
   
   const radarData: RadarMetric[] = [];
   
-  moduleMap.forEach((data, module) => {
+  moduleMap.forEach((data, moduleName) => {
     const avgResolutionTime = data.closed > 0 ? data.totalResolutionHours / data.closed : 0;
     const reopenRate = data.closed > 0 ? (data.reopened / data.closed) * 100 : 0;
     
@@ -1152,7 +1152,7 @@ export function calculateModuleRadarData(issues: GitHubIssue[], topN: number = 5
       : 0;
     
     radarData.push({
-      module,
+      module: moduleName,
       bugCount: data.total,
       avgResolutionTime,
       reopenRate,
