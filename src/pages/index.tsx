@@ -42,7 +42,6 @@ import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
 import { PDFExport } from "@/components/PDFExport";
-import { ReportSettings, DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/components/ReportSettings";
 import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
@@ -194,6 +193,7 @@ export default function Home() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [appName, setAppName] = useState("FixFlix");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState<number>(1);
   const router = useRouter();
 
   const [token, setToken] = useState("");
@@ -253,6 +253,18 @@ export default function Home() {
               fetchSelectedIssues(settings.selected_repos, storedToken);
             }
           }
+        }
+        
+        // Load app version
+        const { data: versionData } = await supabase
+          .from("app_version")
+          .select("version_number")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (versionData) {
+          setAppVersion(versionData.version_number);
         }
       } catch (error) {
         console.error("Auth check error:", error);
@@ -735,156 +747,13 @@ export default function Home() {
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <Logo appName={appName} logoUrl={logoUrl} />
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+              v{appVersion}
+            </Badge>
           </button>
           
           <div className="flex items-center gap-2">
             {selectedRepos.length > 0 && (
-              <>
-                <ReportSettings 
-                  config={reportConfig}
-                  onConfigChange={handleReportConfigChange}
-                />
-                <PDFExport 
-                  disabled={filteredIssues.length === 0} 
-                  reportConfig={reportConfig}
-                />
-                <WidgetSettings 
-                  visibility={widgetVisibility}
-                  onVisibilityChange={handleVisibilityChange}
-                  widgetsPerRow={widgetsPerRow}
-                  onWidgetsPerRowChange={setWidgetsPerRow}
-                  widgetOrder={widgetOrder}
-                  onWidgetOrderChange={setWidgetOrder}
-                />
-                
-                {/* Refresh Controls */}
-                <div className="flex items-center gap-1 border-l border-border pl-3 ml-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleManualRefresh}
-                    disabled={isRefreshing}
-                    title="Refresh issues"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                  </Button>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant={autoRefresh ? "default" : "ghost"}
-                        size="sm"
-                        className={autoRefresh ? "bg-primary/20 text-primary hover:bg-primary/30" : ""}
-                        title="Auto-refresh settings"
-                      >
-                        <Timer className="h-4 w-4" />
-                        {autoRefresh && (
-                          <span className="ml-1 text-xs">
-                            {refreshInterval < 60000 
-                              ? `${refreshInterval / 1000}s` 
-                              : `${refreshInterval / 60000}m`}
-                          </span>
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                        Auto-Refresh
-                      </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setAutoRefresh(false)}>
-                        <span className={!autoRefresh ? "font-medium" : ""}>Off</span>
-                        {!autoRefresh && <span className="ml-auto">✓</span>}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <div className="px-2 py-1 text-xs text-muted-foreground">Interval</div>
-                      {[
-                        { label: "5 seconds", value: 5000 },
-                        { label: "15 seconds", value: 15000 },
-                        { label: "30 seconds", value: 30000 },
-                        { label: "1 minute", value: 60000 },
-                        { label: "5 minutes", value: 300000 },
-                        { label: "15 minutes", value: 900000 },
-                      ].map((option) => (
-                        <DropdownMenuItem
-                          key={option.value}
-                          onClick={() => {
-                            setRefreshInterval(option.value);
-                            setAutoRefresh(true);
-                          }}
-                        >
-                          <span className={autoRefresh && refreshInterval === option.value ? "font-medium" : ""}>
-                            {option.label}
-                          </span>
-                          {autoRefresh && refreshInterval === option.value && (
-                            <span className="ml-auto">✓</span>
-                          )}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                
-                {/* Time Frame Filter */}
-                <div className="flex items-center border-l border-border pl-3 ml-1">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-xs">
-                          {dateRange.start && dateRange.end 
-                            ? `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`
-                            : dateRange.start 
-                              ? `Since ${dateRange.start.toLocaleDateString()}`
-                              : "All Time"
-                          }
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                        Time Frame
-                      </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setDateRange({ start: null, end: null })}>
-                        <span className={!dateRange.start ? "font-medium" : ""}>All Time</span>
-                        {!dateRange.start && <span className="ml-auto">✓</span>}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const now = new Date();
-                        const start = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-                        setDateRange({ start, end: now });
-                      }}>
-                        Last 3 Days
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const now = new Date();
-                        const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                        setDateRange({ start, end: now });
-                      }}>
-                        Last 7 Days
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const now = new Date();
-                        const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                        setDateRange({ start, end: now });
-                      }}>
-                        Last 30 Days
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        const now = new Date();
-                        const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-                        setDateRange({ start, end: now });
-                      }}>
-                        Last 90 Days
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </>
-            )}
-            
-            {selectedRepos.length > 0 ? (
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -908,12 +777,6 @@ export default function Home() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                
-                {isStoredConnection && (
-                  <Badge variant="outline" className="text-xs">
-                    🔓 Stored
-                  </Badge>
-                )}
                 
                 <ThemeToggle />
                 
@@ -948,6 +811,44 @@ export default function Home() {
                     Sign In
                   </Button>
                 )}
+              </>
+            )}
+            
+            {selectedRepos.length > 0 ? (
+              <>
+                <ThemeToggle />
+                
+                {user ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="gap-2">
+                        <User className="h-4 w-4" />
+                        <span className="max-w-[100px] truncate text-xs">
+                          {user.email?.split("@")[0]}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                        {user.email}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => router.push("/auth")}>
+                    Sign In
+                  </Button>
+                )}
+                
+                <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  Connect GitHub
+                </Button>
               </>
             ) : (
               <>
