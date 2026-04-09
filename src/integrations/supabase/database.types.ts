@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -183,6 +183,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          selected_repos: Json | null
+          theme: string | null
+          updated_at: string | null
+          user_id: string
+          widget_order: Json | null
+          widget_visibility: Json | null
+          widgets_per_row: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          selected_repos?: Json | null
+          theme?: string | null
+          updated_at?: string | null
+          user_id: string
+          widget_order?: Json | null
+          widget_visibility?: Json | null
+          widgets_per_row?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          selected_repos?: Json | null
+          theme?: string | null
+          updated_at?: string | null
+          user_id?: string
+          widget_order?: Json | null
+          widget_visibility?: Json | null
+          widgets_per_row?: number | null
+        }
+        Relationships: []
       }
     }
     Views: {
