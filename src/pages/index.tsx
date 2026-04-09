@@ -1003,7 +1003,7 @@ export default function Home() {
                       </div>
                     ) : null;
                   case "resolutionTime":
-                    return analytics.resolutionTime.count > 0 ? (
+                    return analytics.resolutionTime.overall > 0 ? (
                       <div key={widgetKey} className="mb-6">
                         <AverageResolutionTime stats={analytics.resolutionTime} />
                       </div>
@@ -1069,7 +1069,7 @@ export default function Home() {
                       </div>
                     );
                   case "repeatBugDetector":
-                    return analytics.repeatBugs.patterns.length > 0 ? (
+                    return analytics.repeatBugs.topRepeatingLabels.length > 0 ? (
                       <div key={widgetKey} className="mb-6">
                         <RepeatBugDetector stats={analytics.repeatBugs} />
                       </div>
@@ -1129,7 +1129,7 @@ export default function Home() {
                       </div>
                     ) : null;
                   case "moduleRadarChart":
-                    return analytics.moduleRadar.modules.length > 0 ? (
+                    return analytics.moduleRadar.length > 0 ? (
                       <div key={widgetKey} className="mb-6">
                         <ModuleRadarChart data={analytics.moduleRadar} />
                       </div>
