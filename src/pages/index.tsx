@@ -778,6 +778,64 @@ export default function Home() {
                   <span className="hidden sm:inline">Repos ({selectedRepos.length})</span>
                 </Button>
                 
+                {/* Column Selector */}
+                <div className="hidden md:flex items-center border rounded-md">
+                  {[1, 2, 3, 4].map((cols) => (
+                    <button
+                      key={cols}
+                      onClick={() => setWidgetsPerRow(cols)}
+                      className={`p-1.5 transition-colors ${
+                        widgetsPerRow === cols 
+                          ? "bg-primary text-primary-foreground" 
+                          : "hover:bg-muted text-muted-foreground"
+                      }`}
+                      title={`${cols} column${cols > 1 ? "s" : ""}`}
+                    >
+                      {cols === 1 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="2" y="2" width="12" height="2" rx="0.5" fill="currentColor"/>
+                          <rect x="2" y="6" width="12" height="2" rx="0.5" fill="currentColor"/>
+                          <rect x="2" y="10" width="12" height="2" rx="0.5" fill="currentColor"/>
+                        </svg>
+                      )}
+                      {cols === 2 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor"/>
+                          <rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor"/>
+                          <rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor"/>
+                          <rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor"/>
+                        </svg>
+                      )}
+                      {cols === 3 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="1" y="2" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="6" y="2" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="11" y="2" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="1" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="6" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="11" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                        </svg>
+                      )}
+                      {cols === 4 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="1" y="1" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="5" y="1" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="9" y="1" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="13" y="1" width="2" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="1" y="5" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="5" y="5" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="9" y="5" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="13" y="5" width="2" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="1" y="9" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="5" y="9" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="9" y="9" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="13" y="9" width="2" height="3" rx="0.5" fill="currentColor"/>
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                
                 {/* Refresh Controls */}
                 <Button
                   variant="ghost"
