@@ -1,301 +1,298 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { Github, Mail, Lock, User, LayoutGrid, AlertCircle, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Mail, Lock, AlertCircle, Loader2, Eye, EyeOff } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { SEO } from "@/components/SEO";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
-import { Logo } from "@/components/Logo";
 
 export default function AuthPage() {
   const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isOAuthLoading, setIsOAuthLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
+    const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      if (session?.user) {
         router.push("/");
       }
     };
-    checkUser();
+    checkSession();
   }, [router]);
 
-  const handleEmailSignUp = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setSuccess("");
     setIsLoading(true);
-    setError(null);
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name,
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        toast({
-          title: "Account created!",
-          description: "Please check your email to verify your account.",
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.session) {
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-        });
+        if (error) throw error;
         router.push("/");
+      } else {
+        if (password !== confirmPassword) {
+          throw new Error("Passwords do not match");
+        }
+        if (password.length < 6) {
+          throw new Error("Password must be at least 6 characters");
+        }
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setSuccess("Account created! Please check your email to verify your account.");
+        setIsLogin(true);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+    } catch (err: any) {
+      setError(err.message || "An error occurred");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGitHubOAuth = async () => {
-    setIsOAuthLoading(true);
-    setError(null);
-
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError("Please enter your email address");
+      return;
+    }
+    setIsLoading(true);
+    setError("");
+    
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/`,
-          scopes: "repo read:user",
-        },
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
       });
-
       if (error) throw error;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-      setIsOAuthLoading(false);
+      setSuccess("Password reset link sent to your email");
+    } catch (err: any) {
+      setError(err.message || "Failed to send reset link");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <>
-      <SEO title="Sign In - FixFlix" description="Sign in to FixFlix to manage your GitHub issues" />
+      <SEO title={isLogin ? "Sign In - FixFlix" : "Sign Up - FixFlix"} />
       
-      <div className="min-h-screen bg-background flex flex-col">
-        {/* Header */}
-        <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-2">
-                <Logo className="h-6 w-6 text-primary" />
-                <span className="text-xl font-semibold text-foreground">FixFlix</span>
-              </div>
-              <ThemeSwitch />
+      <div className="min-h-screen flex">
+        {/* Left side - Form */}
+        <div className="flex-1 flex flex-col justify-center px-8 sm:px-12 lg:px-16 xl:px-24 bg-background">
+          <div className="w-full max-w-md mx-auto">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground">
+                {isLogin ? "Welcome back" : "Create account"}
+              </h1>
+              <p className="mt-2 text-muted-foreground">
+                {isLogin 
+                  ? "Please enter your details to sign in" 
+                  : "Please enter your details to get started"}
+              </p>
             </div>
-          </div>
-        </header>
 
-        {/* Main Content */}
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-lg border-border/50">
-            <CardHeader className="text-center pb-2">
-              <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <LayoutGrid className="h-6 w-6 text-primary" />
-              </div>
-              <CardTitle className="text-2xl font-bold">Welcome to FixFlix</CardTitle>
-              <CardDescription>
-                Sign in to manage your GitHub issues and tasks
-              </CardDescription>
-            </CardHeader>
+            {/* Alerts */}
+            {error && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-            <CardContent className="pt-4">
-              {/* GitHub OAuth Button */}
-              <Button
-                variant="outline"
-                className="w-full h-11 mb-6 gap-2 border-border hover:bg-muted/50"
-                onClick={handleGitHubOAuth}
-                disabled={isOAuthLoading}
-              >
-                {isOAuthLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Github className="h-5 w-5" />
-                )}
-                Continue with GitHub
-              </Button>
+            {success && (
+              <Alert className="mb-6 border-green-500 bg-green-50 dark:bg-green-950">
+                <AlertDescription className="text-green-700 dark:text-green-300">
+                  {success}
+                </AlertDescription>
+              </Alert>
+            )}
 
-              <div className="relative mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    Or continue with email
-                  </span>
-                </div>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="h-11"
+                />
               </div>
 
-              {error && (
-                <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                  <p className="text-sm text-destructive">{error}</p>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="h-11 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="h-11"
+                  />
                 </div>
               )}
 
-              <Tabs defaultValue="signin" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="signin">Sign In</TabsTrigger>
-                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                </TabsList>
+              {isLogin && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="remember"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    />
+                    <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                      Remember for 30 days
+                    </Label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Forgot password
+                  </button>
+                </div>
+              )}
 
-                <TabsContent value="signin">
-                  <form onSubmit={handleEmailSignIn} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-password">Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signin-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Sign In"
-                      )}
-                    </Button>
-                  </form>
-                </TabsContent>
+              <Button
+                type="submit"
+                className="w-full h-11"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {isLogin ? "Signing in..." : "Creating account..."}
+                  </>
+                ) : (
+                  isLogin ? "Sign in" : "Create account"
+                )}
+              </Button>
+            </form>
 
-                <TabsContent value="signup">
-                  <form onSubmit={handleEmailSignUp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-name">Full Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-name"
-                          type="text"
-                          placeholder="John Doe"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="pl-10"
-                          minLength={6}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Create Account"
-                      )}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
+            {/* Toggle */}
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError("");
+                  setSuccess("");
+                }}
+                className="text-primary font-medium hover:underline"
+              >
+                {isLogin ? "Sign up" : "Sign in"}
+              </button>
+            </p>
+          </div>
+        </div>
 
-            <CardFooter className="flex flex-col gap-2 text-center text-xs text-muted-foreground pt-2">
-              <p>
-                By continuing, you agree to our Terms of Service and Privacy Policy.
+        {/* Right side - Illustration */}
+        <div className="hidden lg:flex flex-1 bg-primary/10 items-center justify-center p-12 relative overflow-hidden">
+          {/* Abstract pattern background */}
+          <div className="absolute inset-0 opacity-30">
+            <svg className="w-full h-full" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <circle cx="20" cy="20" r="1.5" fill="currentColor" className="text-primary/40" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+          </div>
+          
+          {/* Main illustration */}
+          <div className="relative z-10 text-center max-w-lg">
+            {/* Abstract shapes */}
+            <div className="relative">
+              {/* Monitor shape */}
+              <div className="w-80 h-56 mx-auto bg-card rounded-2xl shadow-2xl border border-border/50 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/20 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-lg font-semibold text-foreground">Track Issues</p>
+                  <p className="text-sm text-muted-foreground">Manage GitHub tasks efficiently</p>
+                </div>
+              </div>
+              
+              {/* Floating elements */}
+              <div className="absolute -top-8 -right-8 w-16 h-16 bg-accent/20 rounded-xl flex items-center justify-center animate-pulse">
+                <svg className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              
+              <div className="absolute -bottom-4 -left-8 w-14 h-14 bg-green-500/20 rounded-xl flex items-center justify-center">
+                <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              
+              <div className="absolute top-1/2 -right-12 w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </div>
+            </div>
+            
+            <div className="mt-12">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                GitHub Issue Dashboard
+              </h2>
+              <p className="text-muted-foreground">
+                Connect, analyze, and generate reports for your repositories
               </p>
-            </CardFooter>
-          </Card>
-        </main>
-
-        {/* Footer */}
-        <footer className="py-4 text-center text-sm text-muted-foreground border-t border-border/50">
-          © 2026 FixFlix. All rights reserved.
-        </footer>
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );
