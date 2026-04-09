@@ -1,6 +1,6 @@
 ---
 title: Advanced Visualizations - Phase 4C (Hierarchy & Multi-Metric)
-status: in_progress
+status: done
 priority: medium
 type: feature
 tags: [analytics, visualizations, hierarchy, comparison]
@@ -13,12 +13,12 @@ position: 20
 Implement structure/hierarchy visualizations and multi-metric comparison charts for module-level analysis.
 
 ## Checklist
-- [ ] Create Treemap widget (module hierarchy with size = bug count)
-- [ ] Calculate module hierarchy data with nested structure
-- [ ] Implement color coding by severity
-- [ ] Create RadarChart widget (multi-metric module comparison)
-- [ ] Calculate metrics: bug count, resolution time, reopen rate, severity
-- [ ] Implement polygon visualization for top 5 modules
-- [ ] Add analytics calculations in analyticsService.ts
-- [ ] Integrate with dashboard
-- [ ] Add visibility controls
+- [x] Create Treemap widget (module hierarchy with size = bug count)
+- [x] Calculate module hierarchy data with nested structure
+- [x] Implement color coding by severity
+- [x] Create RadarChart widget (multi-metric module comparison)
+- [x] Calculate metrics: bug count, resolution time, reopen rate, severity
+- [x] Implement polygon visualization for top 5 modules
+- [x] Add analytics calculations in analyticsService.ts
+- [x] Integrate with dashboard
+- [x] Add visibility controls
