@@ -731,7 +731,7 @@ export default function Home() {
                             {filteredRepos.map((repo) => (
                               <div
                                 key={repo.id}
-                                className="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer"
+                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer"
                                 onClick={() => toggleRepoSelection(repo.full_name)}
                               >
                                 <input
@@ -739,29 +739,21 @@ export default function Home() {
                                   checked={selectedRepos.includes(repo.full_name)}
                                   onChange={() => toggleRepoSelection(repo.full_name)}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary flex-shrink-0"
                                 />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-sm truncate">
-                                      {repo.full_name}
-                                    </span>
-                                    {repo.private && (
-                                      <Badge variant="outline" className="text-xs">
-                                        Private
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {repo.description && (
-                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                      {repo.description}
-                                    </p>
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="font-medium text-sm truncate">
+                                    {repo.full_name}
+                                  </span>
+                                  {repo.private && (
+                                    <Badge variant="outline" className="text-xs flex-shrink-0">
+                                      Private
+                                    </Badge>
                                   )}
                                   {repo.language && (
-                                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                                      <span className="w-2 h-2 rounded-full bg-primary"></span>
+                                    <Badge variant="secondary" className="text-xs flex-shrink-0">
                                       {repo.language}
-                                    </div>
+                                    </Badge>
                                   )}
                                 </div>
                               </div>
