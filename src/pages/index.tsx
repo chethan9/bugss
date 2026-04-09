@@ -1117,7 +1117,7 @@ export default function Home() {
                             <RepositoryFilter
                               repositories={selectedRepos}
                               activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
-                              onToggleRepository={(repo) => {
+                              onToggle={(repo) => {
                                 setFilters(prev => {
                                   const currentActive = prev.repositories.length > 0 ? prev.repositories : selectedRepos;
                                   const isActive = currentActive.includes(repo);
