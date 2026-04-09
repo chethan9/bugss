@@ -333,117 +333,6 @@ export default function Home() {
     });
   };
 
-  const selectAllFilteredRepos = () => {
-    console.log("🔵 selectAllFilteredRepos called");
-    const allFilteredNames = filteredRepos.map(r => r.full_name);
-    setSelectedRepos(prev => {
-      const newSet = new Set([...prev, ...allFilteredNames]);
-      return Array.from(newSet);
-    });
-  };
-
-  const deselectAllRepos = () => {
-    console.log("🔵 deselectAllRepos called");
-    setSelectedRepos([]);
-  };
-
-  const handleRepoSelectionComplete = async () => {
-    console.log("🔴 handleRepoSelectionComplete called - THIS SHOULD ONLY BE CALLED WHEN 'FETCH ISSUES' IS CLICKED");
-    if (selectedRepos.length === 0) {
-      alert("Please select at least one repository");
-      return;
-    }
-
-    setLoading(true);
-    setIsLoadingIssues(true);
-    try {
-      await fetchSelectedIssues(selectedRepos, token);
-      
-      if (rememberMe) {
-        saveTokenToStorage(githubToken, selectedRepos, true);
-        setIsStoredConnection(true);
-      }
-      
-      console.log("🔴 Closing dialog after successful fetch");
-      setShowConnectionDialog(false);
-      setConnectionStep("token");
-      setRepoSearchQuery("");
-    } catch (error: any) {
-      console.error("Failed to fetch issues:", error);
-      alert(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
-      setIsLoadingIssues(false);
-    }
-  };
-
-  const fetchSelectedIssues = async (repos: string[] = selectedRepos, tokenToUse: string = token) => {
-    setIsLoadingIssues(true);
-    setIssuesError("");
-
-    try {
-      const allFetchedIssues: GitHubIssue[] = [];
-
-      await Promise.all(
-        repos.map(async (repoFullName) => {
-          let page = 1;
-          let hasMore = true;
-
-          while (hasMore) {
-            const response = await fetch(
-              `https://api.github.com/repos/${repoFullName}/issues?state=all&per_page=100&page=${page}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${tokenToUse}`,
-                  Accept: "application/vnd.github.v3+json",
-                },
-              }
-            );
-
-            if (!response.ok) {
-              hasMore = false;
-              break;
-            }
-
-            const repoIssues = await response.json();
-            const actualIssues = repoIssues.filter((item: any) => !item.pull_request);
-
-            allFetchedIssues.push(
-              ...actualIssues.map((issue: any): GitHubIssue => ({
-                id: String(issue.id),
-                number: issue.number,
-                title: issue.title,
-                status: issue.state === "open" ? "open" : "closed",
-                repository: repoFullName,
-                labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
-                assignee: issue.assignees?.[0]?.login || issue.assignee?.login,
-                url: issue.html_url,
-                createdAt: issue.created_at,
-                closedAt: issue.closed_at || undefined,
-              }))
-            );
-
-            if (repoIssues.length < 100) {
-              hasMore = false;
-            } else {
-              page++;
-            }
-          }
-        })
-      );
-
-      allFetchedIssues.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setIssues(allFetchedIssues);
-      setCurrentPage(1);
-    } catch (err: any) {
-      setIssuesError(err.message || "Failed to fetch issues");
-    } finally {
-      setIsLoadingIssues(false);
-    }
-  };
-
   const filteredRepos = useMemo(() => {
     if (!repoSearchQuery) return availableRepos;
     
@@ -454,18 +343,6 @@ export default function Home() {
       repo.language?.toLowerCase().includes(query)
     );
   }, [availableRepos, repoSearchQuery]);
-
-  const selectAllFilteredRepos = () => {
-    const allFilteredNames = filteredRepos.map(r => r.full_name);
-    setSelectedRepos(prev => {
-      const newSet = new Set([...prev, ...allFilteredNames]);
-      return Array.from(newSet);
-    });
-  };
-
-  const deselectAllRepos = () => {
-    setSelectedRepos([]);
-  };
 
   const handleManageRepositories = async () => {
     const tokenToUse = token || githubToken;
