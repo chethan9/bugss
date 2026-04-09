@@ -289,6 +289,7 @@ export default function Home() {
     setIsStoredConnection(false);
     setRememberMe(false);
     setConnectionStep("token");
+    setShowConnectionDialog(false);
   };
 
   // Handle token submission - fetch repositories
@@ -298,10 +299,8 @@ export default function Home() {
       return;
     }
 
-    // Trim whitespace
     const cleanToken = githubToken.trim();
     
-    // Basic token format validation
     if (cleanToken.length < 20) {
       alert("Invalid token format. GitHub tokens are typically 40+ characters long.");
       return;
@@ -313,12 +312,7 @@ export default function Home() {
       const repos = await fetchUserRepositories(cleanToken);
       
       if (repos.length === 0) {
-        alert("No repositories found. This could mean:\n" +
-              "1. Your account has no repositories\n" +
-              "2. Your token doesn't have 'repo' scope permissions\n" +
-              "3. Your token is for an organization without repos\n\n" +
-              "Please check your token permissions at:\n" +
-              "https://github.com/settings/tokens");
+        alert("No repositories found.");
         return;
       }
       
@@ -328,17 +322,8 @@ export default function Home() {
       setGithubToken(cleanToken);
     } catch (error: any) {
       console.error("Failed to fetch repositories:", error);
+      alert(`Error: ${error.message}`);
       
-      // Show detailed error message
-      const errorMessage = error.message || "Unknown error occurred";
-      alert(`❌ Error: ${errorMessage}\n\n` +
-            "Need help?\n" +
-            "1. Verify your token at: https://github.com/settings/tokens\n" +
-            "2. Ensure token has 'repo' scope\n" +
-            "3. Check if token is not expired\n" +
-            "4. Try generating a new token");
-      
-      // Clear stored credentials if token is invalid
       if (error.message.includes("Invalid") || error.message.includes("401") || error.message.includes("expired")) {
         clearStoredCredentials();
         setIsStoredConnection(false);
@@ -360,20 +345,17 @@ export default function Home() {
     try {
       await fetchSelectedIssues(selectedRepos, token);
       
-      // Save to storage if "Remember me" is checked
       if (rememberMe) {
         saveTokenToStorage(githubToken, selectedRepos, true);
         setIsStoredConnection(true);
       }
       
-      // Only close dialog after successful fetch
       setShowConnectionDialog(false);
       setConnectionStep("token");
-      setRepoSearchQuery(""); // Clear search
+      setRepoSearchQuery("");
     } catch (error: any) {
       console.error("Failed to fetch issues:", error);
       alert(`Error: ${error.message}`);
-      // Keep dialog open on error so user can try again
     } finally {
       setLoading(false);
       setIsLoadingIssues(false);
@@ -593,24 +575,17 @@ export default function Home() {
 
   // Open manage repositories dialog
   const handleManageRepositories = async () => {
-    // If we already have repos loaded, just open the dialog
-    if (availableRepos.length > 0) {
-      setConnectionStep("repos");
-      setShowConnectionDialog(true);
-      return;
-    }
-
-    // Otherwise, fetch repos first
-    if (!token && !githubToken) {
+    const tokenToUse = token || githubToken;
+    
+    if (!tokenToUse) {
       alert("No GitHub token found. Please reconnect.");
       handleDisconnect();
       return;
     }
 
-    const tokenToUse = token || githubToken;
-    setIsLoadingRepos(true);
     setShowConnectionDialog(true);
-    setConnectionStep("token"); // Show loading in dialog
+    setIsLoadingRepos(true);
+    setConnectionStep("token");
     
     try {
       console.log("🔄 Fetching repositories for management...");
@@ -619,10 +594,9 @@ export default function Home() {
       setConnectionStep("repos");
     } catch (error: any) {
       console.error("Failed to fetch repositories:", error);
-      alert(`Error: ${error.message}\n\nPlease reconnect with a valid token.`);
+      alert(`Error: ${error.message}`);
       setShowConnectionDialog(false);
       
-      // Clear stored credentials if token is invalid
       if (error.message.includes("Invalid") || error.message.includes("401")) {
         clearStoredCredentials();
         setIsStoredConnection(false);
@@ -694,21 +668,14 @@ export default function Home() {
                 )}
               </>
             ) : (
-              <Dialog open={showConnectionDialog} onOpenChange={(open) => {
-                setShowConnectionDialog(open);
-                // Reset state when dialog closes
-                if (!open) {
-                  setConnectionStep("token");
-                  setRepoSearchQuery("");
-                }
-              }}>
+              <Dialog open={showConnectionDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="default">
+                  <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
                     <GitBranch className="h-4 w-4 mr-2" />
                     Connect GitHub
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
                   <DialogHeader>
                     <DialogTitle>
                       {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
