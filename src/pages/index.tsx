@@ -588,28 +588,33 @@ export default function Home() {
     const tokenToUse = token || githubToken;
     
     if (!tokenToUse) {
-      alert("No GitHub token found. Please reconnect.");
-      handleDisconnect();
+      // No token - show token entry screen
+      setConnectionStep("token");
+      setShowConnectionDialog(true);
       return;
     }
 
+    // Token exists - go directly to repo selection
     setShowConnectionDialog(true);
     setIsLoadingRepos(true);
-    setConnectionStep("token");
+    setConnectionStep("repos");
     
     try {
       console.log("🔄 Fetching repositories for management...");
       const repos = await fetchUserRepositories(tokenToUse);
       setAvailableRepos(repos);
-      setConnectionStep("repos");
     } catch (error: any) {
       console.error("Failed to fetch repositories:", error);
-      alert(`Error: ${error.message}`);
-      setShowConnectionDialog(false);
       
-      if (error.message.includes("Invalid") || error.message.includes("401")) {
+      if (error.message.includes("Invalid") || error.message.includes("401") || error.message.includes("Bad credentials")) {
+        // Token is invalid - show token entry screen
         clearStoredCredentials();
         setIsStoredConnection(false);
+        setConnectionStep("token");
+        alert("Your GitHub token is invalid or expired. Please enter a new one.");
+      } else {
+        alert(`Error: ${error.message}`);
+        setShowConnectionDialog(false);
       }
     } finally {
       setIsLoadingRepos(false);
@@ -755,18 +760,27 @@ export default function Home() {
           <div className="flex items-center gap-2">
             {selectedRepos.length > 0 && (
               <>
+                {/* Change Repos Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManageRepositories}
+                  className="gap-2"
+                >
+                  <GitBranch className="h-4 w-4" />
+                  <span className="hidden sm:inline">Repos ({selectedRepos.length})</span>
+                </Button>
+                
                 {/* Refresh Controls */}
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleManualRefresh}
-                    disabled={isRefreshing}
-                    title="Refresh issues"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  title="Refresh issues"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                </Button>
                 
                 {/* Time Frame Filter */}
                 <DropdownMenu>
