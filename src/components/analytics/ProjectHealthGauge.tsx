@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, AlertTriangle, CheckCircle2, XCircle, TrendingUp, TrendingDown } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, XCircle, TrendingUp, Clock } from "lucide-react";
 
 interface GitHubIssue {
   id: string;
@@ -22,7 +22,6 @@ interface ProjectHealthGaugeProps {
 }
 
 export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: ProjectHealthGaugeProps) {
-  // Calculate metrics from issues
   const totalIssues = issues.length;
   const openIssues = issues.filter(i => i.status === "open");
   const closedIssues = issues.filter(i => i.status === "closed");
@@ -37,12 +36,10 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
     i.labels.some(l => l.toLowerCase().includes("high"))
   ).length;
   
-  // Calculate old issues (> 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const oldIssuesCount = openIssues.filter(i => new Date(i.createdAt) < thirtyDaysAgo).length;
   
-  // Calculate average resolution time
   const resolvedIssues = closedIssues.filter(i => i.closedAt);
   let avgResolutionDays = 0;
   if (resolvedIssues.length > 0) {
@@ -54,19 +51,16 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
     avgResolutionDays = totalDays / resolvedIssues.length;
   }
   
-  // Calculate reopen rate (estimate based on labels)
   const reopenedCount = issues.filter(i => 
     i.labels.some(l => l.toLowerCase().includes("reopen"))
   ).length;
   const reopenRate = totalIssues > 0 ? (reopenedCount / totalIssues) * 100 : 0;
 
-  // Calculate percentages
   const criticalOpenPct = totalIssues > 0 ? (criticalOpen / totalIssues) * 100 : 0;
   const highOpenPct = totalIssues > 0 ? (highOpen / totalIssues) * 100 : 0;
   const oldIssuesPct = totalIssues > 0 ? (oldIssuesCount / totalIssues) * 100 : 0;
   const resolutionDelayPct = Math.min((avgResolutionDays / slaTargetDays) * 100, 100);
 
-  // Calculate health score
   const healthScore = Math.max(0, Math.min(100, Math.round(
     100 -
     (criticalOpenPct * 0.4) -
@@ -76,27 +70,23 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
     (resolutionDelayPct * 0.1)
   )));
 
-  // Determine status
   const getStatus = () => {
     if (healthScore >= 70) return { 
       label: "Healthy", 
       color: "text-emerald-600 dark:text-emerald-400", 
-      bgColor: "bg-emerald-500",
-      badgeBg: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+      badgeClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
       icon: CheckCircle2
     };
     if (healthScore >= 40) return { 
       label: "At Risk", 
       color: "text-amber-600 dark:text-amber-400", 
-      bgColor: "bg-amber-500",
-      badgeBg: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+      badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
       icon: AlertTriangle
     };
     return { 
       label: "Critical", 
       color: "text-rose-600 dark:text-rose-400", 
-      bgColor: "bg-rose-500",
-      badgeBg: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800",
+      badgeClass: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
       icon: XCircle
     };
   };
@@ -104,7 +94,7 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
   const status = getStatus();
   const StatusIcon = status.icon;
 
-  // Needle rotation: 0% = -90deg (left), 100% = 90deg (right)
+  // Needle rotation: 0% = -90deg (pointing left), 100% = 90deg (pointing right)
   const needleRotation = -90 + (healthScore / 100) * 180;
 
   if (isLoading) {
@@ -117,14 +107,15 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
           </div>
           <Skeleton className="h-6 w-20 rounded-full" />
         </div>
-        <div className="flex justify-center mb-6">
-          <Skeleton className="h-40 w-52 rounded-lg" />
+        <div className="flex flex-col items-center mb-6">
+          <Skeleton className="h-32 w-52 rounded-lg" />
+          <Skeleton className="h-12 w-28 mt-4" />
         </div>
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="flex justify-between">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-4 w-16" />
+            <div key={i} className="flex justify-between items-center py-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-20" />
             </div>
           ))}
         </div>
@@ -154,38 +145,38 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl ${status.badgeBg}`}>
+          <div className={`p-2.5 rounded-xl ${status.badgeClass}`}>
             <Activity className="h-5 w-5" />
           </div>
           <h3 className="font-semibold text-lg">Project Health</h3>
         </div>
-        <Badge variant="outline" className={`${status.badgeBg} border font-medium px-3 py-1`}>
+        <Badge className={`${status.badgeClass} border-0 px-3 py-1`}>
           <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
           {status.label}
         </Badge>
       </div>
 
       {/* Gauge */}
-      <div className="relative flex flex-col items-center mb-8">
-        <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible">
+      <div className="flex flex-col items-center mb-6">
+        <svg width="200" height="110" viewBox="0 0 200 110" className="overflow-visible">
           <defs>
             <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#ef4444" />
-              <stop offset="30%" stopColor="#f97316" />
+              <stop offset="25%" stopColor="#f97316" />
               <stop offset="50%" stopColor="#eab308" />
-              <stop offset="70%" stopColor="#84cc16" />
+              <stop offset="75%" stopColor="#84cc16" />
               <stop offset="100%" stopColor="#22c55e" />
             </linearGradient>
           </defs>
           
-          {/* Background arc (gray) */}
+          {/* Background arc */}
           <path
             d="M 20 100 A 80 80 0 0 1 180 100"
             fill="none"
             stroke="currentColor"
-            strokeWidth="12"
+            strokeWidth="14"
             strokeLinecap="round"
-            className="text-muted/30"
+            className="text-muted/20"
           />
           
           {/* Colored arc */}
@@ -193,7 +184,7 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
             d="M 20 100 A 80 80 0 0 1 180 100"
             fill="none"
             stroke="url(#gaugeGradient)"
-            strokeWidth="12"
+            strokeWidth="14"
             strokeLinecap="round"
           />
           
@@ -201,10 +192,10 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
           {[0, 25, 50, 75, 100].map((tick) => {
             const angle = -180 + (tick / 100) * 180;
             const rad = (angle * Math.PI) / 180;
-            const x1 = 100 + 65 * Math.cos(rad);
-            const y1 = 100 + 65 * Math.sin(rad);
-            const x2 = 100 + 72 * Math.cos(rad);
-            const y2 = 100 + 72 * Math.sin(rad);
+            const x1 = 100 + 68 * Math.cos(rad);
+            const y1 = 100 + 68 * Math.sin(rad);
+            const x2 = 100 + 75 * Math.cos(rad);
+            const y2 = 100 + 75 * Math.sin(rad);
             return (
               <line
                 key={tick}
@@ -214,19 +205,19 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
                 y2={y2}
                 stroke="currentColor"
                 strokeWidth="2"
-                className="text-muted-foreground/40"
+                className="text-muted-foreground/30"
                 strokeLinecap="round"
               />
             );
           })}
           
           {/* Needle */}
-          <g style={{ transform: `rotate(${needleRotation}deg)`, transformOrigin: '100px 100px' }}>
+          <g style={{ transform: `rotate(${needleRotation}deg)`, transformOrigin: "100px 100px" }}>
             <line
               x1="100"
               y1="100"
               x2="100"
-              y2="35"
+              y2="30"
               stroke="currentColor"
               strokeWidth="3"
               className="text-foreground"
@@ -239,17 +230,17 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
           <circle cx="100" cy="100" r="4" className="fill-background" />
         </svg>
         
-        {/* Score display - positioned below the gauge */}
+        {/* Score - positioned BELOW the gauge */}
         <div className="mt-2 text-center">
           <span className={`text-4xl font-bold ${status.color}`}>
             {healthScore}
           </span>
-          <span className={`text-xl font-bold ${status.color}`}>%</span>
+          <span className={`text-xl font-semibold ${status.color}`}>%</span>
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="space-y-2">
+      {/* Metrics */}
+      <div className="space-y-1">
         <MetricRow 
           label="Critical Issues" 
           value={criticalOpen}
@@ -276,7 +267,7 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
           value={oldIssuesCount}
           percentage={oldIssuesPct}
           status={oldIssuesPct > 20 ? "warning" : "normal"}
-          icon={<TrendingDown className="h-4 w-4" />}
+          icon={<Clock className="h-4 w-4" />}
         />
         <MetricRow 
           label="Avg Resolution" 
@@ -287,10 +278,10 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
         />
       </div>
 
-      {/* Footer message */}
+      {/* Footer */}
       <div className="mt-5 pt-4 border-t border-border/50">
-        <div className={`flex items-center gap-2.5 text-sm`}>
-          <div className={`p-1.5 rounded-lg ${status.badgeBg}`}>
+        <div className="flex items-center gap-2.5 text-sm">
+          <div className={`p-1.5 rounded-lg ${status.badgeClass}`}>
             <StatusIcon className="h-4 w-4" />
           </div>
           <span className="text-muted-foreground">
@@ -306,7 +297,6 @@ export function ProjectHealthGauge({ issues, slaTargetDays = 7, isLoading }: Pro
   );
 }
 
-// Helper component for metric rows
 function MetricRow({ 
   label, 
   value, 
