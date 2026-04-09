@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ExternalLink, Search, X } from "lucide-react";
+import { ExternalLink, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface GitHubIssue {
   id: string;
@@ -48,13 +48,53 @@ interface Issue {
 interface IssueTableProps {
   issues: Issue[];
   onIssueClick: (issue: Issue) => void;
+  pageSize?: number;
 }
 
-export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
+// Helper function - defined before useMemo that uses it
+const getSeverityFromLabels = (labels: string[]): string => {
+  const labelText = labels.join(" ").toLowerCase();
+  if (labelText.includes("critical")) return "critical";
+  if (labelText.includes("high")) return "high";
+  if (labelText.includes("medium")) return "medium";
+  if (labelText.includes("low")) return "low";
+  return "none";
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "open":
+      return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20";
+    case "in_progress":
+      return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
+    case "closed":
+      return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+    default:
+      return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+  }
+};
+
+const getSeverityColor = (severity: string) => {
+  switch (severity) {
+    case "critical":
+      return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20";
+    case "high":
+      return "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20";
+    case "medium":
+      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20";
+    case "low":
+      return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
+    default:
+      return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+  }
+};
+
+export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTableProps) {
   const [titleSearch, setTitleSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Extract unique values for filters
   const uniqueAssignees = useMemo(() => {
@@ -62,7 +102,7 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
     return Array.from(assignees).sort();
   }, [issues]);
 
-  // Apply filters
+  // Apply filters with useCallback for better performance
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
       // Title search
@@ -91,48 +131,25 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
     });
   }, [issues, titleSearch, statusFilter, severityFilter, assigneeFilter]);
 
-  const getSeverityFromLabels = (labels: string[]): string => {
-    const labelText = labels.join(" ").toLowerCase();
-    if (labelText.includes("critical")) return "critical";
-    if (labelText.includes("high")) return "high";
-    if (labelText.includes("medium")) return "medium";
-    if (labelText.includes("low")) return "low";
-    return "none";
-  };
+  // Pagination
+  const totalPages = Math.ceil(filteredIssues.length / pageSize);
+  const paginatedIssues = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredIssues.slice(start, start + pageSize);
+  }, [filteredIssues, currentPage, pageSize]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open":
-        return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20";
-      case "in_progress":
-        return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
-      case "closed":
-        return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
-      default:
-        return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
-    }
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20";
-      case "high":
-        return "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20";
-      case "medium":
-        return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20";
-      case "low":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
-      default:
-        return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
-    }
-  };
+  // Reset page when filters change
+  const handleFilterChange = useCallback((setter: (value: string) => void, value: string) => {
+    setter(value);
+    setCurrentPage(1);
+  }, []);
 
   const clearAllFilters = () => {
     setTitleSearch("");
     setStatusFilter("all");
     setSeverityFilter("all");
     setAssigneeFilter("all");
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = titleSearch || statusFilter !== "all" || severityFilter !== "all" || assigneeFilter !== "all";
@@ -170,12 +187,12 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
                     <Input
                       placeholder="Search titles..."
                       value={titleSearch}
-                      onChange={(e) => setTitleSearch(e.target.value)}
+                      onChange={(e) => handleFilterChange(setTitleSearch, e.target.value)}
                       className="h-8 pl-7 text-xs"
                     />
                     {titleSearch && (
                       <button
-                        onClick={() => setTitleSearch("")}
+                        onClick={() => handleFilterChange(setTitleSearch, "")}
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-3 w-3" />
@@ -187,7 +204,7 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
               <TableHead className="w-[140px]">
                 <div className="space-y-2">
                   <span className="font-semibold">Status</span>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select value={statusFilter} onValueChange={(v) => handleFilterChange(setStatusFilter, v)}>
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
@@ -203,7 +220,7 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
               <TableHead className="w-[140px]">
                 <div className="space-y-2">
                   <span className="font-semibold">Severity</span>
-                  <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                  <Select value={severityFilter} onValueChange={(v) => handleFilterChange(setSeverityFilter, v)}>
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
@@ -220,7 +237,7 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
               <TableHead className="w-[160px]">
                 <div className="space-y-2">
                   <span className="font-semibold">Assignee</span>
-                  <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                  <Select value={assigneeFilter} onValueChange={(v) => handleFilterChange(setAssigneeFilter, v)}>
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
@@ -241,14 +258,14 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredIssues.length === 0 ? (
+            {paginatedIssues.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                   {hasActiveFilters ? "No issues match your filters" : "No issues found"}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredIssues.map((issue) => {
+              paginatedIssues.map((issue) => {
                 const severity = getSeverityFromLabels(issue.labels);
                 return (
                   <TableRow
@@ -308,6 +325,58 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-2">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} ({filteredIssues.length} issues)
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="w-8 h-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
