@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -15,6 +15,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_version: {
+        Row: {
+          change_log: string | null
+          id: string
+          updated_at: string | null
+          version_number: number
+        }
+        Insert: {
+          change_log?: string | null
+          id?: string
+          updated_at?: string | null
+          version_number?: number
+        }
+        Update: {
+          change_log?: string | null
+          id?: string
+          updated_at?: string | null
+          version_number?: number
+        }
+        Relationships: []
+      }
       github_connections: {
         Row: {
           access_token: string
