@@ -10,7 +10,7 @@ export interface UserSettings {
   widgets_per_row: number;
   theme: string;
   selected_repos: string[];
-  github_token?: string;
+  github_token?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,8 +24,8 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 
   if (error) {
     if (error.code === "PGRST116") {
-      // No settings found, return null
-      return null;
+      // No settings found, create default
+      return await createUserSettings(userId);
     }
     console.error("Error fetching user settings:", error);
     return null;
@@ -33,9 +33,9 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 
   return {
     ...data,
-    widget_visibility: data.widget_visibility as WidgetVisibility || DEFAULT_VISIBILITY,
-    widget_order: data.widget_order as (keyof WidgetVisibility)[] || DEFAULT_WIDGET_ORDER,
-    selected_repos: data.selected_repos as string[] || [],
+    widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
+    widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    selected_repos: (data.selected_repos as unknown as string[]) || [],
   };
 }
 
@@ -44,11 +44,11 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     .from("user_settings")
     .insert({
       user_id: userId,
-      widget_visibility: DEFAULT_VISIBILITY,
-      widget_order: DEFAULT_WIDGET_ORDER,
+      widget_visibility: DEFAULT_VISIBILITY as unknown as Record<string, unknown>,
+      widget_order: DEFAULT_WIDGET_ORDER as unknown as string[],
       widgets_per_row: 3,
       theme: "system",
-      selected_repos: [],
+      selected_repos: [] as unknown as string[],
     })
     .select()
     .single();
@@ -60,13 +60,13 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
 
   return {
     ...data,
-    widget_visibility: data.widget_visibility as WidgetVisibility,
-    widget_order: data.widget_order as (keyof WidgetVisibility)[],
-    selected_repos: data.selected_repos as string[] || [],
+    widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
+    widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    selected_repos: (data.selected_repos as unknown as string[]) || [],
   };
 }
 
-export async function updateUserSettings(
+export async function saveUserSettings(
   userId: string,
   updates: Partial<{
     widget_visibility: WidgetVisibility;
@@ -74,14 +74,36 @@ export async function updateUserSettings(
     widgets_per_row: number;
     theme: string;
     selected_repos: string[];
+    github_token: string | null;
   }>
 ): Promise<boolean> {
+  // Convert types for Supabase
+  const supabaseUpdates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  
+  if (updates.widget_visibility !== undefined) {
+    supabaseUpdates.widget_visibility = updates.widget_visibility as unknown as Record<string, unknown>;
+  }
+  if (updates.widget_order !== undefined) {
+    supabaseUpdates.widget_order = updates.widget_order as unknown as string[];
+  }
+  if (updates.widgets_per_row !== undefined) {
+    supabaseUpdates.widgets_per_row = updates.widgets_per_row;
+  }
+  if (updates.theme !== undefined) {
+    supabaseUpdates.theme = updates.theme;
+  }
+  if (updates.selected_repos !== undefined) {
+    supabaseUpdates.selected_repos = updates.selected_repos as unknown as string[];
+  }
+  if (updates.github_token !== undefined) {
+    supabaseUpdates.github_token = updates.github_token;
+  }
+
   const { error } = await supabase
     .from("user_settings")
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
+    .update(supabaseUpdates)
     .eq("user_id", userId);
 
   if (error) {
@@ -90,14 +112,4 @@ export async function updateUserSettings(
   }
 
   return true;
-}
-
-export async function getOrCreateUserSettings(userId: string): Promise<UserSettings | null> {
-  let settings = await getUserSettings(userId);
-  
-  if (!settings) {
-    settings = await createUserSettings(userId);
-  }
-  
-  return settings;
 }
