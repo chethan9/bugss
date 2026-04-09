@@ -1299,20 +1299,18 @@ export default function Home() {
             {availableLabels.length > 0 && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    Filter by Labels
-                    {filters.labels.length > 0 && (
-                      <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                        {filters.labels.length} selected
-                      </span>
-                    )}
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold">Issues</h3>
+                    <span className="text-sm text-muted-foreground">
+                      Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
+                    </span>
+                  </div>
                   {filters.labels.length > 0 && (
                     <button
                       onClick={() => setFilters({ ...filters, labels: [] })}
                       className="text-xs text-muted-foreground hover:text-primary transition-colors"
                     >
-                      Clear all
+                      Clear labels
                     </button>
                   )}
                 </div>
@@ -1325,7 +1323,7 @@ export default function Home() {
                     });
                   });
                   
-                  // Sort by count and get top 10
+                  // Sort by count and get top labels
                   const sortedLabels = availableLabels
                     .map((label) => ({ label, count: labelCounts.get(label) || 0 }))
                     .sort((a, b) => b.count - a.count);
@@ -1448,63 +1446,7 @@ export default function Home() {
             )}
 
             <div id="issue-table-section">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base font-semibold">
-                    Issues
-                  </h2>
-                  <span className="text-xs text-muted-foreground">
-                    Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
-                  </span>
-                  <FilterMenu
-                    repositories={availableRepositories}
-                    selectedRepos={filters.repositories}
-                    onRepoToggle={(repo) => {
-                      if (filters.repositories.includes(repo)) {
-                        setFilters({
-                          ...filters,
-                          repositories: filters.repositories.filter((r) => r !== repo),
-                        });
-                      } else {
-                        setFilters({
-                          ...filters,
-                          repositories: [...filters.repositories, repo],
-                        });
-                      }
-                    }}
-                    allLabels={availableLabels}
-                    selectedLabels={filters.labels}
-                    onLabelToggle={(label) => {
-                      if (filters.labels.includes(label)) {
-                        setFilters({
-                          ...filters,
-                          labels: filters.labels.filter((l) => l !== label),
-                        });
-                      } else {
-                        setFilters({
-                          ...filters,
-                          labels: [...filters.labels, label],
-                        });
-                      }
-                    }}
-                    selectedStatuses={filters.statuses}
-                    onStatusToggle={(status) => {
-                      if (filters.statuses.includes(status)) {
-                        setFilters({
-                          ...filters,
-                          statuses: filters.statuses.filter((s) => s !== status),
-                        });
-                      } else {
-                        setFilters({
-                          ...filters,
-                          statuses: [...filters.statuses, status],
-                        });
-                      }
-                    }}
-                    onClearFilters={clearFilters}
-                  />
-                </div>
-
+              <div className="flex items-center justify-end mb-4">
                 <div className="relative w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -1518,63 +1460,6 @@ export default function Home() {
 
               <div className="space-y-6">
                 <IssueTable issues={paginatedIssues} onIssueClick={handleIssueClick} />
-
-                {totalPages > 1 && (
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          className={
-                            currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum;
-                        if (totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
-                        } else {
-                          pageNum = currentPage - 2 + i;
-                        }
-
-                        return (
-                          <PaginationItem key={i}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(pageNum)}
-                              isActive={currentPage === pageNum}
-                              className="cursor-pointer"
-                            >
-                              {pageNum}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
-
-                      {totalPages > 5 && currentPage < totalPages - 2 && (
-                        <PaginationItem>
-                          <PaginationEllipsis />
-                        </PaginationItem>
-                      )}
-
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                          className={
-                            currentPage === totalPages
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                )}
               </div>
             </div>
 
