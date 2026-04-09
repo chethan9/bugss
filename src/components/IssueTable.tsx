@@ -260,25 +260,7 @@ export function IssueTable({ issues, onIssueClick }: IssueTableProps) {
                       #{issue.number}
                     </TableCell>
                     <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium text-sm line-clamp-1">{issue.title}</p>
-                        <div className="flex gap-1 flex-wrap">
-                          {issue.labels.slice(0, 3).map((label) => (
-                            <Badge
-                              key={label}
-                              variant="outline"
-                              className="text-xs px-1.5 py-0 h-5"
-                            >
-                              {label}
-                            </Badge>
-                          ))}
-                          {issue.labels.length > 3 && (
-                            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
-                              +{issue.labels.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
+                      <p className="font-medium text-sm line-clamp-1">{issue.title}</p>
                     </TableCell>
                     <TableCell>
                       <Badge

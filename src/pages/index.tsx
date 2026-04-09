@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Masonry from "react-masonry-css";
 import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -948,13 +949,15 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <div 
-              className={`mb-8 grid gap-6 ${
-                widgetsPerRow === 1 ? "grid-cols-1" :
-                widgetsPerRow === 2 ? "grid-cols-1 lg:grid-cols-2" :
-                widgetsPerRow === 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" :
-                "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
-              }`}
+            <Masonry
+              breakpointCols={{
+                default: widgetsPerRow,
+                1280: Math.min(widgetsPerRow, 3),
+                1024: Math.min(widgetsPerRow, 2),
+                768: 1
+              }}
+              className="flex -ml-6 w-auto"
+              columnClassName="pl-6 bg-clip-padding"
               id="analytics-widgets-section"
             >
               {widgetOrder.map((widgetKey) => {
@@ -963,13 +966,13 @@ export default function Home() {
                 switch (widgetKey) {
                   case "smartInsights":
                     return analytics.insights.length > 0 ? (
-                      <div key={widgetKey} className="col-span-full">
+                      <div key={widgetKey} className="mb-6">
                         <SmartInsights insights={analytics.insights} />
                       </div>
                     ) : null;
                   case "summaryMetrics":
                     return (
-                      <div key={widgetKey} className="col-span-full">
+                      <div key={widgetKey} className="mb-6">
                         <DashboardMetrics
                           totalRepos={selectedRepos.length}
                           totalIssues={filteredIssues.length}
@@ -984,7 +987,7 @@ export default function Home() {
                     );
                   case "progressBar":
                     return (
-                      <div key={widgetKey} className="col-span-full">
+                      <div key={widgetKey} className="mb-6">
                         <ProgressBar
                           open={metrics.statusCounts.open}
                           inProgress={metrics.statusCounts.inProgress || 0}
@@ -994,58 +997,154 @@ export default function Home() {
                       </div>
                     );
                   case "severityHeatmap":
-                    return <BugSeverityHeatmap key={widgetKey} severities={analytics.severities} />;
+                    return analytics.severities.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <BugSeverityHeatmap severities={analytics.severities} />
+                      </div>
+                    ) : null;
                   case "resolutionTime":
-                    return <AverageResolutionTime key={widgetKey} stats={analytics.resolutionTime} />;
+                    return analytics.resolutionTime.count > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <AverageResolutionTime stats={analytics.resolutionTime} />
+                      </div>
+                    ) : null;
                   case "trendChart":
-                    return <IssueTrendChart key={widgetKey} data={analytics.trend} days={30} />;
+                    return analytics.trend.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <IssueTrendChart data={analytics.trend} days={30} />
+                      </div>
+                    ) : null;
                   case "moduleStability":
-                    return <ModuleStabilityScore key={widgetKey} stability={analytics.stability} />;
+                    return analytics.stability.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <ModuleStabilityScore stability={analytics.stability} />
+                      </div>
+                    ) : null;
                   case "reopenedIssues":
-                    return <ReopenedIssuesTracker key={widgetKey} stats={analytics.reopened} />;
+                    return (
+                      <div key={widgetKey} className="mb-6">
+                        <ReopenedIssuesTracker stats={analytics.reopened} />
+                      </div>
+                    );
                   case "categoryBreakdown":
-                    return <BugCategoryBreakdown key={widgetKey} categories={analytics.categories} />;
+                    return analytics.categories.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <BugCategoryBreakdown categories={analytics.categories} />
+                      </div>
+                    ) : null;
                   case "bugHotspots":
-                    return <BugHotspots key={widgetKey} hotspots={analytics.hotspots} />;
+                    return analytics.hotspots.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <BugHotspots hotspots={analytics.hotspots} />
+                      </div>
+                    ) : null;
                   case "atRiskRelease":
-                    return <AtRiskRelease key={widgetKey} stats={analytics.atRiskRelease} />;
+                    return (
+                      <div key={widgetKey} className="mb-6">
+                        <AtRiskRelease stats={analytics.atRiskRelease} />
+                      </div>
+                    );
                   case "agingIssues":
-                    return <AgingIssues key={widgetKey} stats={analytics.agingIssues} />;
+                    return (
+                      <div key={widgetKey} className="mb-6">
+                        <AgingIssues stats={analytics.agingIssues} />
+                      </div>
+                    );
                   case "criticalUntouched":
-                    return <CriticalUntouched key={widgetKey} stats={analytics.criticalUntouched} />;
+                    return analytics.criticalUntouched.issues.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <CriticalUntouched stats={analytics.criticalUntouched} />
+                      </div>
+                    ) : null;
                   case "backlogGrowth":
-                    return <BacklogGrowth key={widgetKey} stats={analytics.backlogGrowth} />;
+                    return (
+                      <div key={widgetKey} className="mb-6">
+                        <BacklogGrowth stats={analytics.backlogGrowth} />
+                      </div>
+                    );
                   case "bugFixEfficiency":
-                    return <BugFixEfficiency key={widgetKey} stats={analytics.bugFixEfficiency} />;
+                    return (
+                      <div key={widgetKey} className="mb-6">
+                        <BugFixEfficiency stats={analytics.bugFixEfficiency} />
+                      </div>
+                    );
                   case "repeatBugDetector":
-                    return <RepeatBugDetector key={widgetKey} stats={analytics.repeatBugs} />;
+                    return analytics.repeatBugs.patterns.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <RepeatBugDetector stats={analytics.repeatBugs} />
+                      </div>
+                    ) : null;
                   case "developerLoad":
-                    return <DeveloperLoad key={widgetKey} stats={analytics.developerLoad} />;
+                    return analytics.developerLoad.developers.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <DeveloperLoad stats={analytics.developerLoad} />
+                      </div>
+                    ) : null;
                   case "focusRecommendations":
-                    return <FocusRecommendations key={widgetKey} recommendations={analytics.focusRecommendations} />;
+                    return analytics.focusRecommendations.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <FocusRecommendations recommendations={analytics.focusRecommendations} />
+                      </div>
+                    ) : null;
                   case "bugHeatmap":
-                    return <BugHeatmap key={widgetKey} data={analytics.bugHeatmap} />;
+                    return analytics.bugHeatmap.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <BugHeatmap data={analytics.bugHeatmap} />
+                      </div>
+                    ) : null;
                   case "resolutionHistogram":
-                    return <ResolutionHistogram key={widgetKey} data={analytics.resolutionHistogram} />;
+                    return analytics.resolutionHistogram.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <ResolutionHistogram data={analytics.resolutionHistogram} />
+                      </div>
+                    ) : null;
                   case "priorityScatterPlot":
-                    return <PriorityScatterPlot key={widgetKey} data={analytics.priorityScatter} />;
+                    return analytics.priorityScatter.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <PriorityScatterPlot data={analytics.priorityScatter} />
+                      </div>
+                    ) : null;
                   case "stackedAreaChart":
-                    return <StackedAreaChart key={widgetKey} data={analytics.stackedAreaData} />;
+                    return analytics.stackedAreaData.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <StackedAreaChart data={analytics.stackedAreaData} />
+                      </div>
+                    ) : null;
                   case "issueFunnelChart":
-                    return <IssueFunnelChart key={widgetKey} stages={analytics.issueFunnel} />;
+                    return analytics.issueFunnel.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <IssueFunnelChart stages={analytics.issueFunnel} />
+                      </div>
+                    ) : null;
                   case "backlogWaterfallChart":
-                    return <BacklogWaterfallChart key={widgetKey} data={analytics.backlogWaterfall} />;
+                    return analytics.backlogWaterfall.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <BacklogWaterfallChart data={analytics.backlogWaterfall} />
+                      </div>
+                    ) : null;
                   case "moduleTreemap":
-                    return <ModuleTreemap key={widgetKey} data={analytics.moduleTreemap} />;
+                    return analytics.moduleTreemap.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <ModuleTreemap data={analytics.moduleTreemap} />
+                      </div>
+                    ) : null;
                   case "moduleRadarChart":
-                    return <ModuleRadarChart key={widgetKey} data={analytics.moduleRadar} />;
+                    return analytics.moduleRadar.modules.length > 0 ? (
+                      <div key={widgetKey} className="mb-6">
+                        <ModuleRadarChart data={analytics.moduleRadar} />
+                      </div>
+                    ) : null;
                   case "kpiBulletChart":
-                    return <BulletChart key={widgetKey} metrics={analytics.kpiMetrics} />;
+                    return (
+                      <div key={widgetKey} className="mb-6">
+                        <BulletChart metrics={analytics.kpiMetrics} />
+                      </div>
+                    );
                   default:
                     return null;
                 }
               })}
-            </div>
+            </Masonry>
 
             {availableLabels.length > 0 && (
               <div className="mb-6">
