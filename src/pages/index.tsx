@@ -292,12 +292,12 @@ export default function Home() {
         const apiIssues = await fetchRepositoryIssues(owner, name, tokenToUse);
         
         // Transform API response to match IssueTable format
-        const transformedIssues = apiIssues.map((issue: any) => ({
+        const transformedIssues: GitHubIssue[] = apiIssues.map((issue: any) => ({
           id: issue.id,
           number: issue.number,
           title: issue.title,
           body: issue.body || "",
-          status: issue.state === "open" ? "open" : "closed",
+          status: (issue.state === "open" ? "open" : "closed") as "open" | "closed" | "in_progress",
           labels: issue.labels.map((l: any) => l.name),
           assignees: issue.assignees.map((a: any) => a.login),
           repository: repo,
