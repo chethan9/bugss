@@ -242,12 +242,14 @@ export default function Home() {
           if (settings.logo_url) {
             setLogoUrl(settings.logo_url);
           }
+          // Load saved GitHub token and repos from Supabase
           if (settings.github_token) {
             const storedToken = settings.github_token;
             setGithubToken(storedToken);
             setToken(storedToken);
             if (settings.selected_repos && settings.selected_repos.length > 0) {
               setSelectedRepos(settings.selected_repos);
+              // Auto-fetch issues with saved token and repos
               fetchSelectedIssues(settings.selected_repos, storedToken);
             }
           }
@@ -375,7 +377,7 @@ export default function Home() {
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     setGithubToken("");
     setSelectedRepos([]);
     setAvailableRepos([]);
@@ -386,6 +388,14 @@ export default function Home() {
     setRememberMe(false);
     setConnectionStep("token");
     setShowConnectionDialog(false);
+    
+    // Clear token from Supabase
+    if (user) {
+      await saveUserSettings(user.id, {
+        github_token: null,
+        selected_repos: [],
+      });
+    }
   };
 
   const handleSignOut = async () => {
@@ -491,6 +501,15 @@ export default function Home() {
       console.log("🔴 Calling fetchSelectedIssues...");
       await fetchSelectedIssues(selectedRepos, token);
       console.log("🔴 fetchSelectedIssues completed");
+      
+      // Save token and repos to Supabase for persistence
+      if (user) {
+        await saveUserSettings(user.id, {
+          github_token: token,
+          selected_repos: selectedRepos,
+        });
+        console.log("🔴 Saved token and repos to Supabase");
+      }
       
       if (rememberMe) {
         saveTokenToStorage(githubToken, selectedRepos, true);
