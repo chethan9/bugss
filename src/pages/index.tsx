@@ -62,6 +62,7 @@ import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallCh
 import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
 import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
 import { BulletChart } from "@/components/analytics/BulletChart";
+import { fetchUserRepositories, type GitHubRepository } from "@/services/githubService";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -155,6 +156,14 @@ export default function Home() {
   const [isLoadingIssues, setIsLoadingIssues] = useState(false);
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
+  
+  // Repository selection state
+  const [availableRepos, setAvailableRepos] = useState<GitHubRepository[]>([]);
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+  const [repoSearchQuery, setRepoSearchQuery] = useState("");
+  const [connectionStep, setConnectionStep] = useState<"token" | "repos">("token");
+  const [showConnectionDialog, setShowConnectionDialog] = useState(false);
+  
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null,
@@ -273,56 +282,59 @@ export default function Home() {
     }
   };
 
-  const handleDisconnect = () => {
-    setGithubToken("");
-    setSelectedRepos([]);
-    setIssues([]);
-    setToken("");
-    clearStoredCredentials();
-    setIsStoredConnection(false);
-    setRememberMe(false);
-  };
-
-  const handleTokenSave = async () => {
-    if (!tokenInput.trim()) {
-      setTokenError("Please enter a valid token");
+  // Handle token submission - fetch repositories
+  const handleTokenSubmit = async () => {
+    if (!githubToken) {
+      alert("Please enter a GitHub token");
       return;
     }
 
     setIsLoadingRepos(true);
-    setTokenError("");
-
     try {
-      const response = await fetch("https://api.github.com/user/repos?per_page=100", {
-        headers: {
-          Authorization: `Bearer ${tokenInput.trim()}`,
-          Accept: "application/vnd.github.v3+json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Invalid GitHub token. Please check and try again.");
+      const repos = await fetchUserRepositories(githubToken);
+      setAvailableRepos(repos);
+      setConnectionStep("repos");
+      setToken(githubToken); // Store token in state for later use
+    } catch (error: any) {
+      console.error("Failed to fetch repositories:", error);
+      alert(error.message || "Failed to fetch repositories. Please check your token.");
+      
+      // Clear stored credentials if token is invalid
+      if (error.message.includes("Invalid") || error.message.includes("401")) {
+        clearStoredCredentials();
+        setIsStoredConnection(false);
       }
-
-      const repos = await response.json();
-      setAllRepositories(repos);
-      localStorage.setItem("github_token", tokenInput.trim());
-      setToken(tokenInput.trim());
-      setShowTokenDialog(false);
-      setShowRepoDialog(true);
-      setTokenInput("");
-    } catch (err: any) {
-      setTokenError(err.message || "Failed to fetch repositories");
     } finally {
       setIsLoadingRepos(false);
     }
   };
 
-  const handleRepoSelection = () => {
-    setSelectedRepos(tempSelectedRepos);
-    setShowRepoDialog(false);
-    if (tempSelectedRepos.length > 0) {
-      fetchSelectedIssues(tempSelectedRepos, token);
+  // Handle repository selection and issue fetching
+  const handleRepoSelectionComplete = async () => {
+    if (selectedRepos.length === 0) {
+      alert("Please select at least one repository");
+      return;
+    }
+
+    setLoading(true);
+    setIsLoadingIssues(true);
+    try {
+      await fetchSelectedIssues(selectedRepos, token);
+      
+      // Save to storage if "Remember me" is checked
+      if (rememberMe) {
+        saveTokenToStorage(githubToken, selectedRepos, true);
+        setIsStoredConnection(true);
+      }
+      
+      setShowConnectionDialog(false);
+      setConnectionStep("token");
+    } catch (error: any) {
+      console.error("Failed to fetch issues:", error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setIsLoadingIssues(false);
     }
   };
 
@@ -393,112 +405,40 @@ export default function Home() {
     }
   };
 
+  // Filter repositories based on search query
   const filteredRepos = useMemo(() => {
-    return allRepositories.filter((repo) =>
-      repo.full_name.toLowerCase().includes(repoSearchQuery.toLowerCase())
+    if (!repoSearchQuery) return availableRepos;
+    
+    const query = repoSearchQuery.toLowerCase();
+    return availableRepos.filter(repo => 
+      repo.full_name.toLowerCase().includes(query) ||
+      repo.description?.toLowerCase().includes(query) ||
+      repo.language?.toLowerCase().includes(query)
     );
-  }, [allRepositories, repoSearchQuery]);
+  }, [availableRepos, repoSearchQuery]);
 
-  const availableRepositories = useMemo(() => {
-    return Array.from(new Set(issues.map((issue) => issue.repository)));
-  }, [issues]);
-
-  const availableLabels = useMemo(() => {
-    const labels = new Set<string>();
-    issues.forEach((issue) => {
-      issue.labels.forEach((label) => labels.add(label));
-    });
-    return Array.from(labels).sort();
-  }, [issues]);
-
-  const filteredIssues = useMemo(() => {
-    let filtered = issues.filter((issue) => {
-      if (filters.repositories.length > 0 && !filters.repositories.includes(issue.repository)) {
-        return false;
-      }
-      if (filters.statuses.length > 0 && !filters.statuses.includes(issue.status)) {
-        return false;
-      }
-      if (filters.labels.length > 0) {
-        const hasLabel = filters.labels.some((label) => issue.labels.includes(label));
-        if (!hasLabel) return false;
-      }
-      if (filters.search) {
-        const search = filters.search.toLowerCase();
-        return (
-          issue.title.toLowerCase().includes(search) ||
-          String(issue.number).includes(search)
-        );
-      }
-      return true;
-    });
-
-    // Apply date range filter
-    if (dateRange.start || dateRange.end) {
-      filtered = filterIssuesByDateRange(filtered, dateRange.start, dateRange.end);
-    }
-
-    return filtered;
-  }, [issues, filters, dateRange]);
-
-  const metrics = useMemo(() => {
-    const statusCounts = filteredIssues.reduce(
-      (acc, issue) => {
-        acc[issue.status] = (acc[issue.status] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
+  // Toggle repo selection
+  const toggleRepoSelection = (repoFullName: string) => {
+    setSelectedRepos(prev => 
+      prev.includes(repoFullName)
+        ? prev.filter(r => r !== repoFullName)
+        : [...prev, repoFullName]
     );
+  };
 
-    return {
-      statusCounts: {
-        open: statusCounts.open || 0,
-        inProgress: statusCounts.in_progress || 0,
-        closed: statusCounts.closed || 0,
-      },
-    };
-  }, [filteredIssues]);
+  // Select all filtered repos
+  const selectAllFilteredRepos = () => {
+    const allFilteredNames = filteredRepos.map(r => r.full_name);
+    setSelectedRepos(prev => {
+      const newSet = new Set([...prev, ...allFilteredNames]);
+      return Array.from(newSet);
+    });
+  };
 
-  const analytics = useMemo(() => {
-    return {
-      insights: generateSmartInsights(filteredIssues),
-      severities: calculateSeverityDistribution(filteredIssues),
-      resolutionTime: calculateAverageResolutionTime(filteredIssues),
-      trend: calculateIssueTrend(filteredIssues, 30),
-      stability: calculateModuleStability(filteredIssues),
-      reopened: calculateReopenedIssues(filteredIssues),
-      categories: calculateCategoryBreakdown(filteredIssues),
-      hotspots: calculateBugHotspots(filteredIssues, 5),
-      atRiskRelease: calculateAtRiskRelease(filteredIssues),
-      agingIssues: calculateAgingIssues(filteredIssues),
-      criticalUntouched: calculateCriticalUntouched(filteredIssues, 3),
-      backlogGrowth: calculateBacklogGrowth(filteredIssues),
-      bugFixEfficiency: calculateBugFixEfficiency(filteredIssues, 30),
-      repeatBugs: detectRepeatBugs(filteredIssues, 7),
-      developerLoad: calculateDeveloperLoad(filteredIssues),
-      focusRecommendations: generateFocusRecommendations(filteredIssues),
-      bugHeatmap: calculateBugHeatmap(filteredIssues, 30),
-      resolutionHistogram: calculateResolutionHistogram(filteredIssues),
-      priorityScatter: calculatePriorityResolutionScatter(filteredIssues),
-      stackedAreaData: calculateStackedAreaData(filteredIssues, 30),
-      issueFunnel: calculateIssueFunnel(filteredIssues),
-      backlogWaterfall: calculateBacklogWaterfall(filteredIssues, 4),
-      moduleTreemap: calculateModuleTreemap(filteredIssues),
-      moduleRadar: calculateModuleRadarData(filteredIssues, 5),
-      kpiMetrics: calculateKPIMetrics(filteredIssues),
-      sparklines: {
-        open: calculateSparklineData(filteredIssues, "open", 14),
-        closed: calculateSparklineData(filteredIssues, "closed", 14),
-        created: calculateSparklineData(filteredIssues, "created", 14),
-      },
-    };
-  }, [filteredIssues]);
-
-  const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
-  const paginatedIssues = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredIssues.slice(start, start + itemsPerPage);
-  }, [filteredIssues, currentPage]);
+  // Deselect all repos
+  const deselectAllRepos = () => {
+    setSelectedRepos([]);
+  };
 
   const handleIssueClick = (issue: GitHubIssue) => {
     setSelectedIssue(issue);
@@ -563,95 +503,198 @@ export default function Home() {
                 </Button>
               </div>
             ) : (
-              <Dialog>
+              <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
                 <DialogTrigger asChild>
                   <Button variant="default">
                     <GitBranch className="h-4 w-4 mr-2" />
                     Connect GitHub
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px]">
+                <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Connect to GitHub</DialogTitle>
+                    <DialogTitle>
+                      {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
+                    </DialogTitle>
                     <DialogDescription>
-                      Enter your GitHub personal access token and select repositories to analyze.
+                      {connectionStep === "token" 
+                        ? "Enter your GitHub personal access token to get started." 
+                        : `Found ${availableRepos.length} repositories. Select the ones you want to analyze.`
+                      }
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <label htmlFor="token" className="text-sm font-medium">
-                        GitHub Personal Access Token
-                      </label>
-                      <Input
-                        id="token"
-                        type="password"
-                        placeholder="ghp_xxxxxxxxxxxx"
-                        value={githubToken}
-                        onChange={(e) => setGithubToken(e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Create a token at{" "}
-                        <a
-                          href="https://github.com/settings/tokens"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          GitHub Settings → Developer settings → Personal access tokens
-                        </a>
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label htmlFor="repos" className="text-sm font-medium">
-                        Repository Names (comma-separated)
-                      </label>
-                      <Input
-                        id="repos"
-                        placeholder="owner/repo1, owner/repo2"
-                        value={selectedRepos.join(", ")}
-                        onChange={(e) =>
-                          setSelectedRepos(
-                            e.target.value
-                              .split(",")
-                              .map((r) => r.trim())
-                              .filter(Boolean)
-                          )
-                        }
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Example: facebook/react, vercel/next.js
-                      </p>
-                    </div>
-
-                    <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
-                      <div className="flex items-center h-5">
-                        <input
-                          type="checkbox"
-                          id="remember"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
-                          Remember me (store token locally)
+                  {connectionStep === "token" ? (
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <label htmlFor="token" className="text-sm font-medium">
+                          GitHub Personal Access Token
                         </label>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
+                        <Input
+                          id="token"
+                          type="password"
+                          placeholder="ghp_xxxxxxxxxxxx"
+                          value={githubToken}
+                          onChange={(e) => setGithubToken(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleTokenSubmit()}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Create a token at{" "}
+                          <a
+                            href="https://github.com/settings/tokens"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            GitHub Settings → Developer settings → Personal access tokens
+                          </a>
                         </p>
                       </div>
+
+                      <div className="flex items-start space-x-3 rounded-md border border-border bg-muted/50 p-4">
+                        <div className="flex items-center h-5">
+                          <input
+                            type="checkbox"
+                            id="remember"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
+                            Remember me (store token locally)
+                          </label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            ⚠️ Token will be stored in browser localStorage. Only use on trusted devices.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-4 py-4">
+                      {/* Search and bulk actions */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search repositories..."
+                            value={repoSearchQuery}
+                            onChange={(e) => setRepoSearchQuery(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={selectAllFilteredRepos}
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={deselectAllRepos}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+
+                      {/* Selected count */}
+                      <div className="text-sm text-muted-foreground">
+                        {selectedRepos.length} repositories selected
+                      </div>
+
+                      {/* Repository list */}
+                      <div className="border rounded-md max-h-[400px] overflow-y-auto">
+                        {filteredRepos.length === 0 ? (
+                          <div className="p-8 text-center text-muted-foreground">
+                            No repositories found
+                          </div>
+                        ) : (
+                          <div className="divide-y">
+                            {filteredRepos.map((repo) => (
+                              <div
+                                key={repo.id}
+                                className="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer"
+                                onClick={() => toggleRepoSelection(repo.full_name)}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRepos.includes(repo.full_name)}
+                                  onChange={() => toggleRepoSelection(repo.full_name)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm truncate">
+                                      {repo.full_name}
+                                    </span>
+                                    {repo.private && (
+                                      <Badge variant="outline" className="text-xs">
+                                        Private
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {repo.description && (
+                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                      {repo.description}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                    {repo.language && (
+                                      <span className="flex items-center gap-1">
+                                        <span className="w-2 h-2 rounded-full bg-primary"></span>
+                                        {repo.language}
+                                      </span>
+                                    )}
+                                    <span>⭐ {repo.stargazers_count}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <DialogFooter>
+                    {connectionStep === "repos" && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setConnectionStep("token");
+                          setAvailableRepos([]);
+                          setSelectedRepos([]);
+                        }}
+                      >
+                        Back
+                      </Button>
+                    )}
                     <Button
-                      onClick={() => handleFetchIssues()}
-                      disabled={!githubToken || selectedRepos.length === 0}
+                      onClick={connectionStep === "token" ? handleTokenSubmit : handleRepoSelectionComplete}
+                      disabled={
+                        connectionStep === "token" 
+                          ? !githubToken || isLoadingRepos 
+                          : selectedRepos.length === 0 || isLoadingIssues
+                      }
                     >
-                      Connect & Fetch Issues
+                      {isLoadingRepos ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Fetching Repos...
+                        </>
+                      ) : isLoadingIssues ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Fetching Issues...
+                        </>
+                      ) : connectionStep === "token" ? (
+                        "Continue"
+                      ) : (
+                        "Fetch Issues"
+                      )}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

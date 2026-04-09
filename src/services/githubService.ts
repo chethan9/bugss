@@ -323,3 +323,67 @@ export async function fetchRepositoryIssues(
 
   return allIssues;
 }
+
+export interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  html_url: string;
+  stargazers_count: number;
+  language: string | null;
+  private: boolean;
+  owner: {
+    login: string;
+    avatar_url: string;
+  };
+}
+
+/**
+ * Fetch all repositories accessible by the authenticated user
+ */
+export async function fetchUserRepositories(token: string): Promise<GitHubRepository[]> {
+  const repos: GitHubRepository[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  try {
+    while (hasMore) {
+      const response = await fetch(
+        `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Invalid GitHub token. Please check your token and try again.");
+        }
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.length === 0) {
+        hasMore = false;
+      } else {
+        repos.push(...data);
+        page++;
+      }
+
+      // GitHub API rate limiting: max 100 pages
+      if (page > 100) {
+        hasMore = false;
+      }
+    }
+
+    return repos;
+  } catch (error: any) {
+    console.error("Failed to fetch repositories:", error);
+    throw error;
+  }
+}
