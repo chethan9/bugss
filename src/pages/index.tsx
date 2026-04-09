@@ -1540,18 +1540,6 @@ export default function Home() {
                 )}
 
                 <div id="issue-table-section">
-                  <div className="flex items-center justify-end mb-4">
-                    <div className="relative w-80">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search issues..."
-                        value={filters.search}
-                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        className="pl-9"
-                      />
-                    </div>
-                  </div>
-
                   <div className="space-y-6">
                     <IssueTable issues={paginatedIssues} onIssueClick={handleIssueClick} />
                   </div>
