@@ -73,7 +73,11 @@ import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallCh
 import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
 import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
 import { BulletChart } from "@/components/analytics/BulletChart";
+import { Sparkline } from "@/components/analytics/Sparkline";
 import { RepositoryFilter } from "@/components/analytics/RepositoryFilter";
+import { ProjectHealthGauge } from "@/components/analytics/ProjectHealthGauge";
+import { BurndownChart } from "@/components/analytics/BurndownChart";
+import { FlowEfficiency } from "@/components/analytics/FlowEfficiency";
 import { fetchUserRepositories, type GitHubRepository } from "@/services/githubService";
 import {
   generateSmartInsights,
@@ -1174,6 +1178,24 @@ export default function Home() {
                               closed={metrics.statusCounts.closed}
                               total={filteredIssues.length}
                             />
+                          </div>
+                        );
+                      case "projectHealthGauge":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <ProjectHealthGauge issues={filteredIssues} />
+                          </div>
+                        );
+                      case "burndownChart":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <BurndownChart issues={filteredIssues} />
+                          </div>
+                        );
+                      case "flowEfficiency":
+                        return (
+                          <div key={widgetKey} className="mb-6">
+                            <FlowEfficiency issues={filteredIssues} />
                           </div>
                         );
                       case "severityHeatmap":
