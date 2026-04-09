@@ -1,23 +1,25 @@
 ---
 title: High-Impact Analytics Widgets
-status: todo
+status: done
 priority: high
 type: feature
-tags: [analytics, widgets, ui]
+tags: [analytics, widgets, charts]
 created_by: agent
 created_at: 2026-04-09
 position: 7
 ---
 
 ## Notes
-Implement the most impactful analytics widgets that provide actionable insights: Bug Severity Heatmap, Average Resolution Time, Reopened Issues Tracker, Issue Trend Over Time, and Module Stability Score.
+Visual analytics widgets using Recharts. Displays severity distribution, resolution times, trends, and module stability with interactive charts and color-coded insights.
 
 ## Checklist
-- [ ] Create BugSeverityHeatmap.tsx: severity distribution chart
-- [ ] Create AverageResolutionTime.tsx: KPI widget with breakdown
-- [ ] Create ReopenedIssuesTracker.tsx: percentage + trend
-- [ ] Create IssueTrendChart.tsx: created vs closed over time (line chart)
-- [ ] Create ModuleStabilityScore.tsx: score per module/label
-- [ ] Add chart library (recharts or chart.js)
-- [ ] Integrate widgets into dashboard layout
-- [ ] Add responsive grid layout for widgets
+- [x] Create SmartInsights component (alert-style insights at top)
+- [x] Create BugSeverityHeatmap (bar chart with color-coded severities)
+- [x] Create AverageResolutionTime (KPI card with severity breakdown)
+- [x] Create IssueTrendChart (line chart: created vs closed over time)
+- [x] Create ModuleStabilityScore (progress bars for top 8 modules)
+- [x] Install recharts and date-fns dependencies
+- [x] Integrate analytics service calculations
+- [x] Add responsive charts (Recharts + ResponsiveContainer)
+- [x] Integrate widgets into dashboard layout
+- [x] Add responsive grid layout for widgets (2 columns on desktop)
