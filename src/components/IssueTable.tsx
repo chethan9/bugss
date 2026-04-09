@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ExternalLink, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { ExternalLink, Search, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 export interface GitHubIssue {
   id: string;
@@ -51,7 +51,7 @@ interface IssueTableProps {
   pageSize?: number;
 }
 
-// Helper function - defined before useMemo that uses it
+// Helper functions
 const getSeverityFromLabels = (labels: string[]): string => {
   const labelText = labels.join(" ").toLowerCase();
   if (labelText.includes("critical")) return "critical";
@@ -66,7 +66,7 @@ const getStatusColor = (status: string) => {
     case "open":
       return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20";
     case "in_progress":
-      return "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
+      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20";
     case "closed":
       return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
     default:
@@ -89,44 +89,100 @@ const getSeverityColor = (severity: string) => {
   }
 };
 
-export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTableProps) {
+// Memoized table row component for performance
+const IssueRow = memo(function IssueRow({ 
+  issue, 
+  onIssueClick 
+}: { 
+  issue: Issue; 
+  onIssueClick: (issue: Issue) => void;
+}) {
+  const severity = getSeverityFromLabels(issue.labels);
+  
+  return (
+    <TableRow
+      className="cursor-pointer hover:bg-muted/50 transition-colors"
+      onClick={() => onIssueClick(issue)}
+    >
+      <TableCell className="font-mono text-xs text-muted-foreground">
+        #{issue.number}
+      </TableCell>
+      <TableCell>
+        <p className="font-medium text-sm line-clamp-1">{issue.title}</p>
+      </TableCell>
+      <TableCell>
+        <Badge
+          variant="outline"
+          className={`${getStatusColor(issue.status)} capitalize`}
+        >
+          {issue.status.replace("_", " ")}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {severity !== "none" && (
+          <Badge
+            variant="outline"
+            className={`${getSeverityColor(severity)} capitalize`}
+          >
+            {severity}
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell className="text-sm">
+        {issue.assignee ? (
+          <span className="text-foreground">{issue.assignee}</span>
+        ) : (
+          <span className="text-muted-foreground italic">Unassigned</span>
+        )}
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {issue.repository}
+      </TableCell>
+      <TableCell>
+        <a
+          href={issue.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-primary hover:text-primary/80"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </a>
+      </TableCell>
+    </TableRow>
+  );
+});
+
+export function IssueTable({ issues, onIssueClick, pageSize = 100 }: IssueTableProps) {
   const [titleSearch, setTitleSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Extract unique values for filters
+  // Extract unique assignees - memoized
   const uniqueAssignees = useMemo(() => {
     const assignees = new Set(issues.filter(i => i.assignee).map(i => i.assignee!));
     return Array.from(assignees).sort();
   }, [issues]);
 
-  // Apply filters with useCallback for better performance
+  // Apply filters - memoized
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
-      // Title search
       if (titleSearch && !issue.title.toLowerCase().includes(titleSearch.toLowerCase())) {
         return false;
       }
-
-      // Status filter
       if (statusFilter !== "all" && issue.status !== statusFilter) {
         return false;
       }
-
-      // Severity filter
       if (severityFilter !== "all") {
         const severity = getSeverityFromLabels(issue.labels);
         if (severity !== severityFilter) return false;
       }
-
-      // Assignee filter
       if (assigneeFilter !== "all") {
         if (assigneeFilter === "unassigned" && issue.assignee) return false;
         if (assigneeFilter !== "unassigned" && issue.assignee !== assigneeFilter) return false;
       }
-
       return true;
     });
   }, [issues, titleSearch, statusFilter, severityFilter, assigneeFilter]);
@@ -144,15 +200,20 @@ export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTablePr
     setCurrentPage(1);
   }, []);
 
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     setTitleSearch("");
     setStatusFilter("all");
     setSeverityFilter("all");
     setAssigneeFilter("all");
     setCurrentPage(1);
-  };
+  }, []);
 
   const hasActiveFilters = titleSearch || statusFilter !== "all" || severityFilter !== "all" || assigneeFilter !== "all";
+
+  // Page navigation
+  const goToPage = useCallback((page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  }, [totalPages]);
 
   return (
     <div className="space-y-3">
@@ -265,83 +326,45 @@ export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTablePr
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedIssues.map((issue) => {
-                const severity = getSeverityFromLabels(issue.labels);
-                return (
-                  <TableRow
-                    key={issue.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => onIssueClick(issue)}
-                  >
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      #{issue.number}
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium text-sm line-clamp-1">{issue.title}</p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`${getStatusColor(issue.status)} capitalize`}
-                      >
-                        {issue.status.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {severity !== "none" && (
-                        <Badge
-                          variant="outline"
-                          className={`${getSeverityColor(severity)} capitalize`}
-                        >
-                          {severity}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {issue.assignee ? (
-                        <span className="text-foreground">{issue.assignee}</span>
-                      ) : (
-                        <span className="text-muted-foreground italic">Unassigned</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {issue.repository}
-                    </TableCell>
-                    <TableCell>
-                      <a
-                        href={issue.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-primary hover:text-primary/80"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+              paginatedIssues.map((issue) => (
+                <IssueRow 
+                  key={issue.id} 
+                  issue={issue} 
+                  onIssueClick={onIssueClick}
+                />
+              ))
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Pagination */}
+      {/* Enhanced Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} ({filteredIssues.length} issues)
+            Page {currentPage} of {totalPages} ({filteredIssues.length.toLocaleString()} issues)
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => goToPage(1)}
               disabled={currentPage === 1}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="h-8 w-8 p-0"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="flex items-center gap-1">
+            
+            <div className="flex items-center gap-1 mx-2">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let pageNum: number;
                 if (totalPages <= 5) {
@@ -358,21 +381,32 @@ export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTablePr
                     key={pageNum}
                     variant={currentPage === pageNum ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setCurrentPage(pageNum)}
-                    className="w-8 h-8 p-0"
+                    onClick={() => goToPage(pageNum)}
+                    className="h-8 w-8 p-0"
                   >
                     {pageNum}
                   </Button>
                 );
               })}
             </div>
+            
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0"
             >
               <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => goToPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronsRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
