@@ -789,18 +789,12 @@ export default function Home() {
                             {filteredRepos.map((repo) => (
                               <div
                                 key={repo.id}
-                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer"
-                                onClick={() => toggleRepoSelection(repo.full_name)}
+                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50"
                               >
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={selectedRepos.includes(repo.full_name)}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    toggleRepoSelection(repo.full_name);
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary flex-shrink-0"
+                                  onCheckedChange={() => toggleRepoSelection(repo.full_name)}
+                                  className="flex-shrink-0"
                                 />
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <span className="font-medium text-sm truncate">
