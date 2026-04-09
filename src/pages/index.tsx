@@ -6,6 +6,8 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable } from "@/components/IssueTable";
 import { FilterMenu } from "@/components/FilterMenu";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
+import { WidgetSettings, DEFAULT_VISIBILITY, type WidgetVisibility } from "@/components/WidgetSettings";
+import { PDFExport } from "@/components/PDFExport";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
@@ -103,7 +105,26 @@ export default function Home() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const itemsPerPage = 20;
+
+  // Load widget visibility preferences from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("widgetVisibility");
+    if (saved) {
+      try {
+        setWidgetVisibility(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load widget preferences:", e);
+      }
+    }
+  }, []);
+
+  // Save widget visibility preferences to localStorage
+  const handleVisibilityChange = (newVisibility: WidgetVisibility) => {
+    setWidgetVisibility(newVisibility);
+    localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
+  };
 
   useEffect(() => {
     const savedToken = localStorage.getItem("github_token");
@@ -337,6 +358,11 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {selectedRepos.length > 0 && (
               <>
+                <PDFExport disabled={filteredIssues.length === 0} />
+                <WidgetSettings 
+                  visibility={widgetVisibility}
+                  onVisibilityChange={handleVisibilityChange}
+                />
                 <Button
                   variant="outline"
                   size="sm"
@@ -556,40 +582,58 @@ export default function Home() {
         ) : (
           <>
             {/* Smart Insights - Top of Dashboard */}
-            {analytics.insights.length > 0 && (
-              <div className="mb-8">
+            {widgetVisibility.smartInsights && analytics.insights.length > 0 && (
+              <div className="mb-8" id="smart-insights-section">
                 <SmartInsights insights={analytics.insights} />
               </div>
             )}
 
-            <div className="mb-8">
-              <DashboardMetrics
-                totalRepos={selectedRepos.length}
-                totalIssues={filteredIssues.length}
-                openIssues={metrics.statusCounts.open}
-                inProgressIssues={metrics.statusCounts.inProgress || 0}
-                closedIssues={metrics.statusCounts.closed}
-              />
-            </div>
+            {widgetVisibility.summaryMetrics && (
+              <div className="mb-8" id="summary-metrics-section">
+                <DashboardMetrics
+                  totalRepos={selectedRepos.length}
+                  totalIssues={filteredIssues.length}
+                  openIssues={metrics.statusCounts.open}
+                  inProgressIssues={metrics.statusCounts.inProgress || 0}
+                  closedIssues={metrics.statusCounts.closed}
+                />
+              </div>
+            )}
 
-            <div className="mb-8">
-              <ProgressBar
-                open={metrics.statusCounts.open}
-                inProgress={metrics.statusCounts.inProgress || 0}
-                closed={metrics.statusCounts.closed}
-                total={filteredIssues.length}
-              />
-            </div>
+            {widgetVisibility.progressBar && (
+              <div className="mb-8" id="progress-bar-section">
+                <ProgressBar
+                  open={metrics.statusCounts.open}
+                  inProgress={metrics.statusCounts.inProgress || 0}
+                  closed={metrics.statusCounts.closed}
+                  total={filteredIssues.length}
+                />
+              </div>
+            )}
 
             {/* Analytics Widgets Grid */}
-            <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BugSeverityHeatmap severities={analytics.severities} />
-              <AverageResolutionTime stats={analytics.resolutionTime} />
-              <IssueTrendChart data={analytics.trend} days={30} />
-              <ModuleStabilityScore stability={analytics.stability} />
-              <ReopenedIssuesTracker stats={analytics.reopened} />
-              <BugCategoryBreakdown categories={analytics.categories} />
-              <BugHotspots hotspots={analytics.hotspots} />
+            <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6" id="analytics-widgets-section">
+              {widgetVisibility.severityHeatmap && (
+                <BugSeverityHeatmap severities={analytics.severities} />
+              )}
+              {widgetVisibility.resolutionTime && (
+                <AverageResolutionTime stats={analytics.resolutionTime} />
+              )}
+              {widgetVisibility.trendChart && (
+                <IssueTrendChart data={analytics.trend} days={30} />
+              )}
+              {widgetVisibility.moduleStability && (
+                <ModuleStabilityScore stability={analytics.stability} />
+              )}
+              {widgetVisibility.reopenedIssues && (
+                <ReopenedIssuesTracker stats={analytics.reopened} />
+              )}
+              {widgetVisibility.categoryBreakdown && (
+                <BugCategoryBreakdown categories={analytics.categories} />
+              )}
+              {widgetVisibility.bugHotspots && (
+                <BugHotspots hotspots={analytics.hotspots} />
+              )}
             </div>
 
             {/* Label Choice Chips - Compact & Soft Style */}
@@ -663,133 +707,135 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-base font-semibold">
-                  Issues
-                </h2>
-                <span className="text-xs text-muted-foreground">
-                  Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
-                </span>
-                <FilterMenu
-                  repositories={availableRepositories}
-                  selectedRepos={filters.repositories}
-                  onRepoToggle={(repo) => {
-                    if (filters.repositories.includes(repo)) {
-                      setFilters({
-                        ...filters,
-                        repositories: filters.repositories.filter((r) => r !== repo),
-                      });
-                    } else {
-                      setFilters({
-                        ...filters,
-                        repositories: [...filters.repositories, repo],
-                      });
-                    }
-                  }}
-                  allLabels={availableLabels}
-                  selectedLabels={filters.labels}
-                  onLabelToggle={(label) => {
-                    if (filters.labels.includes(label)) {
-                      setFilters({
-                        ...filters,
-                        labels: filters.labels.filter((l) => l !== label),
-                      });
-                    } else {
-                      setFilters({
-                        ...filters,
-                        labels: [...filters.labels, label],
-                      });
-                    }
-                  }}
-                  selectedStatuses={filters.statuses}
-                  onStatusToggle={(status) => {
-                    if (filters.statuses.includes(status)) {
-                      setFilters({
-                        ...filters,
-                        statuses: filters.statuses.filter((s) => s !== status),
-                      });
-                    } else {
-                      setFilters({
-                        ...filters,
-                        statuses: [...filters.statuses, status],
-                      });
-                    }
-                  }}
-                  onClearFilters={clearFilters}
-                />
-              </div>
-
-              <div className="relative w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search issues..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <IssueTable issues={paginatedIssues} onIssueClick={handleIssueClick} />
-
-              {totalPages > 1 && (
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        className={
-                          currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
-                        }
-                      />
-                    </PaginationItem>
-
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
+            <div id="issue-table-section">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-base font-semibold">
+                    Issues
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
+                  </span>
+                  <FilterMenu
+                    repositories={availableRepositories}
+                    selectedRepos={filters.repositories}
+                    onRepoToggle={(repo) => {
+                      if (filters.repositories.includes(repo)) {
+                        setFilters({
+                          ...filters,
+                          repositories: filters.repositories.filter((r) => r !== repo),
+                        });
                       } else {
-                        pageNum = currentPage - 2 + i;
+                        setFilters({
+                          ...filters,
+                          repositories: [...filters.repositories, repo],
+                        });
                       }
+                    }}
+                    allLabels={availableLabels}
+                    selectedLabels={filters.labels}
+                    onLabelToggle={(label) => {
+                      if (filters.labels.includes(label)) {
+                        setFilters({
+                          ...filters,
+                          labels: filters.labels.filter((l) => l !== label),
+                        });
+                      } else {
+                        setFilters({
+                          ...filters,
+                          labels: [...filters.labels, label],
+                        });
+                      }
+                    }}
+                    selectedStatuses={filters.statuses}
+                    onStatusToggle={(status) => {
+                      if (filters.statuses.includes(status)) {
+                        setFilters({
+                          ...filters,
+                          statuses: filters.statuses.filter((s) => s !== status),
+                        });
+                      } else {
+                        setFilters({
+                          ...filters,
+                          statuses: [...filters.statuses, status],
+                        });
+                      }
+                    }}
+                    onClearFilters={clearFilters}
+                  />
+                </div>
 
-                      return (
-                        <PaginationItem key={i}>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(pageNum)}
-                            isActive={currentPage === pageNum}
-                            className="cursor-pointer"
-                          >
-                            {pageNum}
-                          </PaginationLink>
-                        </PaginationItem>
-                      );
-                    })}
+                <div className="relative w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search issues..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
 
-                    {totalPages > 5 && currentPage < totalPages - 2 && (
+              <div className="space-y-6">
+                <IssueTable issues={paginatedIssues} onIssueClick={handleIssueClick} />
+
+                {totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
                       <PaginationItem>
-                        <PaginationEllipsis />
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          className={
+                            currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+                          }
+                        />
                       </PaginationItem>
-                    )}
 
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        className={
-                          currentPage === totalPages
-                            ? "pointer-events-none opacity-50"
-                            : "cursor-pointer"
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
                         }
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              )}
+
+                        return (
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(pageNum)}
+                              isActive={currentPage === pageNum}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {totalPages > 5 && currentPage < totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          className={
+                            currentPage === totalPages
+                              ? "pointer-events-none opacity-50"
+                              : "cursor-pointer"
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
             </div>
 
             {selectedIssue && (
