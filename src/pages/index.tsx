@@ -989,78 +989,62 @@ export default function Home() {
               }`}
               id="analytics-widgets-section"
             >
-              {widgetVisibility.severityHeatmap && (
-                <BugSeverityHeatmap severities={analytics.severities} />
-              )}
-              {widgetVisibility.resolutionTime && (
-                <AverageResolutionTime stats={analytics.resolutionTime} />
-              )}
-              {widgetVisibility.trendChart && (
-                <IssueTrendChart data={analytics.trend} days={30} />
-              )}
-              {widgetVisibility.moduleStability && (
-                <ModuleStabilityScore stability={analytics.stability} />
-              )}
-              {widgetVisibility.reopenedIssues && (
-                <ReopenedIssuesTracker stats={analytics.reopened} />
-              )}
-              {widgetVisibility.categoryBreakdown && (
-                <BugCategoryBreakdown categories={analytics.categories} />
-              )}
-              {widgetVisibility.bugHotspots && (
-                <BugHotspots hotspots={analytics.hotspots} />
-              )}
-              {widgetVisibility.atRiskRelease && (
-                <AtRiskRelease stats={analytics.atRiskRelease} />
-              )}
-              {widgetVisibility.agingIssues && (
-                <AgingIssues stats={analytics.agingIssues} />
-              )}
-              {widgetVisibility.criticalUntouched && (
-                <CriticalUntouched stats={analytics.criticalUntouched} />
-              )}
-              {widgetVisibility.backlogGrowth && (
-                <BacklogGrowth stats={analytics.backlogGrowth} />
-              )}
-              {widgetVisibility.bugFixEfficiency && (
-                <BugFixEfficiency stats={analytics.bugFixEfficiency} />
-              )}
-              {widgetVisibility.repeatBugDetector && (
-                <RepeatBugDetector stats={analytics.repeatBugs} />
-              )}
-              {widgetVisibility.developerLoad && (
-                <DeveloperLoad stats={analytics.developerLoad} />
-              )}
-              {widgetVisibility.focusRecommendations && (
-                <FocusRecommendations recommendations={analytics.focusRecommendations} />
-              )}
-              {widgetVisibility.bugHeatmap && (
-                <BugHeatmap data={analytics.bugHeatmap} />
-              )}
-              {widgetVisibility.resolutionHistogram && (
-                <ResolutionHistogram data={analytics.resolutionHistogram} />
-              )}
-              {widgetVisibility.priorityScatterPlot && (
-                <PriorityScatterPlot data={analytics.priorityScatter} />
-              )}
-              {widgetVisibility.stackedAreaChart && (
-                <StackedAreaChart data={analytics.stackedAreaData} />
-              )}
-              {widgetVisibility.issueFunnelChart && (
-                <IssueFunnelChart stages={analytics.issueFunnel} />
-              )}
-              {widgetVisibility.backlogWaterfallChart && (
-                <BacklogWaterfallChart data={analytics.backlogWaterfall} />
-              )}
-              {widgetVisibility.moduleTreemap && (
-                <ModuleTreemap data={analytics.moduleTreemap} />
-              )}
-              {widgetVisibility.moduleRadarChart && (
-                <ModuleRadarChart data={analytics.moduleRadar} />
-              )}
-              {widgetVisibility.kpiBulletChart && (
-                <BulletChart metrics={analytics.kpiMetrics} />
-              )}
+              {widgetOrder.map((widgetKey) => {
+                if (!widgetVisibility[widgetKey]) return null;
+                
+                switch (widgetKey) {
+                  case "severityHeatmap":
+                    return <BugSeverityHeatmap key={widgetKey} severities={analytics.severities} />;
+                  case "resolutionTime":
+                    return <AverageResolutionTime key={widgetKey} stats={analytics.resolutionTime} />;
+                  case "trendChart":
+                    return <IssueTrendChart key={widgetKey} data={analytics.trend} days={30} />;
+                  case "moduleStability":
+                    return <ModuleStabilityScore key={widgetKey} stability={analytics.stability} />;
+                  case "reopenedIssues":
+                    return <ReopenedIssuesTracker key={widgetKey} stats={analytics.reopened} />;
+                  case "categoryBreakdown":
+                    return <BugCategoryBreakdown key={widgetKey} categories={analytics.categories} />;
+                  case "bugHotspots":
+                    return <BugHotspots key={widgetKey} hotspots={analytics.hotspots} />;
+                  case "atRiskRelease":
+                    return <AtRiskRelease key={widgetKey} stats={analytics.atRiskRelease} />;
+                  case "agingIssues":
+                    return <AgingIssues key={widgetKey} stats={analytics.agingIssues} />;
+                  case "criticalUntouched":
+                    return <CriticalUntouched key={widgetKey} stats={analytics.criticalUntouched} />;
+                  case "backlogGrowth":
+                    return <BacklogGrowth key={widgetKey} stats={analytics.backlogGrowth} />;
+                  case "bugFixEfficiency":
+                    return <BugFixEfficiency key={widgetKey} stats={analytics.bugFixEfficiency} />;
+                  case "repeatBugDetector":
+                    return <RepeatBugDetector key={widgetKey} stats={analytics.repeatBugs} />;
+                  case "developerLoad":
+                    return <DeveloperLoad key={widgetKey} stats={analytics.developerLoad} />;
+                  case "focusRecommendations":
+                    return <FocusRecommendations key={widgetKey} recommendations={analytics.focusRecommendations} />;
+                  case "bugHeatmap":
+                    return <BugHeatmap key={widgetKey} data={analytics.bugHeatmap} />;
+                  case "resolutionHistogram":
+                    return <ResolutionHistogram key={widgetKey} data={analytics.resolutionHistogram} />;
+                  case "priorityScatterPlot":
+                    return <PriorityScatterPlot key={widgetKey} data={analytics.priorityScatter} />;
+                  case "stackedAreaChart":
+                    return <StackedAreaChart key={widgetKey} data={analytics.stackedAreaData} />;
+                  case "issueFunnelChart":
+                    return <IssueFunnelChart key={widgetKey} stages={analytics.issueFunnel} />;
+                  case "backlogWaterfallChart":
+                    return <BacklogWaterfallChart key={widgetKey} data={analytics.backlogWaterfall} />;
+                  case "moduleTreemap":
+                    return <ModuleTreemap key={widgetKey} data={analytics.moduleTreemap} />;
+                  case "moduleRadarChart":
+                    return <ModuleRadarChart key={widgetKey} data={analytics.moduleRadar} />;
+                  case "kpiBulletChart":
+                    return <BulletChart key={widgetKey} metrics={analytics.kpiMetrics} />;
+                  default:
+                    return null;
+                }
+              })}
             </div>
 
             {availableLabels.length > 0 && (
