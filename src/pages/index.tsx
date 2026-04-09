@@ -8,6 +8,7 @@ import { FilterMenu } from "@/components/FilterMenu";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { WidgetSettings, DEFAULT_VISIBILITY, type WidgetVisibility } from "@/components/WidgetSettings";
 import { PDFExport } from "@/components/PDFExport";
+import { ReportSettings, DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/components/ReportSettings";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
@@ -122,6 +123,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
+  const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
   const itemsPerPage = 20;
 
   // Load widget visibility preferences from localStorage
@@ -134,12 +136,27 @@ export default function Home() {
         console.error("Failed to load widget preferences:", e);
       }
     }
+
+    const savedReportConfig = localStorage.getItem("reportConfig");
+    if (savedReportConfig) {
+      try {
+        setReportConfig(JSON.parse(savedReportConfig));
+      } catch (e) {
+        console.error("Failed to load report config:", e);
+      }
+    }
   }, []);
 
   // Save widget visibility preferences to localStorage
   const handleVisibilityChange = (newVisibility: WidgetVisibility) => {
     setWidgetVisibility(newVisibility);
     localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
+  };
+
+  // Save report config to localStorage
+  const handleReportConfigChange = (newConfig: ReportConfig) => {
+    setReportConfig(newConfig);
+    localStorage.setItem("reportConfig", JSON.stringify(newConfig));
   };
 
   useEffect(() => {
@@ -382,7 +399,14 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {selectedRepos.length > 0 && (
               <>
-                <PDFExport disabled={filteredIssues.length === 0} />
+                <ReportSettings 
+                  config={reportConfig}
+                  onConfigChange={handleReportConfigChange}
+                />
+                <PDFExport 
+                  disabled={filteredIssues.length === 0} 
+                  reportConfig={reportConfig}
+                />
                 <WidgetSettings 
                   visibility={widgetVisibility}
                   onVisibilityChange={handleVisibilityChange}
