@@ -55,10 +55,10 @@ interface WidgetSettingsProps {
 }
 
 export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSettingsProps) {
-  const handleToggle = (key: keyof WidgetVisibility) => {
+  const handleToggle = (key: keyof WidgetVisibility, checked?: boolean) => {
     onVisibilityChange({
       ...visibility,
-      [key]: !visibility[key],
+      [key]: checked !== undefined ? checked : !visibility[key],
     });
   };
 
