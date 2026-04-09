@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { WidgetVisibility } from "@/components/WidgetSettings";
 import { DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER } from "@/components/WidgetSettings";
+import type { Json } from "@/integrations/supabase/database.types";
 
 export interface UserSettings {
   id: string;
@@ -24,7 +25,6 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 
   if (error) {
     if (error.code === "PGRST116") {
-      // No settings found, create default
       return await createUserSettings(userId);
     }
     console.error("Error fetching user settings:", error);
@@ -33,23 +33,25 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 
   return {
     ...data,
-    widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
-    widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
-    selected_repos: (data.selected_repos as unknown as string[]) || [],
+    widget_visibility: (data.widget_visibility as WidgetVisibility) || DEFAULT_VISIBILITY,
+    widget_order: (data.widget_order as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    selected_repos: (data.selected_repos as string[]) || [],
   };
 }
 
 export async function createUserSettings(userId: string): Promise<UserSettings | null> {
+  const insertData = {
+    user_id: userId,
+    widget_visibility: DEFAULT_VISIBILITY as unknown as Json,
+    widget_order: DEFAULT_WIDGET_ORDER as unknown as Json,
+    widgets_per_row: 3,
+    theme: "system",
+    selected_repos: [] as unknown as Json,
+  };
+
   const { data, error } = await supabase
     .from("user_settings")
-    .insert({
-      user_id: userId,
-      widget_visibility: DEFAULT_VISIBILITY as unknown as Record<string, unknown>,
-      widget_order: DEFAULT_WIDGET_ORDER as unknown as string[],
-      widgets_per_row: 3,
-      theme: "system",
-      selected_repos: [] as unknown as string[],
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -60,9 +62,9 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
 
   return {
     ...data,
-    widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
-    widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
-    selected_repos: (data.selected_repos as unknown as string[]) || [],
+    widget_visibility: (data.widget_visibility as WidgetVisibility) || DEFAULT_VISIBILITY,
+    widget_order: (data.widget_order as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    selected_repos: (data.selected_repos as string[]) || [],
   };
 }
 
@@ -77,16 +79,23 @@ export async function saveUserSettings(
     github_token: string | null;
   }>
 ): Promise<boolean> {
-  // Convert types for Supabase
-  const supabaseUpdates: Record<string, unknown> = {
+  const supabaseUpdates: {
+    updated_at: string;
+    widget_visibility?: Json;
+    widget_order?: Json;
+    widgets_per_row?: number;
+    theme?: string;
+    selected_repos?: Json;
+    github_token?: string | null;
+  } = {
     updated_at: new Date().toISOString(),
   };
   
   if (updates.widget_visibility !== undefined) {
-    supabaseUpdates.widget_visibility = updates.widget_visibility as unknown as Record<string, unknown>;
+    supabaseUpdates.widget_visibility = updates.widget_visibility as unknown as Json;
   }
   if (updates.widget_order !== undefined) {
-    supabaseUpdates.widget_order = updates.widget_order as unknown as string[];
+    supabaseUpdates.widget_order = updates.widget_order as unknown as Json;
   }
   if (updates.widgets_per_row !== undefined) {
     supabaseUpdates.widgets_per_row = updates.widgets_per_row;
@@ -95,7 +104,7 @@ export async function saveUserSettings(
     supabaseUpdates.theme = updates.theme;
   }
   if (updates.selected_repos !== undefined) {
-    supabaseUpdates.selected_repos = updates.selected_repos as unknown as string[];
+    supabaseUpdates.selected_repos = updates.selected_repos as unknown as Json;
   }
   if (updates.github_token !== undefined) {
     supabaseUpdates.github_token = updates.github_token;

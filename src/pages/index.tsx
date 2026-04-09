@@ -101,6 +101,9 @@ import {
   calculateKPIMetrics,
   calculateSparklineData,
 } from "@/services/analyticsService";
+import { supabase } from "@/integrations/supabase/client";
+import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
+import { SEO } from "@/components/SEO";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
