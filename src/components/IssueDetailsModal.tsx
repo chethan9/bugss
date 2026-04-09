@@ -236,12 +236,18 @@ export function IssueDetailsModal({
                                 rel="noopener noreferrer"
                               />
                             ),
-                            code: ({ node, inline, ...props }) =>
-                              inline ? (
-                                <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                            code: ({ node, className, children, ...props }: any) => {
+                              const match = /language-(\w+)/.exec(className || "");
+                              return match ? (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
                               ) : (
-                                <code className="block bg-muted p-3 rounded text-sm font-mono overflow-x-auto" {...props} />
-                              ),
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                                  {children}
+                                </code>
+                              );
+                            },
                             pre: ({ node, ...props }) => (
                               <pre className="bg-muted p-4 rounded-lg overflow-x-auto my-3" {...props} />
                             ),
@@ -347,12 +353,18 @@ export function IssueDetailsModal({
                                     rel="noopener noreferrer"
                                   />
                                 ),
-                                code: ({ node, inline, ...props }) =>
-                                  inline ? (
-                                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                                code: ({ node, className, children, ...props }: any) => {
+                                  const match = /language-(\w+)/.exec(className || "");
+                                  return match ? (
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
                                   ) : (
-                                    <code className="block bg-muted p-3 rounded text-sm font-mono overflow-x-auto" {...props} />
-                                  ),
+                                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                },
                                 pre: ({ node, ...props }) => (
                                   <pre className="bg-muted p-4 rounded-lg overflow-x-auto my-3" {...props} />
                                 ),
