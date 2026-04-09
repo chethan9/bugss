@@ -73,6 +73,7 @@ import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallCh
 import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
 import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
 import { BulletChart } from "@/components/analytics/BulletChart";
+import { RepositoryFilter } from "@/components/analytics/RepositoryFilter";
 import { fetchUserRepositories, type GitHubRepository } from "@/services/githubService";
 import {
   generateSmartInsights,
@@ -187,7 +188,7 @@ export default function Home() {
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const [widgetsPerRow, setWidgetsPerRow] = useState(2);
-  const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
+  const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(["repositoryFilter", ...DEFAULT_WIDGET_ORDER]);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [user, setUser] = useState<any>(null);
@@ -1110,6 +1111,35 @@ export default function Home() {
                     if (!widgetVisibility[widgetKey]) return null;
                     
                     switch (widgetKey) {
+                      case "repositoryFilter":
+                        return selectedRepos.length > 0 ? (
+                          <div key={widgetKey} className="mb-6">
+                            <RepositoryFilter
+                              repositories={selectedRepos}
+                              activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
+                              onToggleRepository={(repo) => {
+                                setFilters(prev => {
+                                  const currentActive = prev.repositories.length > 0 ? prev.repositories : selectedRepos;
+                                  const isActive = currentActive.includes(repo);
+                                  let newRepos: string[];
+                                  
+                                  if (isActive) {
+                                    newRepos = currentActive.filter(r => r !== repo);
+                                  } else {
+                                    newRepos = [...currentActive, repo];
+                                  }
+                                  
+                                  // If all repos are selected, clear the filter
+                                  if (newRepos.length === selectedRepos.length) {
+                                    newRepos = [];
+                                  }
+                                  
+                                  return { ...prev, repositories: newRepos };
+                                });
+                              }}
+                            />
+                          </div>
+                        ) : null;
                       case "smartInsights":
                         return analytics.insights.length > 0 ? (
                           <div key={widgetKey} className="mb-6">
