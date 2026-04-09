@@ -33,6 +33,9 @@ export interface WidgetVisibility {
   smartInsights: boolean;
   summaryMetrics: boolean;
   progressBar: boolean;
+  projectHealthGauge: boolean;
+  burndownChart: boolean;
+  flowEfficiency: boolean;
   severityHeatmap: boolean;
   resolutionTime: boolean;
   trendChart: boolean;
@@ -64,6 +67,9 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
   smartInsights: true,
   summaryMetrics: true,
   progressBar: true,
+  projectHealthGauge: true,
+  burndownChart: true,
+  flowEfficiency: true,
   severityHeatmap: true,
   resolutionTime: true,
   trendChart: true,
@@ -95,6 +101,9 @@ export const DEFAULT_WIDGET_ORDER: (keyof WidgetVisibility)[] = [
   "smartInsights",
   "summaryMetrics",
   "progressBar",
+  "projectHealthGauge",
+  "burndownChart",
+  "flowEfficiency",
   "severityHeatmap",
   "resolutionTime",
   "trendChart",
@@ -126,6 +135,9 @@ const WIDGET_LABELS: Record<keyof WidgetVisibility, string> = {
   smartInsights: "Smart Insights",
   summaryMetrics: "Summary Metrics",
   progressBar: "Progress Bar",
+  projectHealthGauge: "🧭 Project Health Gauge",
+  burndownChart: "📉 Burndown Chart",
+  flowEfficiency: "🔄 Flow Efficiency",
   severityHeatmap: "Bug Severity Heatmap",
   resolutionTime: "Avg Resolution Time",
   trendChart: "Issue Trend Chart",
