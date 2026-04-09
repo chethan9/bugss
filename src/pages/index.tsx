@@ -354,11 +354,14 @@ export default function Home() {
         setIsStoredConnection(true);
       }
       
+      // Only close dialog after successful fetch
       setShowConnectionDialog(false);
       setConnectionStep("token");
+      setRepoSearchQuery(""); // Clear search
     } catch (error: any) {
       console.error("Failed to fetch issues:", error);
       alert(`Error: ${error.message}`);
+      // Keep dialog open on error so user can try again
     } finally {
       setLoading(false);
       setIsLoadingIssues(false);
@@ -432,35 +435,6 @@ export default function Home() {
     }
   };
 
-  // Deselect all repos
-  const deselectAllRepos = () => {
-    setSelectedRepos([]);
-  };
-
-  const handleDisconnect = () => {
-    setGithubToken("");
-    setSelectedRepos([]);
-    setAvailableRepos([]);
-    setIssues([]);
-    setToken("");
-    clearStoredCredentials();
-    setIsStoredConnection(false);
-    setRememberMe(false);
-    setConnectionStep("token");
-  };
-
-  // Filter repositories based on search query
-  const filteredRepos = useMemo(() => {
-    if (!repoSearchQuery) return availableRepos;
-    
-    const query = repoSearchQuery.toLowerCase();
-    return availableRepos.filter(repo => 
-      repo.full_name.toLowerCase().includes(query) ||
-      repo.description?.toLowerCase().includes(query) ||
-      repo.language?.toLowerCase().includes(query)
-    );
-  }, [availableRepos, repoSearchQuery]);
-
   // Toggle repo selection
   const toggleRepoSelection = (repoFullName: string) => {
     setSelectedRepos(prev => 
@@ -477,6 +451,18 @@ export default function Home() {
       const newSet = new Set([...prev, ...allFilteredNames]);
       return Array.from(newSet);
     });
+  };
+
+  // Deselect all repos
+  const deselectAllRepos = () => {
+    setSelectedRepos([]);
+  };
+
+  // Close dialog manually
+  const closeConnectionDialog = () => {
+    setShowConnectionDialog(false);
+    setConnectionStep("token");
+    setRepoSearchQuery("");
   };
 
   const handleIssueClick = (issue: GitHubIssue) => {
@@ -684,7 +670,14 @@ export default function Home() {
                 )}
               </>
             ) : (
-              <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+              <Dialog open={showConnectionDialog} onOpenChange={(open) => {
+                setShowConnectionDialog(open);
+                // Reset state when dialog closes
+                if (!open) {
+                  setConnectionStep("token");
+                  setRepoSearchQuery("");
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button variant="default">
                     <GitBranch className="h-4 w-4 mr-2" />
@@ -811,7 +804,10 @@ export default function Home() {
                                 <input
                                   type="checkbox"
                                   checked={selectedRepos.includes(repo.full_name)}
-                                  onChange={() => toggleRepoSelection(repo.full_name)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    toggleRepoSelection(repo.full_name);
+                                  }}
                                   onClick={(e) => e.stopPropagation()}
                                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary flex-shrink-0"
                                 />
@@ -845,7 +841,7 @@ export default function Home() {
                         onClick={() => {
                           setConnectionStep("token");
                           setAvailableRepos([]);
-                          setSelectedRepos([]);
+                          setRepoSearchQuery("");
                         }}
                       >
                         Back
