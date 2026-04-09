@@ -22,6 +22,7 @@ export interface GitHubIssue {
   assignee?: string;
   url: string;
   createdAt: string;
+  closedAt?: string;
 }
 
 interface IssueTableProps {
