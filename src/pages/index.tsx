@@ -192,6 +192,27 @@ export default function Home() {
   const itemsPerPage = 20;
 
   useEffect(() => {
+    console.log("🟢 Auto-load useEffect running...");
+    const stored = loadTokenFromStorage();
+    console.log("🟢 Stored credentials:", stored);
+    if (stored) {
+      console.log("🟢 Found stored credentials, loading...");
+      setGithubToken(stored.token);
+      setSelectedRepos(stored.repos);
+      setIsStoredConnection(true);
+      setToken(stored.token);
+      
+      // Fetch issues immediately when loading stored credentials
+      if (stored.token && stored.repos.length > 0) {
+        console.log("🟢 Auto-fetching issues for repos:", stored.repos);
+        fetchSelectedIssues(stored.repos, stored.token);
+      }
+    } else {
+      console.log("🟢 No stored credentials found");
+    }
+  }, []);
+
+  useEffect(() => {
     const saved = localStorage.getItem("widgetVisibility");
     if (saved) {
       try {
@@ -220,21 +241,6 @@ export default function Home() {
     setReportConfig(newConfig);
     localStorage.setItem("reportConfig", JSON.stringify(newConfig));
   };
-
-  useEffect(() => {
-    const stored = loadTokenFromStorage();
-    if (stored) {
-      setGithubToken(stored.token);
-      setSelectedRepos(stored.repos);
-      setIsStoredConnection(true);
-      setToken(stored.token);
-      
-      // Fetch issues immediately when loading stored credentials
-      if (stored.token && stored.repos.length > 0) {
-        fetchSelectedIssues(stored.repos, stored.token);
-      }
-    }
-  }, []);
 
   const handleFetchIssues = async (tokenParam?: string, reposParam?: string[]) => {
     const tokenToUse = tokenParam || githubToken;
