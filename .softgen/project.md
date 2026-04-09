@@ -1,4 +1,4 @@
-# GitHub Issue & Task Dashboard
+# FixFlix
 
 ## Vision
 A developer-focused dashboard that connects to any GitHub repository, fetches all issues and tasks, and presents them through an intuitive interface with powerful filtering and reporting capabilities. Built for project managers, team leads, and developers who need a bird's-eye view of repository activity.
@@ -26,9 +26,12 @@ Style: Developer-focused minimalism with Linear-inspired precision — card-base
 
 ## Features
 - GitHub repository connection (OAuth or personal access token)
+- Auto-fetch and browse repositories with search
 - Fetch and display all issues and tasks from connected repositories
 - Real-time status visualization (open, in progress, closed)
 - Tag-based filtering system with multi-select
-- Dashboard with issue cards and list views
-- Analytics and reporting (issue count by status, assignment distribution, timeline view)
+- Dashboard with 27 analytics widgets
+- Professional PDF reports with custom branding
 - Search functionality across titles and descriptions
+- Token persistence with auto-connect
+- Table header filters for advanced filtering

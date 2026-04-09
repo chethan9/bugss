@@ -8,30 +8,17 @@ interface SEOProps {
 }
 
 // SEO elements that can be used in _document.tsx (returns JSX without Head wrapper)
-export function SEOElements({
-  title = "Hello World",
-  description = "Welcome to my app",
-  image = "/og-image.png",
-  url,
-}: SEOProps) {
+export function SEOElements() {
   return (
     <>
-      <title>{title}</title>
-      <meta name="description" content={description} />
-      <link rel="icon" href="/favicon.ico" />
-
-      {/* Open Graph */}
-      <meta property="og:title" content={title} />
-      <meta property="og:description" content={description} />
-      {image && <meta property="og:image" content={image} />}
-      {url && <meta property="og:url" content={url} />}
+      <title>FixFlix - GitHub Issue Analytics Dashboard</title>
+      <meta name="description" content="Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly." />
       <meta property="og:type" content="website" />
-
-      {/* Twitter */}
+      <meta property="og:title" content="FixFlix - GitHub Issue Analytics Dashboard" />
+      <meta property="og:description" content="Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly." />
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={title} />
-      <meta name="twitter:description" content={description} />
-      {image && <meta name="twitter:image" content={image} />}
+      <meta name="twitter:title" content="FixFlix - GitHub Issue Analytics Dashboard" />
+      <meta name="twitter:description" content="Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly." />
     </>
   );
 }
@@ -39,29 +26,33 @@ export function SEOElements({
 // SEO component for use in pages/_app.tsx or individual pages (uses next/head)
 // Note: Flattened structure (no fragment) for better Next.js Head compatibility during hot reload
 export function SEO({
-  title = "Hello World",
-  description = "Welcome to my app",
+  title = "FixFlix - GitHub Issue Analytics Dashboard",
+  description = "Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly.",
   image = "/og-image.png",
   url,
 }: SEOProps) {
+  const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const fullUrl = url || siteUrl;
+  const ogImage = image.startsWith("http") ? image : `${siteUrl}${image}`;
+
   return (
     <Head>
       <title>{title}</title>
       <meta name="description" content={description} />
-      <link rel="icon" href="/favicon.ico" />
-
+      
       {/* Open Graph */}
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content={fullUrl} />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
-      {image && <meta property="og:image" content={image} />}
-      {url && <meta property="og:url" content={url} />}
-      <meta property="og:type" content="website" />
-
+      <meta property="og:image" content={ogImage} />
+      
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:url" content={fullUrl} />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
-      {image && <meta name="twitter:image" content={image} />}
+      <meta name="twitter:image" content={ogImage} />
     </Head>
   );
 }
