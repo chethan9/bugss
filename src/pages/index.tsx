@@ -997,7 +997,7 @@ export default function Home() {
                       </div>
                     );
                   case "severityHeatmap":
-                    return analytics.severities.length > 0 ? (
+                    return Object.values(analytics.severities).some(v => v > 0) ? (
                       <div key={widgetKey} className="mb-6">
                         <BugSeverityHeatmap severities={analytics.severities} />
                       </div>
@@ -1027,7 +1027,7 @@ export default function Home() {
                       </div>
                     );
                   case "categoryBreakdown":
-                    return analytics.categories.length > 0 ? (
+                    return Object.values(analytics.categories).some(v => v > 0) ? (
                       <div key={widgetKey} className="mb-6">
                         <BugCategoryBreakdown categories={analytics.categories} />
                       </div>
