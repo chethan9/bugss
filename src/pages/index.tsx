@@ -43,6 +43,7 @@ import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
 import { PDFExport } from "@/components/PDFExport";
 import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
+import { ReportSettings, type ReportConfig, DEFAULT_REPORT_CONFIG } from "@/components/ReportSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { DataFetchingLoader } from "@/components/LoadingSpinner";
