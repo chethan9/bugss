@@ -723,12 +723,6 @@ export default function Home() {
     return { statusCounts };
   }, [filteredIssues]);
 
-  const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
-  const paginatedIssues = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredIssues.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredIssues, currentPage]);
-
   const clearFilters = () => {
     setFilters({
       repositories: [],
@@ -1340,7 +1334,7 @@ export default function Home() {
 
                 <div id="issue-table-section">
                   <div className="space-y-6">
-                    <IssueTable issues={paginatedIssues} onIssueClick={handleIssueClick} />
+                    <IssueTable issues={filteredIssues} onIssueClick={handleIssueClick} />
                   </div>
                 </div>
 
