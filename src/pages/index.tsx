@@ -1011,9 +1011,6 @@ export default function Home() {
               {widgetVisibility.bugFixEfficiency && (
                 <BugFixEfficiency stats={analytics.bugFixEfficiency} />
               )}
-              {widgetVisibility.bugFixEfficiency && (
-                <BugFixEfficiency stats={analytics.bugFixEfficiency} />
-              )}
               {widgetVisibility.repeatBugDetector && (
                 <RepeatBugDetector stats={analytics.repeatBugs} />
               )}
