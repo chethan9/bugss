@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -790,6 +790,63 @@ export default function Home() {
                           )}
                         </DropdownMenuItem>
                       ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                
+                {/* Time Frame Filter */}
+                <div className="flex items-center border-l border-border pl-3 ml-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-xs">
+                          {dateRange.start && dateRange.end 
+                            ? `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`
+                            : dateRange.start 
+                              ? `Since ${dateRange.start.toLocaleDateString()}`
+                              : "All Time"
+                          }
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        Time Frame
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setDateRange({ start: null, end: null })}>
+                        <span className={!dateRange.start ? "font-medium" : ""}>All Time</span>
+                        {!dateRange.start && <span className="ml-auto">✓</span>}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const now = new Date();
+                        const start = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+                        setDateRange({ start, end: now });
+                      }}>
+                        Last 3 Days
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const now = new Date();
+                        const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        setDateRange({ start, end: now });
+                      }}>
+                        Last 7 Days
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const now = new Date();
+                        const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        setDateRange({ start, end: now });
+                      }}>
+                        Last 30 Days
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        const now = new Date();
+                        const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                        setDateRange({ start, end: now });
+                      }}>
+                        Last 90 Days
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
