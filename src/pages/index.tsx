@@ -43,6 +43,7 @@ import { FilterMenu } from "@/components/FilterMenu";
 import { PDFExport } from "@/components/PDFExport";
 import { ReportSettings, DEFAULT_REPORT_CONFIG, type ReportConfig } from "@/components/ReportSettings";
 import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { SmartInsights } from "@/components/analytics/SmartInsights";
 import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
@@ -733,12 +734,17 @@ export default function Home() {
                     🔓 Stored
                   </Badge>
                 )}
+                
+                <ThemeSwitch />
               </>
             ) : (
-              <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
-                <GitBranch className="h-4 w-4 mr-2" />
-                Connect GitHub
-              </Button>
+              <>
+                <ThemeSwitch />
+                <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  Connect GitHub
+                </Button>
+              </>
             )}
             
             {/* Dialog is now OUTSIDE the conditional - always exists in DOM */}
