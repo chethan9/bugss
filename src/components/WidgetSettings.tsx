@@ -1,17 +1,15 @@
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Settings2 } from "lucide-react";
+import { Settings2, LayoutGrid } from "lucide-react";
 
 export interface WidgetVisibility {
   smartInsights: boolean;
@@ -76,9 +74,16 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
 interface WidgetSettingsProps {
   visibility: WidgetVisibility;
   onVisibilityChange: (visibility: WidgetVisibility) => void;
+  widgetsPerRow: number;
+  onWidgetsPerRowChange: (count: number) => void;
 }
 
-export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSettingsProps) {
+export function WidgetSettings({ 
+  visibility, 
+  onVisibilityChange,
+  widgetsPerRow,
+  onWidgetsPerRowChange,
+}: WidgetSettingsProps) {
   const handleToggle = (key: keyof WidgetVisibility, checked?: boolean) => {
     onVisibilityChange({
       ...visibility,
@@ -88,37 +93,23 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
 
   const handleResetDefaults = () => {
     onVisibilityChange(DEFAULT_VISIBILITY);
+    onWidgetsPerRowChange(2);
   };
 
-  const widgets = [
-    { key: "smartInsights" as const, label: "Smart Insights" },
-    { key: "summaryMetrics" as const, label: "Summary Metrics" },
-    { key: "progressBar" as const, label: "Progress Bar" },
-    { key: "severityHeatmap" as const, label: "Bug Severity Heatmap" },
-    { key: "resolutionTime" as const, label: "Average Resolution Time" },
-    { key: "trendChart" as const, label: "Issue Trend Chart" },
-    { key: "moduleStability" as const, label: "Module Stability Score" },
-    { key: "reopenedIssues" as const, label: "Reopened Issues Tracker" },
-    { key: "categoryBreakdown" as const, label: "Bug Category Breakdown" },
-    { key: "bugHotspots" as const, label: "Bug Hotspots" },
-  ];
-
   const visibleCount = Object.values(visibility).filter(Boolean).length;
+  const totalCount = Object.keys(visibility).length;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Settings2 className="h-4 w-4" />
-          Widget Settings
-          <span className="text-xs text-muted-foreground">
-            ({visibleCount}/{widgets.length})
-          </span>
+          Widgets
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Customize Widgets</span>
+          <span>Widget Settings</span>
           <Button
             variant="ghost"
             size="sm"
@@ -129,11 +120,37 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
           </Button>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup className="max-h-[400px] overflow-y-auto">
+        
+        {/* Widgets Per Row Setting */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs text-muted-foreground flex items-center gap-1">
+            <LayoutGrid className="h-3 w-3" />
+            Widgets Per Row
+          </DropdownMenuLabel>
+          <div className="flex gap-1 px-2 py-1">
+            {[1, 2, 3, 4].map((num) => (
+              <Button
+                key={num}
+                variant={widgetsPerRow === num ? "default" : "outline"}
+                size="sm"
+                className="flex-1 h-7 text-xs"
+                onClick={() => onWidgetsPerRowChange(num)}
+              >
+                {num}
+              </Button>
+            ))}
+          </div>
+        </DropdownMenuGroup>
+        
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuGroup className="max-h-[350px] overflow-y-auto">
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            Visible Widgets ({visibleCount}/{totalCount})
+          </DropdownMenuLabel>
+          
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Core Metrics
-            </DropdownMenuLabel>
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Core</div>
             <DropdownMenuCheckboxItem
               checked={visibility.smartInsights}
               onCheckedChange={(checked) => handleToggle("smartInsights", checked)}
@@ -157,9 +174,7 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Analytics Widgets
-            </DropdownMenuLabel>
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Analytics</div>
             <DropdownMenuCheckboxItem
               checked={visibility.severityHeatmap}
               onCheckedChange={(checked) => handleToggle("severityHeatmap", checked)}
@@ -170,7 +185,7 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               checked={visibility.resolutionTime}
               onCheckedChange={(checked) => handleToggle("resolutionTime", checked)}
             >
-              Average Resolution Time
+              Avg Resolution Time
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.trendChart}
@@ -182,19 +197,19 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               checked={visibility.moduleStability}
               onCheckedChange={(checked) => handleToggle("moduleStability", checked)}
             >
-              Module Stability Score
+              Module Stability
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.reopenedIssues}
               onCheckedChange={(checked) => handleToggle("reopenedIssues", checked)}
             >
-              Reopened Issues Tracker
+              Reopened Issues
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.categoryBreakdown}
               onCheckedChange={(checked) => handleToggle("categoryBreakdown", checked)}
             >
-              Bug Category Breakdown
+              Category Breakdown
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.bugHotspots}
@@ -207,9 +222,7 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Critical Decision Widgets
-            </DropdownMenuLabel>
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Critical</div>
             <DropdownMenuCheckboxItem
               checked={visibility.atRiskRelease}
               onCheckedChange={(checked) => handleToggle("atRiskRelease", checked)}
@@ -226,13 +239,13 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               checked={visibility.criticalUntouched}
               onCheckedChange={(checked) => handleToggle("criticalUntouched", checked)}
             >
-              🧨 Critical Bugs Not Touched
+              🧨 Critical Untouched
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.backlogGrowth}
               onCheckedChange={(checked) => handleToggle("backlogGrowth", checked)}
             >
-              📉 Backlog Growth Rate
+              📉 Backlog Growth
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.bugFixEfficiency}
@@ -245,9 +258,7 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Engineering Health & AI
-            </DropdownMenuLabel>
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Health & AI</div>
             <DropdownMenuCheckboxItem
               checked={visibility.repeatBugDetector}
               onCheckedChange={(checked) => handleToggle("repeatBugDetector", checked)}
@@ -271,9 +282,7 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Advanced Visualizations
-            </DropdownMenuLabel>
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground/70">Visualizations</div>
             <DropdownMenuCheckboxItem
               checked={visibility.bugHeatmap}
               onCheckedChange={(checked) => handleToggle("bugHeatmap", checked)}
@@ -290,13 +299,13 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               checked={visibility.priorityScatterPlot}
               onCheckedChange={(checked) => handleToggle("priorityScatterPlot", checked)}
             >
-              ⚪ Priority Scatter Plot
+              ⚪ Priority Scatter
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.stackedAreaChart}
               onCheckedChange={(checked) => handleToggle("stackedAreaChart", checked)}
             >
-              📉 Stacked Area Chart
+              📉 Stacked Area
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.issueFunnelChart}
@@ -320,7 +329,7 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               checked={visibility.moduleRadarChart}
               onCheckedChange={(checked) => handleToggle("moduleRadarChart", checked)}
             >
-              🧭 Module Radar Chart
+              🧭 Module Radar
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={visibility.kpiBulletChart}
