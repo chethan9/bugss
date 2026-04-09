@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -186,9 +186,11 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          app_name: string | null
           created_at: string | null
           github_token: string | null
           id: string
+          logo_url: string | null
           selected_repos: Json | null
           theme: string | null
           updated_at: string | null
@@ -198,9 +200,11 @@ export type Database = {
           widgets_per_row: number | null
         }
         Insert: {
+          app_name?: string | null
           created_at?: string | null
           github_token?: string | null
           id?: string
+          logo_url?: string | null
           selected_repos?: Json | null
           theme?: string | null
           updated_at?: string | null
@@ -210,9 +214,11 @@ export type Database = {
           widgets_per_row?: number | null
         }
         Update: {
+          app_name?: string | null
           created_at?: string | null
           github_token?: string | null
           id?: string
+          logo_url?: string | null
           selected_repos?: Json | null
           theme?: string | null
           updated_at?: string | null

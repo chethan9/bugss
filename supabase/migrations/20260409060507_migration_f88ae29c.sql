@@ -1,0 +1,3 @@
+ALTER TABLE user_settings 
+ADD COLUMN IF NOT EXISTS app_name TEXT DEFAULT 'FixFlix',
+ADD COLUMN IF NOT EXISTS logo_url TEXT;
