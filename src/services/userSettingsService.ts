@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { WidgetVisibility } from "@/components/WidgetSettings";
 import { DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER } from "@/components/WidgetSettings";
-import type { Json } from "@/integrations/supabase/database.types";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface UserSettings {
   id: string;
@@ -10,8 +10,10 @@ export interface UserSettings {
   widget_order: (keyof WidgetVisibility)[];
   widgets_per_row: number;
   theme: string;
+  github_token: string | null;
   selected_repos: string[];
-  github_token?: string | null;
+  app_name: string;
+  logo_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,21 +23,22 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
     .from("user_settings")
     .select("*")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    if (error.code === "PGRST116") {
-      return await createUserSettings(userId);
-    }
     console.error("Error fetching user settings:", error);
     return null;
   }
+
+  if (!data) return null;
 
   return {
     ...data,
     widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
     widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
     selected_repos: (data.selected_repos as unknown as string[]) || [],
+    app_name: data.app_name || "FixFlix",
+    logo_url: data.logo_url || null,
   };
 }
 
@@ -47,6 +50,8 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     widgets_per_row: 3,
     theme: "system",
     selected_repos: [] as unknown as Json,
+    app_name: "FixFlix",
+    logo_url: null,
   };
 
   const { data, error } = await supabase
@@ -65,54 +70,56 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
     widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
     selected_repos: (data.selected_repos as unknown as string[]) || [],
+    app_name: data.app_name || "FixFlix",
+    logo_url: data.logo_url || null,
   };
 }
 
 export async function saveUserSettings(
-  userId: string,
-  updates: Partial<{
+  userId: string, 
+  settings: Partial<{
     widget_visibility: WidgetVisibility;
     widget_order: (keyof WidgetVisibility)[];
     widgets_per_row: number;
     theme: string;
-    selected_repos: string[];
     github_token: string | null;
+    selected_repos: string[];
+    app_name: string;
+    logo_url: string | null;
   }>
 ): Promise<boolean> {
-  const supabaseUpdates: {
-    updated_at: string;
-    widget_visibility?: Json;
-    widget_order?: Json;
-    widgets_per_row?: number;
-    theme?: string;
-    selected_repos?: Json;
-    github_token?: string | null;
-  } = {
+  const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
-  
-  if (updates.widget_visibility !== undefined) {
-    supabaseUpdates.widget_visibility = updates.widget_visibility as unknown as Json;
+
+  if (settings.widget_visibility !== undefined) {
+    updateData.widget_visibility = settings.widget_visibility as unknown as Json;
   }
-  if (updates.widget_order !== undefined) {
-    supabaseUpdates.widget_order = updates.widget_order as unknown as Json;
+  if (settings.widget_order !== undefined) {
+    updateData.widget_order = settings.widget_order as unknown as Json;
   }
-  if (updates.widgets_per_row !== undefined) {
-    supabaseUpdates.widgets_per_row = updates.widgets_per_row;
+  if (settings.widgets_per_row !== undefined) {
+    updateData.widgets_per_row = settings.widgets_per_row;
   }
-  if (updates.theme !== undefined) {
-    supabaseUpdates.theme = updates.theme;
+  if (settings.theme !== undefined) {
+    updateData.theme = settings.theme;
   }
-  if (updates.selected_repos !== undefined) {
-    supabaseUpdates.selected_repos = updates.selected_repos as unknown as Json;
+  if (settings.github_token !== undefined) {
+    updateData.github_token = settings.github_token;
   }
-  if (updates.github_token !== undefined) {
-    supabaseUpdates.github_token = updates.github_token;
+  if (settings.selected_repos !== undefined) {
+    updateData.selected_repos = settings.selected_repos as unknown as Json;
+  }
+  if (settings.app_name !== undefined) {
+    updateData.app_name = settings.app_name;
+  }
+  if (settings.logo_url !== undefined) {
+    updateData.logo_url = settings.logo_url;
   }
 
   const { error } = await supabase
     .from("user_settings")
-    .update(supabaseUpdates)
+    .update(updateData)
     .eq("user_id", userId);
 
   if (error) {
@@ -121,4 +128,14 @@ export async function saveUserSettings(
   }
 
   return true;
+}
+
+export async function getOrCreateUserSettings(userId: string): Promise<UserSettings | null> {
+  let settings = await getUserSettings(userId);
+  
+  if (!settings) {
+    settings = await createUserSettings(userId);
+  }
+  
+  return settings;
 }
