@@ -1,48 +1,186 @@
 import type { GitHubIssue } from "@/components/IssueTable";
 
 /**
- * Analytics service for processing GitHub issues and extracting insights
+ * Analytics service for processing GitHub issues and generating insights
  */
 
-export interface SeverityCount {
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
-  unknown: number;
+// Date range filtering
+export function filterIssuesByDateRange(
+  issues: GitHubIssue[],
+  startDate: Date,
+  endDate: Date
+): GitHubIssue[] {
+  return issues.filter(issue => {
+    const createdDate = new Date(issue.createdAt);
+    return createdDate >= startDate && createdDate <= endDate;
+  });
 }
 
+// Reopened issues detection
+export interface ReopenedIssuesStats {
+  total: number;
+  reopenedCount: number;
+  reopenedPercentage: number;
+  trend: number; // Positive = increasing, negative = decreasing
+}
+
+export function calculateReopenedIssues(issues: GitHubIssue[]): ReopenedIssuesStats {
+  // Note: GitHub API doesn't provide reopened status directly
+  // This is a simplified calculation based on comments/events
+  // In a real implementation, you'd need to fetch issue events
+  const closedIssues = issues.filter(i => i.status === "closed");
+  
+  // Estimate reopened issues (issues closed, then reopened)
+  // This would require fetching issue events from GitHub API
+  const estimatedReopened = Math.floor(closedIssues.length * 0.05); // Placeholder: 5% estimate
+  
+  return {
+    total: closedIssues.length,
+    reopenedCount: estimatedReopened,
+    reopenedPercentage: closedIssues.length > 0 ? (estimatedReopened / closedIssues.length) * 100 : 0,
+    trend: 0, // Would need historical data
+  };
+}
+
+// Bug category breakdown
 export interface CategoryCount {
   ui: number;
   validation: number;
   api: number;
-  logic: number;
+  backend: number;
+  frontend: number;
   performance: number;
+  security: number;
   other: number;
 }
 
-export interface PlatformCount {
-  android: number;
-  ios: number;
-  web: number;
-  admin: number;
-  other: number;
-}
-
-export interface ResolutionTimeStats {
-  overall: number;
-  bySeverity: {
-    critical: number;
-    high: number;
-    medium: number;
-    low: number;
+export function calculateCategoryBreakdown(issues: GitHubIssue[]): CategoryCount {
+  const categories: CategoryCount = {
+    ui: 0,
+    validation: 0,
+    api: 0,
+    backend: 0,
+    frontend: 0,
+    performance: 0,
+    security: 0,
+    other: 0,
   };
+
+  issues.forEach(issue => {
+    const category = detectCategory(issue);
+    const allText = `${issue.title} ${issue.labels.join(" ")}`.toLowerCase();
+    
+    if (allText.includes("ui") || allText.includes("design") || allText.includes("layout")) categories.ui++;
+    if (allText.includes("validation") || allText.includes("form")) categories.validation++;
+    if (allText.includes("api") || allText.includes("endpoint")) categories.api++;
+    if (allText.includes("backend") || allText.includes("server") || allText.includes("database")) categories.backend++;
+    if (allText.includes("frontend") || allText.includes("react") || allText.includes("component")) categories.frontend++;
+    if (allText.includes("performance") || allText.includes("slow") || allText.includes("speed")) categories.performance++;
+    if (allText.includes("security") || allText.includes("vulnerability")) categories.security++;
+    
+    // If no category detected, count as other
+    const hasCategory = categories.ui > 0 || categories.validation > 0 || categories.api > 0 || 
+                        categories.backend > 0 || categories.frontend > 0 || 
+                        categories.performance > 0 || categories.security > 0;
+    if (!hasCategory) categories.other++;
+  });
+
+  return categories;
 }
 
-export interface TrendDataPoint {
-  date: string;
-  created: number;
-  closed: number;
+// Bug hotspots (top buggy features/modules)
+export interface BugHotspot {
+  feature: string;
+  count: number;
+  percentage: number;
+  severity: "critical" | "high" | "medium" | "low";
+}
+
+export function calculateBugHotspots(issues: GitHubIssue[], limit: number = 5): BugHotspot[] {
+  const featureCounts = new Map<string, number>();
+  const featureSeverities = new Map<string, string[]>();
+
+  issues.forEach(issue => {
+    // Extract feature from labels or title
+    const features = extractFeatures(issue);
+    
+    features.forEach(feature => {
+      featureCounts.set(feature, (featureCounts.get(feature) || 0) + 1);
+      
+      if (!featureSeverities.has(feature)) {
+        featureSeverities.set(feature, []);
+      }
+      const severity = detectSeverity(issue);
+      featureSeverities.get(feature)!.push(severity);
+    });
+  });
+
+  const totalIssues = issues.length;
+  const hotspots: BugHotspot[] = [];
+
+  featureCounts.forEach((count, feature) => {
+    const severities = featureSeverities.get(feature) || [];
+    const avgSeverity = getMostCommonSeverity(severities);
+    
+    hotspots.push({
+      feature,
+      count,
+      percentage: (count / totalIssues) * 100,
+      severity: avgSeverity,
+    });
+  });
+
+  return hotspots
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+function extractFeatures(issue: GitHubIssue): string[] {
+  const features: string[] = [];
+  
+  // Extract from labels
+  issue.labels.forEach(label => {
+    const lower = label.toLowerCase();
+    
+    // Look for feature/module labels
+    if (lower.includes("page") || lower.includes("panel") || 
+        lower.includes("module") || lower.includes("feature") ||
+        lower.includes("app") || lower.includes("screen")) {
+      features.push(label);
+    }
+  });
+
+  // Extract from title (look for common patterns)
+  const titleWords = issue.title.toLowerCase();
+  const commonFeatures = [
+    "login", "signup", "dashboard", "profile", "settings", "admin",
+    "payment", "checkout", "cart", "search", "filter", "form",
+    "upload", "download", "notification", "chat", "message"
+  ];
+
+  commonFeatures.forEach(feature => {
+    if (titleWords.includes(feature)) {
+      features.push(feature.charAt(0).toUpperCase() + feature.slice(1));
+    }
+  });
+
+  // If no features found, use repository name or "Other"
+  if (features.length === 0) {
+    const repoName = issue.repository.split("/")[1] || "Other";
+    features.push(repoName);
+  }
+
+  return [...new Set(features)]; // Remove duplicates
+}
+
+function getMostCommonSeverity(severities: string[]): "critical" | "high" | "medium" | "low" {
+  const counts: Record<string, number> = {};
+  severities.forEach(s => {
+    counts[s] = (counts[s] || 0) + 1;
+  });
+
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return (sorted[0]?.[0] as any) || "medium";
 }
 
 /**

@@ -11,12 +11,20 @@ import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
 import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
 import { IssueTrendChart } from "@/components/analytics/IssueTrendChart";
 import { ModuleStabilityScore } from "@/components/analytics/ModuleStabilityScore";
+import { DateRangeFilter, type DateRange } from "@/components/analytics/DateRangeFilter";
+import { ReopenedIssuesTracker } from "@/components/analytics/ReopenedIssuesTracker";
+import { BugCategoryBreakdown } from "@/components/analytics/BugCategoryBreakdown";
+import { BugHotspots } from "@/components/analytics/BugHotspots";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
   calculateAverageResolutionTime,
   calculateIssueTrend,
   calculateModuleStability,
+  filterIssuesByDateRange,
+  calculateReopenedIssues,
+  calculateCategoryBreakdown,
+  calculateBugHotspots,
 } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +102,7 @@ export default function Home() {
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -234,7 +243,7 @@ export default function Home() {
   }, [issues]);
 
   const filteredIssues = useMemo(() => {
-    return issues.filter((issue) => {
+    let filtered = issues.filter((issue) => {
       if (filters.repositories.length > 0 && !filters.repositories.includes(issue.repository)) {
         return false;
       }
@@ -254,7 +263,14 @@ export default function Home() {
       }
       return true;
     });
-  }, [issues, filters]);
+
+    // Apply date range filter
+    if (dateRange) {
+      filtered = filterIssuesByDateRange(filtered, dateRange.from, dateRange.to);
+    }
+
+    return filtered;
+  }, [issues, filters, dateRange]);
 
   const metrics = useMemo(() => {
     const statusCounts = filteredIssues.reduce(
@@ -281,6 +297,9 @@ export default function Home() {
       resolutionTime: calculateAverageResolutionTime(filteredIssues),
       trend: calculateIssueTrend(filteredIssues, 30),
       stability: calculateModuleStability(filteredIssues),
+      reopened: calculateReopenedIssues(filteredIssues),
+      categories: calculateCategoryBreakdown(filteredIssues),
+      hotspots: calculateBugHotspots(filteredIssues, 5),
     };
   }, [filteredIssues]);
 
@@ -356,6 +375,11 @@ export default function Home() {
               <Settings className="h-4 w-4" />
               Change Token
             </Button>
+            
+            <DateRangeFilter 
+              dateRange={dateRange} 
+              onDateRangeChange={setDateRange}
+            />
           </div>
         </div>
       </header>
@@ -563,6 +587,9 @@ export default function Home() {
               <AverageResolutionTime stats={analytics.resolutionTime} />
               <IssueTrendChart data={analytics.trend} days={30} />
               <ModuleStabilityScore stability={analytics.stability} />
+              <ReopenedIssuesTracker stats={analytics.reopened} />
+              <BugCategoryBreakdown categories={analytics.categories} />
+              <BugHotspots hotspots={analytics.hotspots} />
             </div>
 
             {/* Label Choice Chips */}
