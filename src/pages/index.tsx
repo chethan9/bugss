@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -184,6 +185,10 @@ export default function Home() {
   const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
+  const [user, setUser] = useState<any>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const router = useRouter();
+
   const [token, setToken] = useState("");
   const [tokenError, setTokenError] = useState("");
   const [issuesError, setIssuesError] = useState("");
@@ -197,6 +202,73 @@ export default function Home() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  // Auth check and settings loading
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+        
+        if (session?.user) {
+          // Load user settings from database
+          const settings = await getUserSettings(session.user.id);
+          if (settings) {
+            if (settings.widget_visibility) {
+              setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
+            }
+            if (settings.widget_order) {
+              setWidgetOrder(settings.widget_order as (keyof WidgetVisibility)[]);
+            }
+            if (settings.widgets_per_row) {
+              setWidgetsPerRow(settings.widgets_per_row);
+            }
+            if (settings.github_token) {
+              const storedToken = settings.github_token;
+              setGithubToken(storedToken);
+              setToken(storedToken);
+              if (settings.selected_repos && settings.selected_repos.length > 0) {
+                setSelectedRepos(settings.selected_repos);
+                fetchSelectedIssues(settings.selected_repos, storedToken);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user || null);
+      if (event === "SIGNED_OUT") {
+        handleDisconnect();
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Save settings when they change (debounced)
+  useEffect(() => {
+    if (!user) return;
+    
+    const saveTimeout = setTimeout(async () => {
+      await saveUserSettings(user.id, {
+        widget_visibility: widgetVisibility,
+        widget_order: widgetOrder,
+        widgets_per_row: widgetsPerRow,
+        github_token: githubToken || null,
+        selected_repos: selectedRepos,
+      });
+    }, 1000);
+    
+    return () => clearTimeout(saveTimeout);
+  }, [user, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
 
   useEffect(() => {
     console.log("🟢 Auto-load useEffect running...");
@@ -294,6 +366,12 @@ export default function Home() {
     setRememberMe(false);
     setConnectionStep("token");
     setShowConnectionDialog(false);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    handleDisconnect();
+    router.push("/auth");
   };
 
   const fetchSelectedIssues = async (repos: string[], tokenToUse: string) => {
@@ -736,10 +814,65 @@ export default function Home() {
                 )}
                 
                 <ThemeSwitch />
+                
+                {user ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="gap-2">
+                        <User className="h-4 w-4" />
+                        <span className="max-w-[100px] truncate text-xs">
+                          {user.email?.split("@")[0]}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                        {user.email}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => router.push("/auth")}>
+                    Sign In
+                  </Button>
+                )}
               </>
             ) : (
               <>
                 <ThemeSwitch />
+                
+                {user ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="gap-2">
+                        <User className="h-4 w-4" />
+                        <span className="max-w-[100px] truncate text-xs">
+                          {user.email?.split("@")[0]}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                        {user.email}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => router.push("/auth")}>
+                    Sign In
+                  </Button>
+                )}
+                
                 <Button variant="default" onClick={() => setShowConnectionDialog(true)}>
                   <GitBranch className="h-4 w-4 mr-2" />
                   Connect GitHub

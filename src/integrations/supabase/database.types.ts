@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
+ 
 export type Json =
   | string
   | number
@@ -187,6 +187,7 @@ export type Database = {
       user_settings: {
         Row: {
           created_at: string | null
+          github_token: string | null
           id: string
           selected_repos: Json | null
           theme: string | null
@@ -198,6 +199,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          github_token?: string | null
           id?: string
           selected_repos?: Json | null
           theme?: string | null
@@ -209,6 +211,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          github_token?: string | null
           id?: string
           selected_repos?: Json | null
           theme?: string | null
