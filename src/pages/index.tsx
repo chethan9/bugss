@@ -191,6 +191,8 @@ export default function Home() {
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [appName, setAppName] = useState("FixFlix");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const router = useRouter();
 
   const [token, setToken] = useState("");
@@ -226,6 +228,12 @@ export default function Home() {
             }
             if (settings.widgets_per_row) {
               setWidgetsPerRow(settings.widgets_per_row);
+            }
+            if (settings.app_name) {
+              setAppName(settings.app_name);
+            }
+            if (settings.logo_url) {
+              setLogoUrl(settings.logo_url);
             }
             if (settings.github_token) {
               const storedToken = settings.github_token;
@@ -689,14 +697,9 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <LayoutGrid className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-heading font-bold text-foreground">
-              FixFlix
-            </h1>
-          </div>
+          <Logo appName={appName} logoUrl={logoUrl} />
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {selectedRepos.length > 0 && (
               <>
                 <ReportSettings 
