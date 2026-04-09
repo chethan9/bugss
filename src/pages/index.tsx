@@ -401,6 +401,53 @@ export default function Home() {
     setSelectedRepos([]);
   };
 
+  const handleDisconnect = () => {
+    setGithubToken("");
+    setSelectedRepos([]);
+    setAvailableRepos([]);
+    setIssues([]);
+    setToken("");
+    clearStoredCredentials();
+    setIsStoredConnection(false);
+    setRememberMe(false);
+    setConnectionStep("token");
+  };
+
+  // Filter repositories based on search query
+  const filteredRepos = useMemo(() => {
+    if (!repoSearchQuery) return availableRepos;
+    
+    const query = repoSearchQuery.toLowerCase();
+    return availableRepos.filter(repo => 
+      repo.full_name.toLowerCase().includes(query) ||
+      repo.description?.toLowerCase().includes(query) ||
+      repo.language?.toLowerCase().includes(query)
+    );
+  }, [availableRepos, repoSearchQuery]);
+
+  // Toggle repo selection
+  const toggleRepoSelection = (repoFullName: string) => {
+    setSelectedRepos(prev => 
+      prev.includes(repoFullName)
+        ? prev.filter(r => r !== repoFullName)
+        : [...prev, repoFullName]
+    );
+  };
+
+  // Select all filtered repos
+  const selectAllFilteredRepos = () => {
+    const allFilteredNames = filteredRepos.map(r => r.full_name);
+    setSelectedRepos(prev => {
+      const newSet = new Set([...prev, ...allFilteredNames]);
+      return Array.from(newSet);
+    });
+  };
+
+  const handleIssueClick = (issue: GitHubIssue) => {
+    setSelectedIssue(issue);
+    setIsIssueModalOpen(true);
+  };
+
   // Extract unique labels and repositories for filters
   const availableLabels = useMemo(() => {
     const labelSet = new Set<string>();
