@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Activity, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 
 interface GitHubIssue {
-  id: number;
+  id: string;
   number: number;
   title: string;
   status: string;
