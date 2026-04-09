@@ -282,6 +282,23 @@ export default function Home() {
     setShowConnectionDialog(false);
   };
 
+  const fetchSelectedIssues = async (repos: string[], tokenToUse: string) => {
+    // Fetch issues implementation
+    const { fetchIssues } = await import("@/services/githubService");
+    const allIssues: GitHubIssue[] = [];
+    
+    for (const repo of repos) {
+      try {
+        const issues = await fetchIssues(repo, tokenToUse);
+        allIssues.push(...issues);
+      } catch (error) {
+        console.error(`Failed to fetch issues for ${repo}:`, error);
+      }
+    }
+    
+    setIssues(allIssues);
+  };
+
   const handleTokenSubmit = async () => {
     if (!githubToken) {
       alert("Please enter a GitHub token");
@@ -322,15 +339,34 @@ export default function Home() {
     }
   };
 
-  const toggleRepoSelection = (repoFullName: string) => {
-    console.log("🔵 toggleRepoSelection called for:", repoFullName);
-    setSelectedRepos(prev => {
-      const newSelection = prev.includes(repoFullName)
-        ? prev.filter(r => r !== repoFullName)
-        : [...prev, repoFullName];
-      console.log("🔵 New selection:", newSelection);
-      return newSelection;
-    });
+  const handleRepoSelectionComplete = async () => {
+    console.log("🔴 handleRepoSelectionComplete called - THIS SHOULD ONLY BE CALLED WHEN 'FETCH ISSUES' IS CLICKED");
+    if (selectedRepos.length === 0) {
+      alert("Please select at least one repository");
+      return;
+    }
+
+    setLoading(true);
+    setIsLoadingIssues(true);
+    try {
+      await fetchSelectedIssues(selectedRepos, token);
+      
+      if (rememberMe) {
+        saveTokenToStorage(githubToken, selectedRepos, true);
+        setIsStoredConnection(true);
+      }
+      
+      console.log("🔴 Closing dialog after successful fetch");
+      setShowConnectionDialog(false);
+      setConnectionStep("token");
+      setRepoSearchQuery("");
+    } catch (error: any) {
+      console.error("Failed to fetch issues:", error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setIsLoadingIssues(false);
+    }
   };
 
   const filteredRepos = useMemo(() => {
@@ -343,6 +379,31 @@ export default function Home() {
       repo.language?.toLowerCase().includes(query)
     );
   }, [availableRepos, repoSearchQuery]);
+
+  const toggleRepoSelection = (repoFullName: string) => {
+    console.log("🔵 toggleRepoSelection called for:", repoFullName);
+    setSelectedRepos(prev => {
+      const newSelection = prev.includes(repoFullName)
+        ? prev.filter(r => r !== repoFullName)
+        : [...prev, repoFullName];
+      console.log("🔵 New selection:", newSelection);
+      return newSelection;
+    });
+  };
+
+  const selectAllFilteredRepos = () => {
+    console.log("🔵 selectAllFilteredRepos called");
+    const allFilteredNames = filteredRepos.map(r => r.full_name);
+    setSelectedRepos(prev => {
+      const newSet = new Set([...prev, ...allFilteredNames]);
+      return Array.from(newSet);
+    });
+  };
+
+  const deselectAllRepos = () => {
+    console.log("🔵 deselectAllRepos called");
+    setSelectedRepos([]);
+  };
 
   const handleManageRepositories = async () => {
     const tokenToUse = token || githubToken;
