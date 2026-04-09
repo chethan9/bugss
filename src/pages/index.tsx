@@ -178,6 +178,7 @@ export default function Home() {
   });
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
+  const [widgetsPerRow, setWidgetsPerRow] = useState(2);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [token, setToken] = useState("");
@@ -624,6 +625,8 @@ export default function Home() {
                 <WidgetSettings 
                   visibility={widgetVisibility}
                   onVisibilityChange={handleVisibilityChange}
+                  widgetsPerRow={widgetsPerRow}
+                  onWidgetsPerRowChange={setWidgetsPerRow}
                 />
                 
                 {/* Refresh Controls */}
@@ -974,7 +977,15 @@ export default function Home() {
               </div>
             )}
 
-            <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6" id="analytics-widgets-section">
+            <div 
+              className={`mb-8 grid gap-6 ${
+                widgetsPerRow === 1 ? "grid-cols-1" :
+                widgetsPerRow === 2 ? "grid-cols-1 lg:grid-cols-2" :
+                widgetsPerRow === 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" :
+                "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+              }`}
+              id="analytics-widgets-section"
+            >
               {widgetVisibility.severityHeatmap && (
                 <BugSeverityHeatmap severities={analytics.severities} />
               )}
