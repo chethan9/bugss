@@ -735,3 +735,121 @@ export function generateFocusRecommendations(issues: GitHubIssue[]): FocusRecomm
     return priorityOrder[a.priority] - priorityOrder[b.priority];
   });
 }
+
+// ==========================================
+// Phase 4A - Advanced Visualizations: Distribution & Pattern
+// ==========================================
+
+export interface HeatmapDataPoint {
+  date: string;
+  module: string;
+  count: number;
+}
+
+export function calculateBugHeatmap(issues: GitHubIssue[], days: number = 30): HeatmapDataPoint[] {
+  const now = new Date();
+  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  
+  const heatmapData: HeatmapDataPoint[] = [];
+  const dateModuleMap = new Map<string, Map<string, number>>();
+  
+  // Filter issues within date range
+  const recentIssues = issues.filter(i => new Date(i.createdAt) >= startDate);
+  
+  // Count bugs per date per module
+  recentIssues.forEach(issue => {
+    const dateStr = new Date(issue.createdAt).toISOString().split("T")[0];
+    const module = parseModule(issue.labels) || "Other";
+    
+    if (!dateModuleMap.has(dateStr)) {
+      dateModuleMap.set(dateStr, new Map());
+    }
+    
+    const moduleMap = dateModuleMap.get(dateStr)!;
+    moduleMap.set(module, (moduleMap.get(module) || 0) + 1);
+  });
+  
+  // Convert to array format
+  dateModuleMap.forEach((moduleMap, date) => {
+    moduleMap.forEach((count, module) => {
+      heatmapData.push({ date, module, count });
+    });
+  });
+  
+  return heatmapData.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export interface HistogramBucket {
+  range: string;
+  count: number;
+  percentage: number;
+}
+
+export function calculateResolutionHistogram(issues: GitHubIssue[]): HistogramBucket[] {
+  const closedIssues = issues.filter(i => i.closedAt);
+  
+  const buckets = {
+    "0-1 day": 0,
+    "1-3 days": 0,
+    "3-7 days": 0,
+    "7-14 days": 0,
+    "14+ days": 0,
+  };
+  
+  closedIssues.forEach(issue => {
+    if (!issue.closedAt) return;
+    
+    const created = new Date(issue.createdAt);
+    const closed = new Date(issue.closedAt);
+    const days = Math.floor((closed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (days <= 1) buckets["0-1 day"]++;
+    else if (days <= 3) buckets["1-3 days"]++;
+    else if (days <= 7) buckets["3-7 days"]++;
+    else if (days <= 14) buckets["7-14 days"]++;
+    else buckets["14+ days"]++;
+  });
+  
+  const total = closedIssues.length;
+  
+  return Object.entries(buckets).map(([range, count]) => ({
+    range,
+    count,
+    percentage: total > 0 ? (count / total) * 100 : 0,
+  }));
+}
+
+export interface ScatterDataPoint {
+  id: string;
+  number: number;
+  title: string;
+  priority: number; // 0=low, 1=medium, 2=high, 3=critical
+  resolutionDays: number;
+  severity: string;
+}
+
+export function calculatePriorityResolutionScatter(issues: GitHubIssue[]): ScatterDataPoint[] {
+  const closedIssues = issues.filter(i => i.closedAt);
+  
+  return closedIssues.map(issue => {
+    const created = new Date(issue.createdAt);
+    const closed = new Date(issue.closedAt!);
+    const resolutionDays = Math.floor((closed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    
+    const severity = parseSeverity(issue.labels);
+    let priority = 0;
+    if (severity === "low") priority = 0;
+    else if (severity === "medium") priority = 1;
+    else if (severity === "high") priority = 2;
+    else if (severity === "critical") priority = 3;
+    
+    return {
+      id: issue.id,
+      number: issue.number,
+      title: issue.title,
+      priority,
+      resolutionDays,
+      severity,
+    };
+  });
+}
