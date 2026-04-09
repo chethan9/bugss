@@ -283,13 +283,16 @@ export default function Home() {
   };
 
   const fetchSelectedIssues = async (repos: string[], tokenToUse: string) => {
+    console.log("🟡 fetchSelectedIssues called with repos:", repos);
     const { fetchRepositoryIssues } = await import("@/services/githubService");
     const allIssues: GitHubIssue[] = [];
     
     for (const repo of repos) {
       try {
+        console.log(`🟡 Fetching issues for ${repo}...`);
         const [owner, name] = repo.split('/');
         const apiIssues = await fetchRepositoryIssues(owner, name, tokenToUse);
+        console.log(`🟡 Received ${apiIssues.length} issues for ${repo}`);
         
         // Transform API response to match IssueTable format
         const transformedIssues: GitHubIssue[] = apiIssues.map((issue: any) => ({
@@ -309,55 +312,20 @@ export default function Home() {
         
         allIssues.push(...transformedIssues);
       } catch (error) {
-        console.error(`Failed to fetch issues for ${repo}:`, error);
+        console.error(`❌ Failed to fetch issues for ${repo}:`, error);
       }
     }
     
+    console.log(`🟡 Total issues fetched: ${allIssues.length}`);
+    console.log("🟡 Setting issues state...", allIssues);
     setIssues(allIssues);
   };
 
-  const handleTokenSubmit = async () => {
-    if (!githubToken) {
-      alert("Please enter a GitHub token");
-      return;
-    }
-
-    const cleanToken = githubToken.trim();
-    
-    if (cleanToken.length < 20) {
-      alert("Invalid token format. GitHub tokens are typically 40+ characters long.");
-      return;
-    }
-
-    setIsLoadingRepos(true);
-    try {
-      console.log("🔑 Attempting to fetch repositories with provided token...");
-      const repos = await fetchUserRepositories(cleanToken);
-      
-      if (repos.length === 0) {
-        alert("No repositories found.");
-        return;
-      }
-      
-      setAvailableRepos(repos);
-      setConnectionStep("repos");
-      setToken(cleanToken);
-      setGithubToken(cleanToken);
-    } catch (error: any) {
-      console.error("Failed to fetch repositories:", error);
-      alert(`Error: ${error.message}`);
-      
-      if (error.message.includes("Invalid") || error.message.includes("401") || error.message.includes("expired")) {
-        clearStoredCredentials();
-        setIsStoredConnection(false);
-      }
-    } finally {
-      setIsLoadingRepos(false);
-    }
-  };
-
   const handleRepoSelectionComplete = async () => {
-    console.log("🔴 handleRepoSelectionComplete called - THIS SHOULD ONLY BE CALLED WHEN 'FETCH ISSUES' IS CLICKED");
+    console.log("🔴 handleRepoSelectionComplete called");
+    console.log("🔴 selectedRepos:", selectedRepos);
+    console.log("🔴 token:", token ? "present" : "MISSING");
+    
     if (selectedRepos.length === 0) {
       alert("Please select at least one repository");
       return;
@@ -366,23 +334,26 @@ export default function Home() {
     setLoading(true);
     setIsLoadingIssues(true);
     try {
+      console.log("🔴 Calling fetchSelectedIssues...");
       await fetchSelectedIssues(selectedRepos, token);
+      console.log("🔴 fetchSelectedIssues completed");
       
       if (rememberMe) {
         saveTokenToStorage(githubToken, selectedRepos, true);
         setIsStoredConnection(true);
       }
       
-      console.log("🔴 Closing dialog after successful fetch");
+      console.log("🔴 Closing dialog");
       setShowConnectionDialog(false);
       setConnectionStep("token");
       setRepoSearchQuery("");
     } catch (error: any) {
-      console.error("Failed to fetch issues:", error);
+      console.error("❌ Failed to fetch issues:", error);
       alert(`Error: ${error.message}`);
     } finally {
       setLoading(false);
       setIsLoadingIssues(false);
+      console.log("🔴 handleRepoSelectionComplete finished");
     }
   };
 
