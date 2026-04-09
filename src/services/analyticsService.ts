@@ -422,3 +422,302 @@ function getMostCommonSeverity(severities: string[]): "critical" | "high" | "med
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   return (sorted[0]?.[0] as any) || "medium";
 }
+
+// ==========================================
+// Phase 3A - Critical Decision Metrics
+// ==========================================
+
+export interface AtRiskReleaseStats {
+  criticalOpen: number;
+  highOpen: number;
+  totalCriticalHigh: number;
+  riskPercentage: number;
+  status: "safe" | "warning" | "critical";
+}
+
+export function calculateAtRiskRelease(issues: GitHubIssue[]): AtRiskReleaseStats {
+  const criticalHighIssues = issues.filter(i => {
+    const severity = parseSeverity(i.labels);
+    return severity === "critical" || severity === "high";
+  });
+  
+  const openCriticalHigh = criticalHighIssues.filter(i => i.status === "open");
+  const criticalOpen = openCriticalHigh.filter(i => parseSeverity(i.labels) === "critical").length;
+  const highOpen = openCriticalHigh.filter(i => parseSeverity(i.labels) === "high").length;
+  
+  const totalCriticalHigh = criticalHighIssues.length;
+  const riskPercentage = totalCriticalHigh > 0 ? (openCriticalHigh.length / totalCriticalHigh) * 100 : 0;
+  
+  let status: "safe" | "warning" | "critical" = "safe";
+  if (riskPercentage > 30) status = "critical";
+  else if (riskPercentage > 15) status = "warning";
+  
+  return {
+    criticalOpen,
+    highOpen,
+    totalCriticalHigh,
+    riskPercentage,
+    status,
+  };
+}
+
+export interface AgingIssuesStats {
+  over7Days: number;
+  over30Days: number;
+  over90Days: number;
+  oldestIssue: GitHubIssue | null;
+  oldestDays: number;
+}
+
+export function calculateAgingIssues(issues: GitHubIssue[]): AgingIssuesStats {
+  const now = new Date();
+  const openIssues = issues.filter(i => i.status === "open");
+  
+  let over7Days = 0;
+  let over30Days = 0;
+  let over90Days = 0;
+  let oldestIssue: GitHubIssue | null = null;
+  let oldestDays = 0;
+  
+  openIssues.forEach(issue => {
+    const createdDate = new Date(issue.createdAt);
+    const daysDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff > 7) over7Days++;
+    if (daysDiff > 30) over30Days++;
+    if (daysDiff > 90) over90Days++;
+    
+    if (daysDiff > oldestDays) {
+      oldestDays = daysDiff;
+      oldestIssue = issue;
+    }
+  });
+  
+  return { over7Days, over30Days, over90Days, oldestIssue, oldestDays };
+}
+
+export interface CriticalUntouchedStats {
+  count: number;
+  issues: GitHubIssue[];
+  averageDaysUntouched: number;
+}
+
+export function calculateCriticalUntouched(issues: GitHubIssue[], dayThreshold: number = 3): CriticalUntouchedStats {
+  const now = new Date();
+  
+  const criticalIssues = issues.filter(i => {
+    const severity = parseSeverity(i.labels);
+    return (severity === "critical" || severity === "high") && i.status === "open";
+  });
+  
+  const untouched = criticalIssues.filter(issue => {
+    const createdDate = new Date(issue.createdAt);
+    const daysSinceCreation = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+    return daysSinceCreation >= dayThreshold;
+  });
+  
+  const avgDays = untouched.length > 0
+    ? untouched.reduce((sum, issue) => {
+        const days = Math.floor((now.getTime() - new Date(issue.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        return sum + days;
+      }, 0) / untouched.length
+    : 0;
+  
+  return {
+    count: untouched.length,
+    issues: untouched.slice(0, 5), // Top 5
+    averageDaysUntouched: avgDays,
+  };
+}
+
+export interface BacklogGrowthStats {
+  created7d: number;
+  closed7d: number;
+  growthRate: number;
+  trend: "growing" | "shrinking" | "stable";
+}
+
+export function calculateBacklogGrowth(issues: GitHubIssue[]): BacklogGrowthStats {
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  
+  const created7d = issues.filter(i => new Date(i.createdAt) >= sevenDaysAgo).length;
+  const closed7d = issues.filter(i => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo).length;
+  
+  const growthRate = created7d > 0 ? ((created7d - closed7d) / created7d) * 100 : 0;
+  
+  let trend: "growing" | "shrinking" | "stable" = "stable";
+  if (growthRate > 10) trend = "growing";
+  else if (growthRate < -10) trend = "shrinking";
+  
+  return { created7d, closed7d, growthRate, trend };
+}
+
+export interface EfficiencyStats {
+  closedCount: number;
+  createdCount: number;
+  ratio: number;
+  status: "excellent" | "good" | "poor";
+}
+
+export function calculateBugFixEfficiency(issues: GitHubIssue[], days: number = 30): EfficiencyStats {
+  const now = new Date();
+  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  
+  const created = issues.filter(i => new Date(i.createdAt) >= startDate).length;
+  const closed = issues.filter(i => i.closedAt && new Date(i.closedAt) >= startDate).length;
+  
+  const ratio = created > 0 ? closed / created : 0;
+  
+  let status: "excellent" | "good" | "poor" = "poor";
+  if (ratio >= 1.2) status = "excellent";
+  else if (ratio >= 0.9) status = "good";
+  
+  return {
+    closedCount: closed,
+    createdCount: created,
+    ratio,
+    status,
+  };
+}
+
+// ==========================================
+// Phase 3B - Engineering Health
+// ==========================================
+
+export interface RepeatBugStats {
+  topRepeatingLabels: Array<{ label: string; count: number; trend: number }>;
+  totalRepeats: number;
+}
+
+export function detectRepeatBugs(issues: GitHubIssue[], days: number = 7): RepeatBugStats {
+  const now = new Date();
+  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  
+  const recentIssues = issues.filter(i => new Date(i.createdAt) >= startDate);
+  const labelCounts = new Map<string, number>();
+  
+  recentIssues.forEach(issue => {
+    issue.labels.forEach(label => {
+      labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+    });
+  });
+  
+  const topRepeating = Array.from(labelCounts.entries())
+    .filter(([_, count]) => count >= 3) // At least 3 occurrences
+    .map(([label, count]) => ({ label, count, trend: 0 }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+  
+  return {
+    topRepeatingLabels: topRepeating,
+    totalRepeats: topRepeating.reduce((sum, item) => sum + item.count, 0),
+  };
+}
+
+export interface DeveloperLoadStats {
+  developers: Array<{
+    name: string;
+    issueCount: number;
+    status: "overloaded" | "normal" | "underutilized";
+  }>;
+  averageLoad: number;
+}
+
+export function calculateDeveloperLoad(issues: GitHubIssue[]): DeveloperLoadStats {
+  const openIssues = issues.filter(i => i.status === "open" && i.assignee);
+  const devCounts = new Map<string, number>();
+  
+  openIssues.forEach(issue => {
+    if (issue.assignee) {
+      devCounts.set(issue.assignee, (devCounts.get(issue.assignee) || 0) + 1);
+    }
+  });
+  
+  const avgLoad = devCounts.size > 0 
+    ? Array.from(devCounts.values()).reduce((a, b) => a + b, 0) / devCounts.size 
+    : 0;
+  
+  const developers = Array.from(devCounts.entries()).map(([name, count]) => {
+    let status: "overloaded" | "normal" | "underutilized" = "normal";
+    if (count > avgLoad * 1.5) status = "overloaded";
+    else if (count < avgLoad * 0.5) status = "underutilized";
+    
+    return { name, issueCount: count, status };
+  });
+  
+  return {
+    developers: developers.sort((a, b) => b.issueCount - a.issueCount),
+    averageLoad: avgLoad,
+  };
+}
+
+export interface FocusRecommendation {
+  priority: "urgent" | "high" | "medium";
+  area: string;
+  reason: string;
+  impact: string;
+  issueCount: number;
+}
+
+export function generateFocusRecommendations(issues: GitHubIssue[]): FocusRecommendation[] {
+  const recommendations: FocusRecommendation[] = [];
+  
+  // Check platform concentration
+  const platforms = calculatePlatformDistribution(issues);
+  const totalIssues = issues.length;
+  
+  Object.entries(platforms).forEach(([platform, count]) => {
+    if (count > totalIssues * 0.5 && totalIssues > 0) {
+      recommendations.push({
+        priority: "urgent",
+        area: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Platform`,
+        reason: `${Math.round((count / totalIssues) * 100)}% of all issues`,
+        impact: "High user impact on primary platform",
+        issueCount: count,
+      });
+    }
+  });
+  
+  // Check severity concentration
+  const severities = calculateSeverityDistribution(issues);
+  if (severities.critical > 5) {
+    recommendations.push({
+      priority: "urgent",
+      area: "Critical Bugs",
+      reason: `${severities.critical} critical severity issues open`,
+      impact: "Release blocker risk",
+      issueCount: severities.critical,
+    });
+  }
+  
+  // Check repeat bugs
+  const repeats = detectRepeatBugs(issues, 14);
+  if (repeats.topRepeatingLabels.length > 0) {
+    const top = repeats.topRepeatingLabels[0];
+    recommendations.push({
+      priority: "high",
+      area: top.label,
+      reason: `${top.count} similar issues in 14 days`,
+      impact: "Systemic problem requiring root fix",
+      issueCount: top.count,
+    });
+  }
+  
+  // Check aging issues
+  const aging = calculateAgingIssues(issues);
+  if (aging.over30Days > 10) {
+    recommendations.push({
+      priority: "medium",
+      area: "Backlog Cleanup",
+      reason: `${aging.over30Days} issues older than 30 days`,
+      impact: "Growing technical debt",
+      issueCount: aging.over30Days,
+    });
+  }
+  
+  return recommendations.sort((a, b) => {
+    const priorityOrder = { urgent: 0, high: 1, medium: 2 };
+    return priorityOrder[a.priority] - priorityOrder[b.priority];
+  });
+}
