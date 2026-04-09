@@ -7,11 +7,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { ExternalLink, Calendar, User, MessageSquare, Tag } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { ExternalLink, Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -24,39 +22,33 @@ interface IssueDetailsModalProps {
 }
 
 interface IssueDetails {
-  number: number;
   title: string;
   body: string;
   state: string;
-  created_at: string;
-  updated_at: string;
-  closed_at?: string;
-  labels: Array<{
-    name: string;
-    color: string;
-    description?: string;
-  }>;
+  labels: Array<{ name: string; color: string }>;
+  user: {
+    login: string;
+    avatar_url: string;
+  };
   assignees: Array<{
     login: string;
     avatar_url: string;
   }>;
-  user: {
-    login: string;
-    avatar_url: string;
-  };
+  created_at: string;
+  updated_at: string;
   html_url: string;
-  comments: number;
+  comments_count: number;
 }
 
 interface Comment {
   id: number;
-  body: string;
-  created_at: string;
-  updated_at: string;
   user: {
     login: string;
     avatar_url: string;
   };
+  body: string;
+  created_at: string;
+  html_url: string;
 }
 
 export function IssueDetailsModal({
@@ -68,44 +60,20 @@ export function IssueDetailsModal({
 }: IssueDetailsModalProps) {
   const [issue, setIssue] = useState<IssueDetails | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isOpen && issueNumber && repository) {
-      fetchIssueDetails();
-    }
-  }, [isOpen, issueNumber, repository]);
+    if (!isOpen) return;
 
-  const fetchIssueDetails = async () => {
-    setIsLoading(true);
-    setError("");
+    const fetchIssueDetails = async () => {
+      setLoading(true);
+      setError("");
 
-    try {
-      const [owner, repo] = repository.split("/");
-
-      // Fetch issue details
-      const issueResponse = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/vnd.github.v3+json",
-          },
-        }
-      );
-
-      if (!issueResponse.ok) {
-        throw new Error("Failed to fetch issue details");
-      }
-
-      const issueData = await issueResponse.json();
-      setIssue(issueData);
-
-      // Fetch comments if any
-      if (issueData.comments > 0) {
-        const commentsResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
+      try {
+        // Fetch issue details
+        const issueResponse = await fetch(
+          `https://api.github.com/repos/${repository}/issues/${issueNumber}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -114,195 +82,323 @@ export function IssueDetailsModal({
           }
         );
 
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json();
-          setComments(commentsData);
+        if (!issueResponse.ok) {
+          throw new Error("Failed to fetch issue details");
         }
+
+        const issueData = await issueResponse.json();
+        setIssue(issueData);
+
+        // Fetch comments if there are any
+        if (issueData.comments > 0) {
+          const commentsResponse = await fetch(
+            `https://api.github.com/repos/${repository}/issues/${issueNumber}/comments`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            }
+          );
+
+          if (commentsResponse.ok) {
+            const commentsData = await commentsResponse.json();
+            setComments(commentsData);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load issue");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load issue");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+
+    fetchIssueDetails();
+  }, [isOpen, issueNumber, repository, token]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <code className="text-sm font-mono text-muted-foreground">
-                #{issueNumber}
-              </code>
-              {issue && (
-                <Badge
-                  variant={issue.state === "open" ? "default" : "secondary"}
-                  className={
-                    issue.state === "open"
-                      ? "bg-green-100 text-green-700 border border-green-200"
-                      : "bg-gray-100 text-gray-600 border border-gray-200"
-                  }
-                >
-                  {issue.state}
-                </Badge>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-xl font-semibold mb-2 pr-8">
+                {loading ? (
+                  <div className="h-6 bg-muted animate-pulse rounded" />
+                ) : (
+                  issue?.title
+                )}
+              </DialogTitle>
+              {!loading && issue && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <code className="text-sm font-mono text-muted-foreground">
+                    #{issueNumber}
+                  </code>
+                  <Badge
+                    className={`
+                      px-2.5 py-1 text-xs font-medium rounded-full
+                      ${issue.state === "open"
+                        ? "bg-green-100 text-green-700 border border-green-200"
+                        : "bg-purple-100 text-purple-700 border border-purple-200"
+                      }
+                    `}
+                  >
+                    {issue.state === "open" ? "Open" : "Closed"}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    opened {formatDistanceToNow(new Date(issue.created_at))} ago by {issue.user.login}
+                  </span>
+                </div>
               )}
             </div>
-            {issue && (
+            {!loading && issue && (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 asChild
-                className="gap-2"
+                className="shrink-0"
               >
                 <a
                   href={issue.html_url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="gap-2"
                 >
-                  View on GitHub
                   <ExternalLink className="h-4 w-4" />
+                  View on GitHub
                 </a>
               </Button>
             )}
-          </DialogTitle>
+          </div>
         </DialogHeader>
 
-        {isLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-24 w-full" />
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="text-center py-12 text-muted-foreground">
+            <p>{error}</p>
           </div>
         ) : issue ? (
           <>
-            <div className="space-y-6">
-              {/* Title */}
-              <h2 className="text-xl font-semibold leading-tight">
-                {issue.title}
-              </h2>
-
-              {/* Metadata */}
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <Avatar className="h-5 w-5">
-                    <AvatarImage src={issue.user.avatar_url} />
-                    <AvatarFallback>{issue.user.login[0].toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <span>{issue.user.login}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    opened {formatDistanceToNow(new Date(issue.created_at))} ago
-                  </span>
-                </div>
-                {issue.comments > 0 && (
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    <span>{issue.comments} comments</span>
-                  </div>
-                )}
+            {/* Labels */}
+            {issue.labels.length > 0 && (
+              <div className="flex flex-wrap gap-2 pb-4 border-b border-border">
+                {issue.labels.map((label) => (
+                  <Badge
+                    key={label.name}
+                    style={{
+                      backgroundColor: `#${label.color}20`,
+                      color: `#${label.color}`,
+                      borderColor: `#${label.color}40`,
+                    }}
+                    className="px-2 py-1 text-xs border"
+                  >
+                    {label.name}
+                  </Badge>
+                ))}
               </div>
+            )}
 
-              {/* Labels */}
-              {issue.labels.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  <Tag className="h-4 w-4 text-muted-foreground" />
-                  {issue.labels.map((label) => (
-                    <Badge
-                      key={label.name}
-                      variant="secondary"
-                      className="text-xs"
-                      style={{
-                        backgroundColor: `#${label.color}20`,
-                        borderColor: `#${label.color}`,
-                        color: `#${label.color}`,
-                      }}
-                    >
-                      {label.name}
-                    </Badge>
-                  ))}
+            {/* Description */}
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <Avatar className="h-10 w-10 shrink-0">
+                  <AvatarImage src={issue.user.avatar_url} alt={issue.user.login} />
+                  <AvatarFallback>{issue.user.login[0].toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-medium text-sm">{issue.user.login}</span>
+                    <span className="text-xs text-muted-foreground">
+                      commented {formatDistanceToNow(new Date(issue.created_at))} ago
+                    </span>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-4 border border-border">
+                    {issue.body ? (
+                      <div className="prose-github">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            img: ({ node, ...props }) => (
+                              <img
+                                {...props}
+                                className="max-w-full h-auto rounded-lg border border-border my-4"
+                                loading="lazy"
+                              />
+                            ),
+                            a: ({ node, ...props }) => (
+                              <a
+                                {...props}
+                                className="text-primary hover:underline"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              />
+                            ),
+                            code: ({ node, inline, ...props }) =>
+                              inline ? (
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                              ) : (
+                                <code className="block bg-muted p-3 rounded text-sm font-mono overflow-x-auto" {...props} />
+                              ),
+                            pre: ({ node, ...props }) => (
+                              <pre className="bg-muted p-4 rounded-lg overflow-x-auto my-3" {...props} />
+                            ),
+                            h1: ({ node, ...props }) => (
+                              <h1 className="text-2xl font-bold mt-6 mb-4 pb-2 border-b border-border" {...props} />
+                            ),
+                            h2: ({ node, ...props }) => (
+                              <h2 className="text-xl font-semibold mt-5 mb-3 pb-2 border-b border-border" {...props} />
+                            ),
+                            h3: ({ node, ...props }) => (
+                              <h3 className="text-lg font-semibold mt-4 mb-2" {...props} />
+                            ),
+                            p: ({ node, ...props }) => (
+                              <p className="my-3 leading-relaxed" {...props} />
+                            ),
+                            ul: ({ node, ...props }) => (
+                              <ul className="my-3 ml-6 list-disc" {...props} />
+                            ),
+                            ol: ({ node, ...props }) => (
+                              <ol className="my-3 ml-6 list-decimal" {...props} />
+                            ),
+                            li: ({ node, ...props }) => (
+                              <li className="my-1" {...props} />
+                            ),
+                            blockquote: ({ node, ...props }) => (
+                              <blockquote className="border-l-4 border-border pl-4 my-3 italic text-muted-foreground" {...props} />
+                            ),
+                            table: ({ node, ...props }) => (
+                              <table className="w-full border-collapse my-4" {...props} />
+                            ),
+                            th: ({ node, ...props }) => (
+                              <th className="border border-border px-3 py-2 text-left bg-muted font-semibold" {...props} />
+                            ),
+                            td: ({ node, ...props }) => (
+                              <td className="border border-border px-3 py-2 text-left" {...props} />
+                            ),
+                          }}
+                        >
+                          {issue.body}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">No description provided.</p>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
 
               {/* Assignees */}
               {issue.assignees.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Assignees:</span>
-                  <div className="flex -space-x-2">
+                <div className="flex items-center gap-2 pt-4 border-t border-border">
+                  <span className="text-sm font-medium text-muted-foreground">Assignees:</span>
+                  <div className="flex items-center gap-2">
                     {issue.assignees.map((assignee) => (
-                      <Avatar key={assignee.login} className="h-6 w-6 border-2 border-background">
-                        <AvatarImage src={assignee.avatar_url} />
-                        <AvatarFallback>
-                          {assignee.login[0].toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div key={assignee.login} className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={assignee.avatar_url} alt={assignee.login} />
+                          <AvatarFallback>{assignee.login[0].toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{assignee.login}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <Separator />
-
-              {/* Description */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">Description</h3>
-                {issue.body ? (
-                  <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-a:text-primary prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:border prose-pre:border-border">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {issue.body}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">
-                    No description provided.
-                  </p>
-                )}
-              </div>
-
               {/* Comments */}
               {comments.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      Comments ({comments.length})
-                    </h3>
-                    {comments.map((comment) => (
-                      <div
-                        key={comment.id}
-                        className="border border-border rounded-lg p-4 space-y-3 bg-card"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={comment.user.avatar_url} />
-                            <AvatarFallback>
-                              {comment.user.login[0].toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium">
-                            {comment.user.login}
-                          </span>
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <h3 className="text-sm font-semibold">
+                    Comments ({comments.length})
+                  </h3>
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="flex items-start gap-3">
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src={comment.user.avatar_url} alt={comment.user.login} />
+                        <AvatarFallback>{comment.user.login[0].toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-sm">{comment.user.login}</span>
                           <span className="text-xs text-muted-foreground">
                             commented {formatDistanceToNow(new Date(comment.created_at))} ago
                           </span>
                         </div>
-                        <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-a:text-primary prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:border prose-pre:border-border">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {comment.body}
-                          </ReactMarkdown>
+                        <div className="bg-muted/30 rounded-lg p-4 border border-border">
+                          <div className="prose-github">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                img: ({ node, ...props }) => (
+                                  <img
+                                    {...props}
+                                    className="max-w-full h-auto rounded-lg border border-border my-4"
+                                    loading="lazy"
+                                  />
+                                ),
+                                a: ({ node, ...props }) => (
+                                  <a
+                                    {...props}
+                                    className="text-primary hover:underline"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  />
+                                ),
+                                code: ({ node, inline, ...props }) =>
+                                  inline ? (
+                                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                                  ) : (
+                                    <code className="block bg-muted p-3 rounded text-sm font-mono overflow-x-auto" {...props} />
+                                  ),
+                                pre: ({ node, ...props }) => (
+                                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto my-3" {...props} />
+                                ),
+                                h1: ({ node, ...props }) => (
+                                  <h1 className="text-2xl font-bold mt-6 mb-4 pb-2 border-b border-border" {...props} />
+                                ),
+                                h2: ({ node, ...props }) => (
+                                  <h2 className="text-xl font-semibold mt-5 mb-3 pb-2 border-b border-border" {...props} />
+                                ),
+                                h3: ({ node, ...props }) => (
+                                  <h3 className="text-lg font-semibold mt-4 mb-2" {...props} />
+                                ),
+                                p: ({ node, ...props }) => (
+                                  <p className="my-3 leading-relaxed" {...props} />
+                                ),
+                                ul: ({ node, ...props }) => (
+                                  <ul className="my-3 ml-6 list-disc" {...props} />
+                                ),
+                                ol: ({ node, ...props }) => (
+                                  <ol className="my-3 ml-6 list-decimal" {...props} />
+                                ),
+                                li: ({ node, ...props }) => (
+                                  <li className="my-1" {...props} />
+                                ),
+                                blockquote: ({ node, ...props }) => (
+                                  <blockquote className="border-l-4 border-border pl-4 my-3 italic text-muted-foreground" {...props} />
+                                ),
+                                table: ({ node, ...props }) => (
+                                  <table className="w-full border-collapse my-4" {...props} />
+                                ),
+                                th: ({ node, ...props }) => (
+                                  <th className="border border-border px-3 py-2 text-left bg-muted font-semibold" {...props} />
+                                ),
+                                td: ({ node, ...props }) => (
+                                  <td className="border border-border px-3 py-2 text-left" {...props} />
+                                ),
+                              }}
+                            >
+                              {comment.body}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </>

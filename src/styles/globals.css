@@ -87,4 +87,95 @@
   .active-scale:active {
     transform: scale(0.98);
   }
+  
+  /* Markdown content styling */
+  .prose-github {
+    @apply text-sm text-foreground;
+  }
+  
+  .prose-github h1 {
+    @apply text-2xl font-bold mt-6 mb-4 pb-2 border-b border-border;
+  }
+  
+  .prose-github h2 {
+    @apply text-xl font-semibold mt-5 mb-3 pb-2 border-b border-border;
+  }
+  
+  .prose-github h3 {
+    @apply text-lg font-semibold mt-4 mb-2;
+  }
+  
+  .prose-github h4 {
+    @apply text-base font-semibold mt-3 mb-2;
+  }
+  
+  .prose-github p {
+    @apply my-3 leading-relaxed;
+  }
+  
+  .prose-github a {
+    @apply text-primary hover:underline;
+  }
+  
+  .prose-github ul,
+  .prose-github ol {
+    @apply my-3 ml-6;
+  }
+  
+  .prose-github ul {
+    @apply list-disc;
+  }
+  
+  .prose-github ol {
+    @apply list-decimal;
+  }
+  
+  .prose-github li {
+    @apply my-1;
+  }
+  
+  .prose-github blockquote {
+    @apply border-l-4 border-border pl-4 my-3 italic text-muted-foreground;
+  }
+  
+  .prose-github code {
+    @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono;
+  }
+  
+  .prose-github pre {
+    @apply bg-muted p-4 rounded-lg overflow-x-auto my-3;
+  }
+  
+  .prose-github pre code {
+    @apply bg-transparent p-0;
+  }
+  
+  .prose-github img {
+    @apply max-w-full h-auto rounded-lg border border-border my-4;
+  }
+  
+  .prose-github table {
+    @apply w-full border-collapse my-4;
+  }
+  
+  .prose-github th,
+  .prose-github td {
+    @apply border border-border px-3 py-2 text-left;
+  }
+  
+  .prose-github th {
+    @apply bg-muted font-semibold;
+  }
+  
+  .prose-github hr {
+    @apply my-6 border-border;
+  }
+  
+  .prose-github strong {
+    @apply font-semibold;
+  }
+  
+  .prose-github em {
+    @apply italic;
+  }
 }
