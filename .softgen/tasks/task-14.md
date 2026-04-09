@@ -1,6 +1,6 @@
 ---
 title: PDF Export & Widget Visibility Settings
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [export, settings, pdf, customization]
@@ -13,15 +13,15 @@ position: 14
 Add PDF export functionality to generate professional reports from the dashboard and widget visibility settings to customize which analytics sections are displayed.
 
 ## Checklist
-- [ ] Install jspdf and html2canvas for PDF generation
-- [ ] Create PDF export button in header
-- [ ] Implement multi-section PDF capture (Summary, Analytics, Issues)
-- [ ] Add page breaks between sections
-- [ ] Format PDF with proper headers and styling
-- [ ] Create Settings dropdown component
-- [ ] Add widget visibility toggles (checkboxes)
-- [ ] Save visibility preferences to localStorage
-- [ ] Load preferences on mount
-- [ ] Show/hide widgets based on settings
-- [ ] Add "Reset to defaults" option
-- [ ] Add export timestamp to PDF
+- [x] Install jspdf and html2canvas for PDF generation
+- [x] Create PDF export button in header
+- [x] Implement multi-section PDF capture (Summary, Analytics, Issues)
+- [x] Add page breaks between sections
+- [x] Format PDF with proper headers and styling
+- [x] Create Settings dropdown component
+- [x] Add widget visibility toggles (checkboxes)
+- [x] Save visibility preferences to localStorage
+- [x] Load preferences on mount
+- [x] Show/hide widgets based on settings
+- [x] Add "Reset to defaults" option
+- [x] Add export timestamp to PDF
