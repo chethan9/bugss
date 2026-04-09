@@ -279,6 +279,18 @@ export default function Home() {
     }
   };
 
+  const handleDisconnect = () => {
+    setGithubToken("");
+    setSelectedRepos([]);
+    setAvailableRepos([]);
+    setIssues([]);
+    setToken("");
+    clearStoredCredentials();
+    setIsStoredConnection(false);
+    setRememberMe(false);
+    setConnectionStep("token");
+  };
+
   // Handle token submission - fetch repositories
   const handleTokenSubmit = async () => {
     if (!githubToken) {
@@ -434,6 +446,18 @@ export default function Home() {
       setIsLoadingIssues(false);
     }
   };
+
+  // Filter repositories based on search query
+  const filteredRepos = useMemo(() => {
+    if (!repoSearchQuery) return availableRepos;
+    
+    const query = repoSearchQuery.toLowerCase();
+    return availableRepos.filter(repo => 
+      repo.full_name.toLowerCase().includes(query) ||
+      repo.description?.toLowerCase().includes(query) ||
+      repo.language?.toLowerCase().includes(query)
+    );
+  }, [availableRepos, repoSearchQuery]);
 
   // Toggle repo selection
   const toggleRepoSelection = (repoFullName: string) => {
