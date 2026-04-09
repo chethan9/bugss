@@ -34,6 +34,7 @@ import { IssueFunnelChart } from "@/components/analytics/IssueFunnelChart";
 import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallChart";
 import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
 import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
+import { BulletChart } from "@/components/analytics/BulletChart";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -60,6 +61,8 @@ import {
   calculateBacklogWaterfall,
   calculateModuleTreemap,
   calculateModuleRadarData,
+  calculateKPIMetrics,
+  calculateSparklineData,
 } from "@/services/analyticsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -386,6 +389,12 @@ export default function Home() {
       backlogWaterfall: calculateBacklogWaterfall(filteredIssues, 4),
       moduleTreemap: calculateModuleTreemap(filteredIssues),
       moduleRadar: calculateModuleRadarData(filteredIssues, 5),
+      kpiMetrics: calculateKPIMetrics(filteredIssues),
+      sparklines: {
+        open: calculateSparklineData(filteredIssues, "open", 14),
+        closed: calculateSparklineData(filteredIssues, "closed", 14),
+        created: calculateSparklineData(filteredIssues, "created", 14),
+      },
     };
   }, [filteredIssues]);
 
@@ -668,6 +677,9 @@ export default function Home() {
                   openIssues={metrics.statusCounts.open}
                   inProgressIssues={metrics.statusCounts.inProgress || 0}
                   closedIssues={metrics.statusCounts.closed}
+                  openSparkline={analytics.sparklines.open}
+                  closedSparkline={analytics.sparklines.closed}
+                  createdSparkline={analytics.sparklines.created}
                 />
               </div>
             )}
@@ -756,6 +768,9 @@ export default function Home() {
               )}
               {widgetVisibility.moduleRadarChart && (
                 <ModuleRadarChart data={analytics.moduleRadar} />
+              )}
+              {widgetVisibility.kpiBulletChart && (
+                <BulletChart metrics={analytics.kpiMetrics} />
               )}
             </div>
 

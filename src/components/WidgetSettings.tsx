@@ -40,6 +40,7 @@ export interface WidgetVisibility {
   backlogWaterfallChart: boolean;
   moduleTreemap: boolean;
   moduleRadarChart: boolean;
+  kpiBulletChart: boolean;
 }
 
 export const DEFAULT_VISIBILITY: WidgetVisibility = {
@@ -69,6 +70,7 @@ export const DEFAULT_VISIBILITY: WidgetVisibility = {
   backlogWaterfallChart: true,
   moduleTreemap: true,
   moduleRadarChart: true,
+  kpiBulletChart: true,
 };
 
 interface WidgetSettingsProps {
@@ -319,6 +321,12 @@ export function WidgetSettings({ visibility, onVisibilityChange }: WidgetSetting
               onCheckedChange={(checked) => handleToggle("moduleRadarChart", checked)}
             >
               🧭 Module Radar Chart
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibility.kpiBulletChart}
+              onCheckedChange={(checked) => handleToggle("kpiBulletChart", checked)}
+            >
+              🎯 KPI Bullet Chart
             </DropdownMenuCheckboxItem>
           </DropdownMenuGroup>
         </DropdownMenuGroup>
