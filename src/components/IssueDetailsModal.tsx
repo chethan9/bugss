@@ -6,21 +6,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ExternalLink, MessageSquare, Calendar, User } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-
-interface IssueComment {
-  id: number;
-  user: {
-    login: string;
-    avatar_url: string;
-  };
-  body: string;
-  created_at: string;
-}
+import { ExternalLink, Calendar, User, MessageSquare, Tag } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface IssueDetailsModalProps {
   isOpen: boolean;
@@ -30,6 +23,42 @@ interface IssueDetailsModalProps {
   token: string;
 }
 
+interface IssueDetails {
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  created_at: string;
+  updated_at: string;
+  closed_at?: string;
+  labels: Array<{
+    name: string;
+    color: string;
+    description?: string;
+  }>;
+  assignees: Array<{
+    login: string;
+    avatar_url: string;
+  }>;
+  user: {
+    login: string;
+    avatar_url: string;
+  };
+  html_url: string;
+  comments: number;
+}
+
+interface Comment {
+  id: number;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    login: string;
+    avatar_url: string;
+  };
+}
+
 export function IssueDetailsModal({
   isOpen,
   onClose,
@@ -37,8 +66,8 @@ export function IssueDetailsModal({
   repository,
   token,
 }: IssueDetailsModalProps) {
-  const [issue, setIssue] = useState<any>(null);
-  const [comments, setComments] = useState<IssueComment[]>([]);
+  const [issue, setIssue] = useState<IssueDetails | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,11 +80,13 @@ export function IssueDetailsModal({
   const fetchIssueDetails = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
+      const [owner, repo] = repository.split("/");
+
       // Fetch issue details
       const issueResponse = await fetch(
-        `https://api.github.com/repos/${repository}/issues/${issueNumber}`,
+        `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -74,7 +105,7 @@ export function IssueDetailsModal({
       // Fetch comments if any
       if (issueData.comments > 0) {
         const commentsResponse = await fetch(
-          `https://api.github.com/repos/${repository}/issues/${issueNumber}/comments`,
+          `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -88,83 +119,106 @@ export function IssueDetailsModal({
           setComments(commentsData);
         }
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load issue");
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!issue && !isLoading) {
-    return null;
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        {isLoading ? (
-          <div className="py-12 text-center text-muted-foreground">
-            Loading issue details...
-          </div>
-        ) : error ? (
-          <div className="py-12 text-center text-destructive">
-            {error}
-          </div>
-        ) : issue ? (
-          <>
-            <DialogHeader>
-              <DialogTitle className="flex items-start gap-3">
-                <span className="text-2xl">#{issue.number}</span>
-                <span className="flex-1 text-xl">{issue.title}</span>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              {/* Issue Metadata */}
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <code className="text-sm font-mono text-muted-foreground">
+                #{issueNumber}
+              </code>
+              {issue && (
                 <Badge
                   variant={issue.state === "open" ? "default" : "secondary"}
                   className={
                     issue.state === "open"
-                      ? "bg-status-open hover:bg-status-open"
-                      : "bg-muted hover:bg-muted"
+                      ? "bg-green-100 text-green-700 border border-green-200"
+                      : "bg-gray-100 text-gray-600 border border-gray-200"
                   }
                 >
                   {issue.state}
                 </Badge>
-                
+              )}
+            </div>
+            {issue && (
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="gap-2"
+              >
+                <a
+                  href={issue.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View on GitHub
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        ) : issue ? (
+          <>
+            <div className="space-y-6">
+              {/* Title */}
+              <h2 className="text-xl font-semibold leading-tight">
+                {issue.title}
+              </h2>
+
+              {/* Metadata */}
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  <span>{issue.user?.login || "Unknown"}</span>
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={issue.user.avatar_url} />
+                    <AvatarFallback>{issue.user.login[0].toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span>{issue.user.login}</span>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   <span>
-                    Opened {formatDistanceToNow(new Date(issue.created_at))} ago
+                    opened {formatDistanceToNow(new Date(issue.created_at))} ago
                   </span>
                 </div>
-
-                {issue.assignees?.length > 0 && (
+                {issue.comments > 0 && (
                   <div className="flex items-center gap-2">
-                    <span>Assigned to:</span>
-                    {issue.assignees.map((assignee: any) => (
-                      <Avatar key={assignee.id} className="h-6 w-6">
-                        <AvatarImage src={assignee.avatar_url} />
-                        <AvatarFallback>{assignee.login[0]}</AvatarFallback>
-                      </Avatar>
-                    ))}
+                    <MessageSquare className="h-4 w-4" />
+                    <span>{issue.comments} comments</span>
                   </div>
                 )}
               </div>
 
               {/* Labels */}
-              {issue.labels?.length > 0 && (
+              {issue.labels.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {issue.labels.map((label: any) => (
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  {issue.labels.map((label) => (
                     <Badge
-                      key={label.id}
-                      variant="outline"
+                      key={label.name}
+                      variant="secondary"
+                      className="text-xs"
                       style={{
                         backgroundColor: `#${label.color}20`,
                         borderColor: `#${label.color}`,
@@ -177,72 +231,79 @@ export function IssueDetailsModal({
                 </div>
               )}
 
+              {/* Assignees */}
+              {issue.assignees.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Assignees:</span>
+                  <div className="flex -space-x-2">
+                    {issue.assignees.map((assignee) => (
+                      <Avatar key={assignee.login} className="h-6 w-6 border-2 border-background">
+                        <AvatarImage src={assignee.avatar_url} />
+                        <AvatarFallback>
+                          {assignee.login[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Separator />
 
-              {/* Issue Body */}
-              <div>
-                <h3 className="mb-3 text-lg font-semibold">Description</h3>
+              {/* Description */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Description</h3>
                 {issue.body ? (
-                  <Card className="p-4">
-                    <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm">
+                  <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-a:text-primary prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:border prose-pre:border-border">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {issue.body}
-                    </div>
-                  </Card>
+                    </ReactMarkdown>
+                  </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">
-                    No description provided
+                    No description provided.
                   </p>
                 )}
               </div>
 
-              {/* Comments Section */}
+              {/* Comments */}
               {comments.length > 0 && (
                 <>
                   <Separator />
-                  <div>
-                    <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                      <MessageSquare className="h-5 w-5" />
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
                       Comments ({comments.length})
                     </h3>
-                    <div className="space-y-4">
-                      {comments.map((comment) => (
-                        <Card key={comment.id} className="p-4">
-                          <div className="mb-3 flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={comment.user.avatar_url} />
-                              <AvatarFallback>
-                                {comment.user.login[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{comment.user.login}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(comment.created_at))} ago
-                              </div>
-                            </div>
-                          </div>
-                          <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm">
+                    {comments.map((comment) => (
+                      <div
+                        key={comment.id}
+                        className="border border-border rounded-lg p-4 space-y-3 bg-card"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={comment.user.avatar_url} />
+                            <AvatarFallback>
+                              {comment.user.login[0].toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">
+                            {comment.user.login}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            commented {formatDistanceToNow(new Date(comment.created_at))} ago
+                          </span>
+                        </div>
+                        <div className="prose prose-sm max-w-none prose-headings:font-semibold prose-a:text-primary prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted prose-pre:border prose-pre:border-border">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {comment.body}
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
-
-              {/* View on GitHub Link */}
-              <div className="pt-4">
-                <a
-                  href={issue.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  View on GitHub
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </div>
             </div>
           </>
         ) : null}
