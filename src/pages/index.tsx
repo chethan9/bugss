@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -155,6 +155,9 @@ export default function Home() {
   const [isStoredConnection, setIsStoredConnection] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isLoadingIssues, setIsLoadingIssues] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState<number>(60000); // 1 minute default
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
   
@@ -474,6 +477,31 @@ export default function Home() {
     }
   };
 
+  const handleManualRefresh = async () => {
+    if (!token || selectedRepos.length === 0 || isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      await fetchSelectedIssues(selectedRepos, token);
+    } catch (error) {
+      console.error("Failed to refresh issues:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Auto-refresh effect
+  useEffect(() => {
+    if (!autoRefresh || !token || selectedRepos.length === 0) return;
+    
+    const intervalId = setInterval(() => {
+      console.log("🔄 Auto-refreshing issues...");
+      fetchSelectedIssues(selectedRepos, token);
+    }, refreshInterval);
+    
+    return () => clearInterval(intervalId);
+  }, [autoRefresh, refreshInterval, token, selectedRepos]);
+
   const handleIssueClick = (issue: GitHubIssue) => {
     setSelectedIssue(issue);
     setIsIssueModalOpen(true);
@@ -597,6 +625,74 @@ export default function Home() {
                   visibility={widgetVisibility}
                   onVisibilityChange={handleVisibilityChange}
                 />
+                
+                {/* Refresh Controls */}
+                <div className="flex items-center gap-1 border-l border-border pl-3 ml-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleManualRefresh}
+                    disabled={isRefreshing}
+                    title="Refresh issues"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant={autoRefresh ? "default" : "ghost"}
+                        size="sm"
+                        className={autoRefresh ? "bg-primary/20 text-primary hover:bg-primary/30" : ""}
+                        title="Auto-refresh settings"
+                      >
+                        <Timer className="h-4 w-4" />
+                        {autoRefresh && (
+                          <span className="ml-1 text-xs">
+                            {refreshInterval < 60000 
+                              ? `${refreshInterval / 1000}s` 
+                              : `${refreshInterval / 60000}m`}
+                          </span>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        Auto-Refresh
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setAutoRefresh(false)}>
+                        <span className={!autoRefresh ? "font-medium" : ""}>Off</span>
+                        {!autoRefresh && <span className="ml-auto">✓</span>}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1 text-xs text-muted-foreground">Interval</div>
+                      {[
+                        { label: "5 seconds", value: 5000 },
+                        { label: "15 seconds", value: 15000 },
+                        { label: "30 seconds", value: 30000 },
+                        { label: "1 minute", value: 60000 },
+                        { label: "5 minutes", value: 300000 },
+                        { label: "15 minutes", value: 900000 },
+                      ].map((option) => (
+                        <DropdownMenuItem
+                          key={option.value}
+                          onClick={() => {
+                            setRefreshInterval(option.value);
+                            setAutoRefresh(true);
+                          }}
+                        >
+                          <span className={autoRefresh && refreshInterval === option.value ? "font-medium" : ""}>
+                            {option.label}
+                          </span>
+                          {autoRefresh && refreshInterval === option.value && (
+                            <span className="ml-auto">✓</span>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </>
             )}
             
