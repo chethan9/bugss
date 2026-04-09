@@ -229,8 +229,9 @@ export default function Home() {
       setIsStoredConnection(true);
       setToken(stored.token);
       
+      // Fetch issues immediately when loading stored credentials
       if (stored.token && stored.repos.length > 0) {
-        handleFetchIssues(stored.token, stored.repos);
+        fetchSelectedIssues(stored.repos, stored.token);
       }
     }
   }, []);
