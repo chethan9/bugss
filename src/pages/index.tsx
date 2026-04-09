@@ -283,13 +283,13 @@ export default function Home() {
   };
 
   const fetchSelectedIssues = async (repos: string[], tokenToUse: string) => {
-    // Fetch issues implementation
-    const { fetchIssues } = await import("@/services/githubService");
+    const { fetchRepositoryIssues } = await import("@/services/githubService");
     const allIssues: GitHubIssue[] = [];
     
     for (const repo of repos) {
       try {
-        const issues = await fetchIssues(repo, tokenToUse);
+        const [owner, name] = repo.split('/');
+        const issues = await fetchRepositoryIssues(owner, name, tokenToUse);
         allIssues.push(...issues);
       } catch (error) {
         console.error(`Failed to fetch issues for ${repo}:`, error);
