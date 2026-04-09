@@ -7,7 +7,7 @@ interface GitHubIssue {
   number: number;
   title: string;
   status: string;
-  severity: string;
+  severity?: string;
   createdAt: string;
   closedAt: string | null;
   labels: string[];
