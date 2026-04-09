@@ -897,26 +897,25 @@ export default function Home() {
                 )}
 
                 <DialogFooter className="pt-4 border-t">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      {selectedRepos.length} repositories selected
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {connectionStep === "repos" && (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setConnectionStep("token");
-                            setAvailableRepos([]);
-                            setRepoSearchQuery("");
-                            setSelectedRepos([]);
-                          }}
-                        >
-                          Back
-                        </Button>
-                      )}
+                  <div className="flex items-center justify-between w-full">
+                    {connectionStep === "repos" && (
                       <Button
-                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setConnectionStep("token");
+                          setAvailableRepos([]);
+                          setRepoSearchQuery("");
+                          setSelectedRepos([]);
+                        }}
+                      >
+                        Back
+                      </Button>
+                    )}
+                    <div className="flex items-center gap-3 ml-auto">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedRepos.length} selected
+                      </span>
+                      <Button
                         onClick={connectionStep === "token" ? handleTokenSubmit : handleRepoSelectionComplete}
                         disabled={
                           connectionStep === "token" 
@@ -924,13 +923,20 @@ export default function Home() {
                             : selectedRepos.length === 0 || isLoadingIssues
                         }
                       >
-                        {isLoadingIssues ? (
+                        {isLoadingRepos ? (
                           <>
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching...
+                            Loading...
                           </>
+                        ) : isLoadingIssues ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Loading Issues...
+                          </>
+                        ) : connectionStep === "token" ? (
+                          "Continue"
                         ) : (
-                          `Fetch Issues${selectedRepos.length > 0 ? ` (${selectedRepos.length})` : ""}`
+                          "Load Selected"
                         )}
                       </Button>
                     </div>
