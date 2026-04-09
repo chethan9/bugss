@@ -2,25 +2,62 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 
+interface GitHubIssue {
+  id: number;
+  number: number;
+  title: string;
+  status: string;
+  severity: string;
+  createdAt: string;
+  closedAt: string | null;
+  labels: string[];
+  repository: string;
+}
+
 interface ProjectHealthGaugeProps {
-  totalIssues: number;
-  criticalOpen: number;
-  highOpen: number;
-  reopenRate: number;
-  oldIssuesCount: number;
-  avgResolutionDays: number;
+  issues: GitHubIssue[];
   slaTargetDays?: number;
 }
 
-export function ProjectHealthGauge({
-  totalIssues,
-  criticalOpen,
-  highOpen,
-  reopenRate,
-  oldIssuesCount,
-  avgResolutionDays,
-  slaTargetDays = 7,
-}: ProjectHealthGaugeProps) {
+export function ProjectHealthGauge({ issues, slaTargetDays = 7 }: ProjectHealthGaugeProps) {
+  // Calculate metrics from issues
+  const totalIssues = issues.length;
+  const openIssues = issues.filter(i => i.status === "open");
+  const closedIssues = issues.filter(i => i.status === "closed");
+  
+  const criticalOpen = openIssues.filter(i => 
+    i.severity?.toLowerCase() === "critical" || 
+    i.labels.some(l => l.toLowerCase().includes("critical"))
+  ).length;
+  
+  const highOpen = openIssues.filter(i => 
+    i.severity?.toLowerCase() === "high" || 
+    i.labels.some(l => l.toLowerCase().includes("high"))
+  ).length;
+  
+  // Calculate old issues (> 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const oldIssuesCount = openIssues.filter(i => new Date(i.createdAt) < thirtyDaysAgo).length;
+  
+  // Calculate average resolution time
+  const resolvedIssues = closedIssues.filter(i => i.closedAt);
+  let avgResolutionDays = 0;
+  if (resolvedIssues.length > 0) {
+    const totalDays = resolvedIssues.reduce((sum, issue) => {
+      const created = new Date(issue.createdAt);
+      const closed = new Date(issue.closedAt!);
+      return sum + (closed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+    }, 0);
+    avgResolutionDays = totalDays / resolvedIssues.length;
+  }
+  
+  // Calculate reopen rate (estimate based on labels)
+  const reopenedCount = issues.filter(i => 
+    i.labels.some(l => l.toLowerCase().includes("reopen"))
+  ).length;
+  const reopenRate = totalIssues > 0 ? (reopenedCount / totalIssues) * 100 : 0;
+
   // Calculate percentages
   const criticalOpenPct = totalIssues > 0 ? (criticalOpen / totalIssues) * 100 : 0;
   const highOpenPct = totalIssues > 0 ? (highOpen / totalIssues) * 100 : 0;
@@ -49,6 +86,18 @@ export function ProjectHealthGauge({
 
   // Gauge angle calculation (180 degree arc)
   const angle = (healthScore / 100) * 180;
+
+  if (totalIssues === 0) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Project Health</h3>
+        </div>
+        <p className="text-muted-foreground text-sm">No issues to analyze</p>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6">
