@@ -941,25 +941,27 @@ export default function Home() {
                       Manage Repositories
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <div className="flex items-center px-2 py-1.5 cursor-pointer">
-                        <WidgetSettings 
-                          visibility={widgetVisibility}
-                          onVisibilityChange={handleVisibilityChange}
-                          widgetsPerRow={widgetsPerRow}
-                          onWidgetsPerRowChange={setWidgetsPerRow}
-                          widgetOrder={widgetOrder}
-                          onWidgetOrderChange={setWidgetOrder}
-                        />
-                      </div>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <WidgetSettings 
+                        visibility={widgetVisibility}
+                        onVisibilityChange={handleVisibilityChange}
+                        widgetsPerRow={widgetsPerRow}
+                        onWidgetsPerRowChange={setWidgetsPerRow}
+                        widgetOrder={widgetOrder}
+                        onWidgetOrderChange={setWidgetOrder}
+                      />
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <div className="flex items-center px-2 py-1.5 cursor-pointer">
-                        <PDFExport 
-                          disabled={filteredIssues.length === 0} 
-                          reportConfig={reportConfig}
-                        />
-                      </div>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <ReportSettings 
+                        config={reportConfig}
+                        onConfigChange={handleReportConfigChange}
+                      />
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <PDFExport 
+                        disabled={filteredIssues.length === 0} 
+                        reportConfig={reportConfig}
+                      />
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
