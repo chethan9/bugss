@@ -23,7 +23,7 @@ export function DashboardMetrics({
 
   const metrics = [
     {
-      label: "Repositories",
+      label: "Repos",
       value: totalRepos,
       percentage: null,
       icon: FolderGit2,
@@ -32,7 +32,7 @@ export function DashboardMetrics({
       tooltip: "Connected repositories",
     },
     {
-      label: "Total Issues",
+      label: "Issues",
       value: totalIssues,
       percentage: null,
       icon: Circle,
@@ -62,16 +62,16 @@ export function DashboardMetrics({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 2xl:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="p-3">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <Skeleton className="h-8 w-8 rounded-md" />
-                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-7 w-7 rounded-md" />
+                <Skeleton className="h-3 w-12" />
               </div>
-              <Skeleton className="h-7 w-20" />
-              <Skeleton className="h-3 w-12" />
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-3 w-10" />
             </div>
           </Card>
         ))}
@@ -81,31 +81,28 @@ export function DashboardMetrics({
 
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 2xl:grid-cols-4 gap-3">
         {metrics.map((metric) => (
           <Card
             key={metric.label}
-            className="p-3 hover:border-primary/50 transition-colors"
+            className="p-3 hover:border-primary/50 transition-colors overflow-hidden"
           >
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex flex-col gap-2">
-                  {/* Top: Icon + Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-md ${metric.bgColor}`}>
-                      <metric.icon className={`h-5 w-5 ${metric.color}`} />
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`p-1.5 rounded-md shrink-0 ${metric.bgColor}`}>
+                      <metric.icon className={`h-4 w-4 ${metric.color}`} />
                     </div>
-                    <span className="text-xs text-muted-foreground font-medium">
+                    <span className="text-xs text-muted-foreground font-medium truncate">
                       {metric.label}
                     </span>
                   </div>
                   
-                  {/* Middle: Main Value */}
-                  <div className="text-2xl font-bold tracking-tight">
+                  <div className="text-xl font-bold tracking-tight">
                     {metric.value.toLocaleString()}
                   </div>
                   
-                  {/* Bottom: Percentage (if applicable) */}
                   {metric.percentage !== null && (
                     <div className={`text-xs font-medium ${metric.color}`}>
                       {metric.percentage}%
