@@ -62,7 +62,7 @@ export function DashboardMetrics({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="p-3">
             <div className="flex flex-col gap-2">
@@ -81,7 +81,7 @@ export function DashboardMetrics({
 
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {metrics.map((metric) => (
           <Card
             key={metric.label}
