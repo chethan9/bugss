@@ -193,17 +193,18 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
     <Button
       onClick={generatePDF}
       disabled={disabled || isGenerating}
-      variant="outline"
+      variant="ghost"
       size="sm"
+      className="w-full justify-start gap-2 h-8 px-2 font-normal"
     >
       {isGenerating ? (
         <>
-          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          <RefreshCw className="h-4 w-4 animate-spin" />
           Generating...
         </>
       ) : (
         <>
-          <FileDown className="h-4 w-4 mr-2" />
+          <FileDown className="h-4 w-4" />
           Export PDF
         </>
       )}

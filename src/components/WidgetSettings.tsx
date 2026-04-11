@@ -223,7 +223,7 @@ export function WidgetSettings({
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="ghost" size="sm" className="w-full justify-start gap-2 h-8 px-2 font-normal">
           <Settings2 className="h-4 w-4" />
           Widgets
         </Button>
