@@ -1,16 +1,30 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileDown, Loader2, RefreshCw } from "lucide-react";
+import { FileDown, RefreshCw } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import type { ReportConfig } from "./ReportSettings";
 
+interface Issue {
+  id: string;
+  number: number;
+  title: string;
+  status: "open" | "in_progress" | "closed";
+  repository: string;
+  labels: string[];
+  assignee?: string;
+  url: string;
+  createdAt: string;
+  closedAt?: string;
+}
+
 interface PDFExportProps {
   disabled?: boolean;
   reportConfig: ReportConfig;
+  issues?: Issue[];
 }
 
-export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
+export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generatePDF = async () => {
@@ -28,10 +42,10 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
 
       let currentPage = 1;
       let totalPages = 1;
+      let yPosition = headerHeight + 5;
 
       // Helper: Add header to page
       const addHeader = () => {
-        // Logo (if provided)
         if (reportConfig.companyLogo) {
           try {
             pdf.addImage(reportConfig.companyLogo, "PNG", margin, margin, 30, 10);
@@ -40,7 +54,6 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
           }
         }
 
-        // Title and meta
         pdf.setFontSize(16);
         pdf.setFont("helvetica", "bold");
         pdf.text(reportConfig.reportTitle, reportConfig.companyLogo ? margin + 35 : margin, margin + 7);
@@ -49,12 +62,10 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
         pdf.setFont("helvetica", "normal");
         pdf.text(reportConfig.projectName, reportConfig.companyLogo ? margin + 35 : margin, margin + 12);
 
-        // Date and period (right aligned)
         const today = new Date().toLocaleDateString();
         pdf.text(today, pageWidth - margin, margin + 7, { align: "right" });
         pdf.text(reportConfig.reportingPeriod, pageWidth - margin, margin + 12, { align: "right" });
 
-        // Divider line
         pdf.setDrawColor(200, 200, 200);
         pdf.line(margin, margin + 18, pageWidth - margin, margin + 18);
       };
@@ -64,21 +75,17 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
         pdf.setFontSize(8);
         pdf.setTextColor(100, 100, 100);
 
-        // Footer line
         pdf.setDrawColor(200, 200, 200);
         pdf.line(margin, pageHeight - margin + 5, pageWidth - margin, pageHeight - margin + 5);
 
-        // Footer text (left)
         if (reportConfig.customFooter) {
           pdf.text(reportConfig.customFooter, margin, pageHeight - margin + 10);
         }
 
-        // Page number (center)
         if (reportConfig.showPageNumbers) {
           pdf.text(`Page ${pageNum} of ${total}`, pageWidth / 2, pageHeight - margin + 10, { align: "center" });
         }
 
-        // Timestamp and confidentiality (right)
         const timestamp = new Date().toLocaleString();
         let rightText = "";
         if (reportConfig.showTimestamp) {
@@ -101,23 +108,47 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
         pdf.setTextColor(0, 0, 0);
       };
 
-      // Helper: Capture element with full scroll content
+      // Helper: Check if need new page
+      const checkNewPage = (neededHeight: number) => {
+        if (yPosition + neededHeight > availableHeight + headerHeight) {
+          addFooter(currentPage, totalPages);
+          pdf.addPage();
+          currentPage++;
+          addHeader();
+          yPosition = headerHeight + 5;
+          return true;
+        }
+        return false;
+      };
+
+      // Helper: Add section title
+      const addSectionTitle = (title: string) => {
+        checkNewPage(15);
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(60, 60, 60);
+        pdf.text(title, margin, yPosition + 5);
+        pdf.setDrawColor(220, 220, 220);
+        pdf.line(margin, yPosition + 7, pageWidth - margin, yPosition + 7);
+        yPosition += 12;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont("helvetica", "normal");
+      };
+
+      // Helper: Capture element with expanded content
       const captureElement = async (element: HTMLElement): Promise<HTMLCanvasElement | null> => {
         try {
-          // Store original styles
           const originalStyles = {
             height: element.style.height,
             maxHeight: element.style.maxHeight,
             overflow: element.style.overflow,
           };
 
-          // Temporarily expand element to show all content
           element.style.height = "auto";
           element.style.maxHeight = "none";
           element.style.overflow = "visible";
 
-          // Also handle any scrollable children (like tables)
-          const scrollableChildren = element.querySelectorAll('[style*="overflow"], [class*="overflow"]');
+          const scrollableChildren = element.querySelectorAll("[class*='overflow'], [style*='overflow']");
           const childStyles: { el: HTMLElement; styles: { height: string; maxHeight: string; overflow: string } }[] = [];
           
           scrollableChildren.forEach((child) => {
@@ -135,7 +166,6 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
             htmlChild.style.overflow = "visible";
           });
 
-          // Wait for reflow
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           const canvas = await html2canvas(element, {
@@ -147,7 +177,6 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
             height: element.scrollHeight,
           });
 
-          // Restore original styles
           element.style.height = originalStyles.height;
           element.style.maxHeight = originalStyles.maxHeight;
           element.style.overflow = originalStyles.overflow;
@@ -165,137 +194,204 @@ export function PDFExport({ disabled, reportConfig }: PDFExportProps) {
         }
       };
 
-      // Define sections to capture
-      const sections = [
-        { id: "smart-insights-section", title: "SMART INSIGHTS" },
-        { id: "summary-metrics-section", title: "EXECUTIVE SUMMARY" },
-        { id: "progress-bar-section", title: "ISSUE PROGRESS" },
-        { id: "analytics-widgets-section", title: "ANALYTICS & INSIGHTS" },
-        { id: "issue-table-section", title: "DETAILED ISSUE LIST" },
-      ];
-
-      // Capture all sections
-      const capturedImages: { title: string; canvas: HTMLCanvasElement; imgHeight: number }[] = [];
-
-      for (const section of sections) {
-        const element = document.getElementById(section.id);
-        if (!element) continue;
-
-        const canvas = await captureElement(element);
-        if (!canvas) continue;
-
-        const imgWidth = contentWidth;
+      // Helper: Add image to PDF with page splitting
+      const addImageToPDF = (canvas: HTMLCanvasElement, imgWidth: number) => {
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let remainingHeight = imgHeight;
+        let srcY = 0;
 
-        capturedImages.push({
-          title: section.title,
-          canvas,
-          imgHeight,
-        });
-      }
-
-      // Calculate total pages needed
-      let yPosition = headerHeight + 5;
-      for (const img of capturedImages) {
-        const sectionTitleHeight = 10;
-        let remainingHeight = img.imgHeight;
-
-        // Check if section title fits on current page
-        if (yPosition + sectionTitleHeight > availableHeight + headerHeight) {
-          totalPages++;
-          yPosition = headerHeight + 5;
-        }
-        yPosition += sectionTitleHeight;
-
-        // Calculate pages for this image
         while (remainingHeight > 0) {
           const spaceLeft = availableHeight + headerHeight - yPosition;
-          if (remainingHeight <= spaceLeft) {
-            yPosition += remainingHeight + 10;
-            remainingHeight = 0;
-          } else {
-            remainingHeight -= spaceLeft;
-            totalPages++;
-            yPosition = headerHeight + 5;
-          }
-        }
-      }
-
-      // Generate PDF pages
-      addHeader();
-      yPosition = headerHeight + 5;
-
-      for (let i = 0; i < capturedImages.length; i++) {
-        const img = capturedImages[i];
-        const imgData = img.canvas.toDataURL("image/jpeg", 0.92);
-        const sectionTitleHeight = 10;
-
-        // Check if section title fits on current page
-        if (yPosition + sectionTitleHeight > availableHeight + headerHeight) {
-          addFooter(currentPage, totalPages);
-          pdf.addPage();
-          currentPage++;
-          addHeader();
-          yPosition = headerHeight + 5;
-        }
-
-        // Add section title
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(60, 60, 60);
-        pdf.text(img.title, margin, yPosition + 5);
-        pdf.setDrawColor(220, 220, 220);
-        pdf.line(margin, yPosition + 7, pageWidth - margin, yPosition + 7);
-        yPosition += sectionTitleHeight;
-
-        // Add image, splitting across pages if needed
-        let imgYOffset = 0;
-        let remainingImgHeight = img.imgHeight;
-        const imgWidth = contentWidth;
-        const fullImgHeight = img.imgHeight;
-
-        while (remainingImgHeight > 0) {
-          const spaceLeft = availableHeight + headerHeight - yPosition;
-          const heightToRender = Math.min(remainingImgHeight, spaceLeft);
+          const heightToRender = Math.min(remainingHeight, spaceLeft);
           
-          // Calculate source coordinates for clipping
-          const srcY = (imgYOffset / fullImgHeight) * img.canvas.height;
-          const srcHeight = (heightToRender / fullImgHeight) * img.canvas.height;
+          const srcHeight = (heightToRender / imgHeight) * canvas.height;
 
-          // Create a temporary canvas for the clipped portion
           const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = img.canvas.width;
+          tempCanvas.width = canvas.width;
           tempCanvas.height = srcHeight;
           const ctx = tempCanvas.getContext("2d");
           
           if (ctx) {
             ctx.drawImage(
-              img.canvas,
-              0, srcY, img.canvas.width, srcHeight,
-              0, 0, img.canvas.width, srcHeight
+              canvas,
+              0, srcY, canvas.width, srcHeight,
+              0, 0, canvas.width, srcHeight
             );
             const clippedImgData = tempCanvas.toDataURL("image/jpeg", 0.92);
             pdf.addImage(clippedImgData, "JPEG", margin, yPosition, imgWidth, heightToRender);
           }
 
-          imgYOffset += heightToRender;
-          remainingImgHeight -= heightToRender;
+          srcY += srcHeight;
+          remainingHeight -= heightToRender;
           yPosition += heightToRender;
 
-          if (remainingImgHeight > 0) {
+          if (remainingHeight > 0) {
             addFooter(currentPage, totalPages);
             pdf.addPage();
             currentPage++;
+            totalPages++;
             addHeader();
             yPosition = headerHeight + 5;
           }
         }
+      };
 
-        yPosition += 10; // Gap between sections
+      // Calculate total pages first (estimate)
+      const analyticsSections = [
+        "smart-insights-section",
+        "summary-metrics-section",
+        "progress-bar-section",
+        "analytics-widgets-section",
+      ];
+      
+      // Estimate pages for analytics + issues table
+      const issueRowsPerPage = Math.floor(availableHeight / 6); // ~6mm per row
+      const tablePages = Math.ceil(issues.length / issueRowsPerPage);
+      totalPages = 2 + tablePages; // Rough estimate
+
+      // Start generating
+      addHeader();
+
+      // Capture analytics sections
+      for (const sectionId of analyticsSections) {
+        const element = document.getElementById(sectionId);
+        if (!element) continue;
+
+        const canvas = await captureElement(element);
+        if (!canvas) continue;
+
+        const sectionTitles: Record<string, string> = {
+          "smart-insights-section": "SMART INSIGHTS",
+          "summary-metrics-section": "EXECUTIVE SUMMARY",
+          "progress-bar-section": "ISSUE PROGRESS",
+          "analytics-widgets-section": "ANALYTICS & INSIGHTS",
+        };
+
+        addSectionTitle(sectionTitles[sectionId] || sectionId.toUpperCase());
+        addImageToPDF(canvas, contentWidth);
+        yPosition += 8;
       }
 
-      // Add footer to last page
-      addFooter(currentPage, totalPages);
+      // Generate issues table directly (not via html2canvas)
+      if (issues.length > 0) {
+        addSectionTitle("DETAILED ISSUE LIST");
+        
+        // Table header
+        const colWidths = [15, 70, 25, 25, 45]; // #, Title, Status, Severity, Repository
+        const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+        const startX = margin;
+        
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(245, 245, 245);
+        pdf.rect(startX, yPosition, tableWidth, 7, "F");
+        
+        let xPos = startX + 2;
+        const headers = ["#", "Title", "Status", "Severity", "Repository"];
+        headers.forEach((header, i) => {
+          pdf.text(header, xPos, yPosition + 5);
+          xPos += colWidths[i];
+        });
+        yPosition += 7;
+
+        // Table rows
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
+
+        for (let i = 0; i < issues.length; i++) {
+          const issue = issues[i];
+          
+          // Check if need new page
+          if (yPosition + 6 > availableHeight + headerHeight) {
+            addFooter(currentPage, totalPages);
+            pdf.addPage();
+            currentPage++;
+            if (currentPage > totalPages) totalPages = currentPage;
+            addHeader();
+            yPosition = headerHeight + 5;
+            
+            // Repeat table header on new page
+            pdf.setFontSize(8);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(startX, yPosition, tableWidth, 7, "F");
+            
+            xPos = startX + 2;
+            headers.forEach((header, idx) => {
+              pdf.text(header, xPos, yPosition + 5);
+              xPos += colWidths[idx];
+            });
+            yPosition += 7;
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7);
+          }
+
+          // Alternate row background
+          if (i % 2 === 0) {
+            pdf.setFillColor(250, 250, 250);
+            pdf.rect(startX, yPosition, tableWidth, 6, "F");
+          }
+
+          // Draw row
+          xPos = startX + 2;
+          
+          // Issue number
+          pdf.text(`#${issue.number}`, xPos, yPosition + 4);
+          xPos += colWidths[0];
+          
+          // Title (truncate if too long)
+          const maxTitleLength = 45;
+          const title = issue.title.length > maxTitleLength 
+            ? issue.title.substring(0, maxTitleLength) + "..." 
+            : issue.title;
+          pdf.text(title, xPos, yPosition + 4);
+          xPos += colWidths[1];
+          
+          // Status with color
+          const statusColors: Record<string, [number, number, number]> = {
+            open: [34, 197, 94],
+            in_progress: [234, 179, 8],
+            closed: [107, 114, 128],
+          };
+          const statusColor = statusColors[issue.status] || [107, 114, 128];
+          pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+          pdf.text(issue.status.replace("_", " "), xPos, yPosition + 4);
+          pdf.setTextColor(0, 0, 0);
+          xPos += colWidths[2];
+          
+          // Severity
+          const labelText = issue.labels.join(" ").toLowerCase();
+          let severity = "-";
+          if (labelText.includes("critical")) severity = "Critical";
+          else if (labelText.includes("high")) severity = "High";
+          else if (labelText.includes("medium")) severity = "Medium";
+          else if (labelText.includes("low")) severity = "Low";
+          pdf.text(severity, xPos, yPosition + 4);
+          xPos += colWidths[3];
+          
+          // Repository (truncate if needed)
+          const maxRepoLength = 25;
+          const repo = issue.repository.length > maxRepoLength
+            ? "..." + issue.repository.slice(-maxRepoLength + 3)
+            : issue.repository;
+          pdf.text(repo, xPos, yPosition + 4);
+          
+          yPosition += 6;
+        }
+
+        // Table border
+        pdf.setDrawColor(220, 220, 220);
+        pdf.rect(startX, headerHeight + 17, tableWidth, yPosition - headerHeight - 17);
+      }
+
+      // Update total pages and re-add footers
+      totalPages = currentPage;
+      
+      // Go back and update all footers with correct total
+      for (let p = 1; p <= totalPages; p++) {
+        pdf.setPage(p);
+        addFooter(p, totalPages);
+      }
 
       // Save PDF
       const filename = `${reportConfig.projectName.replace(/\s+/g, "-")}-report-${new Date().toISOString().split("T")[0]}.pdf`;

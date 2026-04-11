@@ -961,6 +961,7 @@ export default function Home() {
                       <PDFExport 
                         disabled={filteredIssues.length === 0} 
                         reportConfig={reportConfig}
+                        issues={filteredIssues}
                       />
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
