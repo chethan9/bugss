@@ -111,6 +111,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
+import { CreateIssueDialog } from "@/components/CreateIssueDialog";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
