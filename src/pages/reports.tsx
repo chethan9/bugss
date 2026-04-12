@@ -306,6 +306,75 @@ export default function ReportsPage() {
     }
   };
 
+  const fetchIssuesFromSupabase = async () => {
+    try {
+      const { data: connection } = await supabase
+        .from("github_connections")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!connection) {
+        console.warn("No GitHub connection found");
+        return;
+      }
+
+      // Get all tracked repositories
+      const { data: repos } = await supabase
+        .from("repositories")
+        .select("id, name, full_name")
+        .eq("connection_id", connection.id)
+        .eq("is_tracked", true);
+
+      if (!repos || repos.length === 0) {
+        console.warn("No tracked repositories found");
+        return;
+      }
+
+      // Get all issues from tracked repositories
+      const { data: issuesData } = await supabase
+        .from("issues")
+        .select(`
+          *,
+          repositories!inner(
+            id,
+            name,
+            full_name,
+            owner,
+            connection_id
+          )
+        `)
+        .in("repository_id", repos.map(r => r.id))
+        .order("created_at", { ascending: false });
+
+      if (issuesData && issuesData.length > 0) {
+        // Transform to GitHubIssue format
+        const transformedIssues: GitHubIssue[] = issuesData.map((issue: any) => ({
+          id: issue.id,
+          number: issue.number,
+          title: issue.title,
+          body: issue.body || "",
+          status: issue.state === "closed" ? "closed" : "open",
+          labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
+          assignees: issue.assignees || [],
+          created_at: issue.created_at,
+          updated_at: issue.updated_at,
+          closed_at: issue.closed_at,
+          repository: issue.repositories?.full_name || "Unknown",
+          html_url: issue.html_url,
+        }));
+
+        setIssues(transformedIssues);
+        setSelectedRepos(repos.map(r => r.full_name));
+        console.log(`✅ Loaded ${transformedIssues.length} issues from ${repos.length} repositories`);
+      } else {
+        console.warn("No issues found in tracked repositories");
+      }
+    } catch (error) {
+      console.error("Error fetching issues from Supabase:", error);
+    }
+  };
+
   const toggleWidget = (id: string) => {
     setWidgets(prev => prev.map(w => 
       w.id === id ? { ...w, enabled: !w.enabled } : w
@@ -333,8 +402,34 @@ export default function ReportsPage() {
       return;
     }
 
+    // Fetch fresh data from Supabase
+    setGenerationStatus("Loading data...");
     setIsGenerating(true);
-    setGenerationProgress(0);
+    setGenerationProgress(5);
+
+    await fetchIssuesFromSupabase();
+
+    // Wait a bit for state to update
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Validate we have data
+    const currentIssues = issues.length > 0 ? issues : JSON.parse(localStorage.getItem("github_issues") || "[]");
+    
+    if (currentIssues.length === 0) {
+      toast({
+        title: "No data available",
+        description: "Please go to the dashboard and sync your repositories first.",
+        variant: "destructive",
+      });
+      setIsGenerating(false);
+      setGenerationProgress(0);
+      setGenerationStatus("");
+      return;
+    }
+
+    console.log(`📊 Generating report with ${currentIssues.length} issues from ${selectedRepos.length} repositories`);
+
+    setGenerationProgress(10);
     setGenerationStatus("Initializing...");
 
     try {
@@ -354,8 +449,11 @@ export default function ReportsPage() {
 
       if (insertError) throw insertError;
 
-      setGenerationProgress(10);
+      setGenerationProgress(15);
       setGenerationStatus("Creating PDF document...");
+
+      // Wait for widgets to render
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Generate PDF
       const pdf = new jsPDF({
@@ -395,11 +493,13 @@ export default function ReportsPage() {
         yPos += 10;
       }
 
-      setGenerationProgress(20);
+      setGenerationProgress(25);
       setGenerationStatus("Capturing widgets...");
 
       // Capture each widget
       const widgetElements = document.querySelectorAll("[data-widget-id]");
+      console.log(`📸 Found ${widgetElements.length} widget elements to capture`);
+
       const capturedWidgets: { id: string; canvas: HTMLCanvasElement; width: number; height: number }[] = [];
 
       let widgetIndex = 0;
@@ -408,6 +508,7 @@ export default function ReportsPage() {
         if (!widgetId || !enabledWidgets.find(w => w.id === widgetId)) continue;
 
         try {
+          console.log(`📸 Capturing widget: ${widgetId}`);
           const canvas = await html2canvas(element as HTMLElement, {
             scale: 2,
             useCORS: true,
@@ -422,17 +523,24 @@ export default function ReportsPage() {
             width: canvas.width,
             height: canvas.height,
           });
+          console.log(`✅ Captured widget: ${widgetId} (${canvas.width}x${canvas.height})`);
         } catch (err) {
-          console.error(`Failed to capture widget ${widgetId}:`, err);
+          console.error(`❌ Failed to capture widget ${widgetId}:`, err);
         }
 
         widgetIndex++;
-        const progress = 20 + Math.floor((widgetIndex / enabledWidgets.length) * 50);
+        const progress = 25 + Math.floor((widgetIndex / enabledWidgets.length) * 50);
         setGenerationProgress(progress);
         setGenerationStatus(`Capturing widget ${widgetIndex} of ${enabledWidgets.length}...`);
       }
 
-      setGenerationProgress(75);
+      console.log(`📊 Captured ${capturedWidgets.length} widgets successfully`);
+
+      if (capturedWidgets.length === 0) {
+        throw new Error("No widgets were captured. Please try again.");
+      }
+
+      setGenerationProgress(80);
       setGenerationStatus("Arranging layout...");
 
       // Add widgets to PDF with flow layout
@@ -467,8 +575,8 @@ export default function ReportsPage() {
         });
 
       if (uploadError) {
-        // If bucket doesn't exist, just save locally
         console.error("Storage upload failed:", uploadError);
+        // Fall back to local download
         pdf.save(fileName);
       }
 
@@ -490,7 +598,7 @@ export default function ReportsPage() {
 
       toast({
         title: "Report generated",
-        description: "Your report has been created and downloaded.",
+        description: `Your report has been created with ${capturedWidgets.length} widgets.`,
       });
 
       // Reload reports list
@@ -500,7 +608,7 @@ export default function ReportsPage() {
       console.error("Error generating report:", error);
       toast({
         title: "Generation failed",
-        description: "Failed to generate the report. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate the report. Please try again.",
         variant: "destructive",
       });
     } finally {
