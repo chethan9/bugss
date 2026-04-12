@@ -462,7 +462,7 @@ export default function ReportsPage() {
           <div className="container flex h-14 items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/" className="flex items-center gap-2">
-                <Logo size={32} />
+                <Logo size="md" />
                 <span className="font-semibold">{appName}</span>
               </Link>
               <Separator orientation="vertical" className="h-6" />
