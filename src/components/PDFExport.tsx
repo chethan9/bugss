@@ -263,9 +263,8 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             const { capture } = widget;
             if (!capture) continue;
 
-            // Get label from the original widget config
-            const widgetConfig = validWidgets.find(v => v.capture === capture);
-            const widgetLabel = widgetConfig?.widget?.label || "";
+            // Label - access label directly from widget, not nested
+            const widgetLabel = widget.label || widget.id || "";
 
             // Label
             pdf.setFontSize(6);
