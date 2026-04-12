@@ -40,183 +40,128 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
+      const margin = 10;
       const contentWidth = pageWidth - 2 * margin;
-      const headerHeight = 30;
-      const footerHeight = 12;
+      const headerHeight = 25;
+      const footerHeight = 10;
+      const usableHeight = pageHeight - headerHeight - footerHeight;
+
+      // Grid settings - 3 columns
+      const columns = 3;
+      const gap = 4;
+      const colWidth = (contentWidth - (columns - 1) * gap) / columns;
 
       let currentPage = 1;
       let yPosition = headerHeight;
+      let colIndex = 0;
 
       // Helper: Add header
       const addHeader = (isFirstPage: boolean) => {
-        pdf.setFillColor(248, 250, 252);
-        pdf.rect(0, 0, pageWidth, headerHeight - 5, "F");
+        pdf.setFillColor(250, 250, 250);
+        pdf.rect(0, 0, pageWidth, headerHeight - 2, "F");
         
         if (reportConfig.companyLogo && isFirstPage) {
           try {
-            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 8, 25, 12);
+            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 5, 18, 9);
           } catch (e) {
             console.warn("Logo error:", e);
           }
         }
 
-        const textX = reportConfig.companyLogo && isFirstPage ? margin + 30 : margin;
+        const textX = reportConfig.companyLogo && isFirstPage ? margin + 22 : margin;
         
-        pdf.setFontSize(14);
+        pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(30, 41, 59);
-        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", textX, 14);
+        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", textX, 10);
 
-        pdf.setFontSize(9);
+        pdf.setFontSize(8);
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(100, 116, 139);
         const subtitle = [reportConfig.projectName, reportConfig.reportingPeriod].filter(Boolean).join(" • ");
-        if (subtitle) pdf.text(subtitle, textX, 20);
+        if (subtitle) pdf.text(subtitle, textX, 15);
 
         const today = new Date().toLocaleDateString("en-US", { 
           year: "numeric", 
-          month: "long", 
+          month: "short", 
           day: "numeric" 
         });
-        pdf.text(today, pageWidth - margin, 14, { align: "right" });
-        
-        if (reportConfig.companyName) {
-          pdf.text(reportConfig.companyName, pageWidth - margin, 20, { align: "right" });
-        }
+        pdf.text(today, pageWidth - margin, 10, { align: "right" });
 
         pdf.setDrawColor(226, 232, 240);
-        pdf.setLineWidth(0.3);
-        pdf.line(margin, headerHeight - 5, pageWidth - margin, headerHeight - 5);
+        pdf.setLineWidth(0.2);
+        pdf.line(margin, headerHeight - 2, pageWidth - margin, headerHeight - 2);
       };
 
       // Helper: Add footer
       const addFooter = (pageNum: number, totalPages: number) => {
-        const footerY = pageHeight - 8;
-        
-        pdf.setDrawColor(226, 232, 240);
-        pdf.setLineWidth(0.3);
-        pdf.line(margin, footerY - 4, pageWidth - margin, footerY - 4);
-
+        const footerY = pageHeight - 5;
         pdf.setFontSize(7);
         pdf.setTextColor(148, 163, 184);
-
-        if (reportConfig.customFooter) {
-          pdf.text(reportConfig.customFooter, margin, footerY);
-        }
 
         if (reportConfig.showPageNumbers !== false) {
           pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, footerY, { align: "center" });
         }
-
-        if (reportConfig.showTimestamp !== false) {
-          const timestamp = new Date().toLocaleString();
-          pdf.text(timestamp, pageWidth - margin, footerY, { align: "right" });
-        }
       };
 
-      // Helper: Check for new page
-      const checkNewPage = (neededHeight: number): boolean => {
-        if (yPosition + neededHeight > pageHeight - footerHeight) {
-          currentPage++;
-          pdf.addPage();
-          addHeader(false);
-          yPosition = headerHeight;
-          return true;
-        }
-        return false;
+      // Helper: Start new page
+      const newPage = () => {
+        currentPage++;
+        pdf.addPage();
+        addHeader(false);
+        yPosition = headerHeight;
+        colIndex = 0;
       };
 
-      // Helper: Add section title
-      const addSectionTitle = (title: string) => {
-        checkNewPage(15);
-        
-        pdf.setFontSize(11);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(30, 41, 59);
-        pdf.text(title, margin, yPosition + 6);
-        
-        pdf.setDrawColor(226, 232, 240);
-        pdf.setLineWidth(0.2);
-        pdf.line(margin, yPosition + 9, pageWidth - margin, yPosition + 9);
-        
-        yPosition += 14;
-        pdf.setFont("helvetica", "normal");
-      };
-
-      // Helper: Capture widget with clean full-width styling
-      const captureWidget = async (widgetId: string, widgetLabel: string): Promise<HTMLCanvasElement | null> => {
+      // Helper: Capture widget with clean styling
+      const captureWidget = async (widgetId: string): Promise<HTMLCanvasElement | null> => {
         const element = document.querySelector(`[data-widget-id="${widgetId}"]`) as HTMLElement;
-        if (!element) {
-          console.warn(`Widget not found: ${widgetId}`);
-          return null;
-        }
+        if (!element) return null;
 
         try {
-          // Create a full-width container for clean capture
           const container = document.createElement("div");
           container.style.cssText = `
             position: fixed;
             left: -9999px;
             top: 0;
-            width: 800px;
+            width: 320px;
             background: #ffffff;
-            padding: 24px;
+            padding: 12px;
             box-sizing: border-box;
           `;
           
           const clone = element.cloneNode(true) as HTMLElement;
-          
-          // Reset all styles for clean PDF rendering
           clone.style.cssText = `
             width: 100%;
             max-width: 100%;
             background: #ffffff;
             color: #1e293b;
-            border-radius: 8px;
             overflow: visible;
           `;
           
-          // Fix dark mode colors in clone
+          // Fix dark mode colors
           const fixColors = (el: HTMLElement) => {
             const computed = window.getComputedStyle(el);
-            
-            // Fix text colors
             const color = computed.color;
-            if (color.includes("255, 255, 255") || color === "rgb(255, 255, 255)" || 
-                color.includes("248, 250, 252") || color.includes("226, 232, 240")) {
+            const bg = computed.backgroundColor;
+            
+            if (color.includes("255, 255, 255") || color.includes("248, 250, 252") || color.includes("226, 232, 240")) {
               el.style.color = "#1e293b";
             }
-            
-            // Fix backgrounds
-            const bg = computed.backgroundColor;
-            if (bg.includes("15, 23, 42") || bg.includes("30, 41, 59") || 
-                bg.includes("51, 65, 85") || bg === "rgba(0, 0, 0, 0)") {
+            if (bg.includes("15, 23, 42") || bg.includes("30, 41, 59") || bg.includes("51, 65, 85") || bg === "rgba(0, 0, 0, 0)") {
               el.style.backgroundColor = "#ffffff";
             }
             
-            // Fix borders
-            const borderColor = computed.borderColor;
-            if (borderColor.includes("51, 65, 85") || borderColor.includes("71, 85, 105")) {
-              el.style.borderColor = "#e2e8f0";
-            }
-
-            // Fix SVG fills and strokes
+            // Fix SVG
             if (el.tagName === "svg" || el.closest("svg")) {
-              if (computed.fill === "rgb(255, 255, 255)" || computed.fill === "#fff") {
-                el.style.fill = "#1e293b";
-              }
-              if (computed.stroke === "rgb(255, 255, 255)" || computed.stroke === "#fff") {
-                el.style.stroke = "#1e293b";
-              }
+              if (computed.fill === "rgb(255, 255, 255)") el.style.fill = "#1e293b";
+              if (computed.stroke === "rgb(255, 255, 255)") el.style.stroke = "#1e293b";
             }
           };
           
-          // Apply color fixes recursively
           fixColors(clone);
           clone.querySelectorAll("*").forEach((child) => fixColors(child as HTMLElement));
           
-          // Remove any Card dark backgrounds
           clone.querySelectorAll('[class*="card"], [class*="Card"]').forEach((card) => {
             (card as HTMLElement).style.backgroundColor = "#ffffff";
             (card as HTMLElement).style.borderColor = "#e2e8f0";
@@ -225,15 +170,13 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           container.appendChild(clone);
           document.body.appendChild(container);
 
-          // Wait for fonts and images to load
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 50));
 
           const canvas = await html2canvas(container, {
             scale: 2,
             backgroundColor: "#ffffff",
             logging: false,
             useCORS: true,
-            allowTaint: true,
           });
 
           document.body.removeChild(container);
@@ -244,150 +187,159 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         }
       };
 
-      // Start generating PDF
+      // Start PDF
       addHeader(true);
 
-      // Capture enabled widgets
+      // Capture and render widgets in 3-column grid
       const enabledWidgets = reportConfig.pdfWidgets?.filter((w) => w.enabled) || [];
       
       if (enabledWidgets.length > 0) {
-        addSectionTitle("ANALYTICS & INSIGHTS");
+        // Section title
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(71, 85, 105);
+        pdf.text("ANALYTICS WIDGETS", margin, yPosition + 4);
+        yPosition += 8;
 
+        const widgetCanvases: { canvas: HTMLCanvasElement; label: string }[] = [];
+        
         for (const widget of enabledWidgets) {
-          const canvas = await captureWidget(widget.id, widget.label);
-          if (!canvas) continue;
+          const canvas = await captureWidget(widget.id);
+          if (canvas) {
+            widgetCanvases.push({ canvas, label: widget.label });
+          }
+        }
 
-          // Calculate dimensions to fit width
-          const imgWidth = contentWidth;
+        // Calculate row heights and render widgets
+        let rowWidgets: { canvas: HTMLCanvasElement; label: string; height: number }[] = [];
+        
+        for (let i = 0; i < widgetCanvases.length; i++) {
+          const { canvas, label } = widgetCanvases[i];
           const aspectRatio = canvas.height / canvas.width;
-          let imgHeight = imgWidth * aspectRatio;
+          const widgetHeight = Math.min(colWidth * aspectRatio, 50); // Cap height at 50mm
           
-          // Cap max height to 60% of usable page height
-          const maxHeight = (pageHeight - headerHeight - footerHeight) * 0.6;
-          if (imgHeight > maxHeight) {
-            imgHeight = maxHeight;
+          rowWidgets.push({ canvas, label, height: widgetHeight });
+          
+          // When we have 3 widgets or it's the last widget, render the row
+          if (rowWidgets.length === columns || i === widgetCanvases.length - 1) {
+            const rowHeight = Math.max(...rowWidgets.map(w => w.height)) + 6; // +6 for label
+            
+            // Check if row fits on current page
+            if (yPosition + rowHeight > pageHeight - footerHeight) {
+              newPage();
+            }
+            
+            // Render row
+            rowWidgets.forEach((widget, idx) => {
+              const xPos = margin + idx * (colWidth + gap);
+              
+              // Widget label
+              pdf.setFontSize(6);
+              pdf.setFont("helvetica", "bold");
+              pdf.setTextColor(100, 116, 139);
+              const truncatedLabel = widget.label.length > 20 ? widget.label.substring(0, 18) + "..." : widget.label;
+              pdf.text(truncatedLabel, xPos, yPosition + 3);
+              
+              // Widget border
+              pdf.setDrawColor(226, 232, 240);
+              pdf.setFillColor(255, 255, 255);
+              pdf.setLineWidth(0.2);
+              pdf.roundedRect(xPos, yPosition + 4, colWidth, widget.height, 1, 1, "FD");
+              
+              // Widget image
+              pdf.addImage(
+                widget.canvas.toDataURL("image/png"),
+                "PNG",
+                xPos + 1,
+                yPosition + 5,
+                colWidth - 2,
+                widget.height - 2
+              );
+            });
+            
+            yPosition += rowHeight + 4;
+            rowWidgets = [];
           }
-
-          // Check if we need a new page
-          if (yPosition + imgHeight + 20 > pageHeight - footerHeight) {
-            currentPage++;
-            pdf.addPage();
-            addHeader(false);
-            yPosition = headerHeight;
-          }
-
-          // Widget label
-          pdf.setFontSize(10);
-          pdf.setFont("helvetica", "bold");
-          pdf.setTextColor(71, 85, 105);
-          pdf.text(widget.label, margin, yPosition + 5);
-          yPosition += 10;
-
-          // Widget container with border
-          pdf.setDrawColor(226, 232, 240);
-          pdf.setFillColor(255, 255, 255);
-          pdf.setLineWidth(0.3);
-          pdf.roundedRect(margin, yPosition, contentWidth, imgHeight + 8, 3, 3, "FD");
-
-          // Widget image centered
-          pdf.addImage(
-            canvas.toDataURL("image/png"),
-            "PNG",
-            margin + 4,
-            yPosition + 4,
-            contentWidth - 8,
-            imgHeight
-          );
-
-          yPosition += imgHeight + 20;
         }
       }
 
-      // Issue table section
+      // Issue table
       if (reportConfig.includeIssueTable && issues.length > 0) {
-        // Start table on new page if not enough space
-        if (yPosition > pageHeight - footerHeight - 60) {
-          currentPage++;
-          pdf.addPage();
-          addHeader(false);
-          yPosition = headerHeight;
+        // Start on new page if less than 40mm remaining
+        if (yPosition > pageHeight - footerHeight - 40) {
+          newPage();
         }
 
-        addSectionTitle(`DETAILED ISSUE LIST (${issues.length} issues)`);
+        // Section title
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(71, 85, 105);
+        pdf.text(`ISSUE LIST (${issues.length} total)`, margin, yPosition + 4);
+        yPosition += 8;
         
-        const colWidths = [14, 70, 20, 35, 40];
+        const colWidths = [12, 80, 18, 35, 35];
         const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-        const rowHeight = 7;
+        const rowHeight = 5;
         
         // Table header
         const drawTableHeader = () => {
           pdf.setFillColor(241, 245, 249);
-          pdf.rect(margin, yPosition, tableWidth, rowHeight + 2, "F");
+          pdf.rect(margin, yPosition, tableWidth, rowHeight + 1, "F");
           
-          pdf.setDrawColor(226, 232, 240);
-          pdf.setLineWidth(0.2);
-          pdf.rect(margin, yPosition, tableWidth, rowHeight + 2);
-          
-          pdf.setFontSize(8);
+          pdf.setFontSize(6);
           pdf.setFont("helvetica", "bold");
-          pdf.setTextColor(51, 65, 85);
+          pdf.setTextColor(71, 85, 105);
           
-          let xPos = margin + 3;
+          let xPos = margin + 2;
           const headers = ["#", "Title", "State", "Labels", "Repository"];
-          headers.forEach((header, i) => {
-            pdf.text(header, xPos, yPosition + 5.5);
-            xPos += colWidths[i];
+          headers.forEach((header, idx) => {
+            pdf.text(header, xPos, yPosition + 3.5);
+            xPos += colWidths[idx];
           });
           
-          yPosition += rowHeight + 2;
+          yPosition += rowHeight + 1;
         };
 
         drawTableHeader();
 
         pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(7);
+        pdf.setFontSize(5.5);
 
         for (let i = 0; i < issues.length; i++) {
           const issue = issues[i];
           
-          if (yPosition + rowHeight > pageHeight - footerHeight - 5) {
-            currentPage++;
-            pdf.addPage();
-            addHeader(false);
-            yPosition = headerHeight;
+          if (yPosition + rowHeight > pageHeight - footerHeight) {
+            newPage();
+            pdf.setFontSize(9);
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(71, 85, 105);
+            pdf.text("ISSUE LIST (continued)", margin, yPosition + 4);
+            yPosition += 8;
             drawTableHeader();
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(5.5);
           }
 
           // Alternating row background
           if (i % 2 === 0) {
-            pdf.setFillColor(248, 250, 252);
-          } else {
-            pdf.setFillColor(255, 255, 255);
+            pdf.setFillColor(250, 250, 250);
+            pdf.rect(margin, yPosition, tableWidth, rowHeight, "F");
           }
-          pdf.rect(margin, yPosition, tableWidth, rowHeight, "F");
-          
-          // Row border
-          pdf.setDrawColor(241, 245, 249);
-          pdf.setLineWidth(0.1);
-          pdf.rect(margin, yPosition, tableWidth, rowHeight);
 
-          let xPos = margin + 3;
-          
+          let xPos = margin + 2;
+
           // Issue number
           pdf.setTextColor(100, 116, 139);
-          pdf.text(`#${issue.number}`, xPos, yPosition + 4.5);
+          pdf.text(`#${issue.number}`, xPos, yPosition + 3.2);
           xPos += colWidths[0];
 
-          // Title (truncated)
+          // Title
           pdf.setTextColor(30, 41, 59);
-          const maxTitleLen = 45;
-          const title = issue.title.length > maxTitleLen 
-            ? issue.title.substring(0, maxTitleLen) + "..." 
-            : issue.title;
-          pdf.text(title, xPos, yPosition + 4.5);
+          const title = issue.title.length > 55 ? issue.title.substring(0, 52) + "..." : issue.title;
+          pdf.text(title, xPos, yPosition + 3.2);
           xPos += colWidths[1];
 
-          // State with color
+          // State
           const state = issue.status || issue.state || "open";
           const stateColors: Record<string, [number, number, number]> = {
             open: [34, 197, 94],
@@ -396,9 +348,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           };
           const stateColor = stateColors[state] || [148, 163, 184];
           pdf.setTextColor(stateColor[0], stateColor[1], stateColor[2]);
-          pdf.setFont("helvetica", "bold");
-          pdf.text(String(state).replace("_", " "), xPos, yPosition + 4.5);
-          pdf.setFont("helvetica", "normal");
+          pdf.text(String(state).replace("_", " "), xPos, yPosition + 3.2);
           xPos += colWidths[2];
 
           // Labels
@@ -406,8 +356,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           const labelNames = issue.labels.slice(0, 2).map((l) => 
             typeof l === "string" ? l : l.name
           );
-          const labelsText = labelNames.join(", ").substring(0, 22) || "-";
-          pdf.text(labelsText, xPos, yPosition + 4.5);
+          pdf.text(labelNames.join(", ").substring(0, 22) || "-", xPos, yPosition + 3.2);
           xPos += colWidths[3];
 
           // Repository
@@ -418,14 +367,10 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           } else if (issue.repositories) {
             repoName = issue.repositories.name || issue.repositories.full_name;
           }
-          pdf.text(repoName.substring(0, 25), xPos, yPosition + 4.5);
+          pdf.text(repoName.substring(0, 22), xPos, yPosition + 3.2);
 
           yPosition += rowHeight;
         }
-
-        // Table outer border
-        pdf.setDrawColor(226, 232, 240);
-        pdf.setLineWidth(0.3);
       }
 
       // Add footers to all pages
