@@ -199,6 +199,7 @@ export default function Home() {
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [appName, setAppName] = useState("FixFlix");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<number>(1);
@@ -268,17 +269,8 @@ export default function Home() {
           }
         }
         
-        // Load app version
-        const { data: versionData } = await supabase
-          .from("app_version")
-          .select("version_number")
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (versionData) {
-          setAppVersion(versionData.version_number);
-        }
+        // Mark settings as loaded - now save effect can run
+        setSettingsLoaded(true);
       } catch (error) {
         console.error("Auth check error:", error);
         router.push("/auth");
@@ -300,11 +292,10 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Save settings when they change (debounced)
+  // Save settings when they change (debounced) - only after initial load
   useEffect(() => {
-    if (!user) return;
+    if (!user || !settingsLoaded) return;
     
-    // Don't save during initial load - wait for settings to be loaded first
     const saveTimeout = setTimeout(async () => {
       console.log("Saving settings to Supabase:", { widgetsPerRow, widgetVisibility });
       await saveUserSettings(user.id, {
@@ -315,10 +306,10 @@ export default function Home() {
         selected_repos: selectedRepos,
       });
       console.log("Settings saved successfully");
-    }, 500); // Reduced debounce time
+    }, 500);
     
     return () => clearTimeout(saveTimeout);
-  }, [user, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
+  }, [user, settingsLoaded, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
 
   useEffect(() => {
     console.log("🟢 Auto-load useEffect running...");
