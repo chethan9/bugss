@@ -197,6 +197,7 @@ export default function ReportsPage() {
   // Available repositories
   const [availableRepos, setAvailableRepos] = useState<Array<{ id: string; name: string; full_name: string }>>([]);
   const [reposForReport, setReposForReport] = useState<string[]>([]);
+  const [manualRepoInput, setManualRepoInput] = useState("");
 
   // Calculate analytics data for widgets
   const analytics = useMemo(() => {
@@ -361,10 +362,8 @@ export default function ReportsPage() {
         return { issues: [], repos: [] };
       }
 
-      // Get selected repo full names
-      const selectedRepoNames = availableRepos
-        .filter(r => reposForReport.includes(r.id))
-        .map(r => r.full_name);
+      // Use the repo IDs directly (they are full_name format now)
+      const selectedRepoNames = reposForReport;
 
       console.log("Fetching issues for repos:", selectedRepoNames);
 
@@ -796,70 +795,103 @@ export default function ReportsPage() {
                     />
                   </div>
 
-                  {/* Repository Selection */}
+                  {/* Repository Selection - Manual Input */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base">
-                        Select Repositories ({reposForReport.length}/{availableRepos.length})
-                      </Label>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setReposForReport(availableRepos.map(r => r.id))}
-                        >
-                          Select All
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setReposForReport([])}
-                        >
-                          Deselect All
-                        </Button>
-                      </div>
+                    <Label className="text-base">
+                      Add Repositories ({reposForReport.length} selected)
+                    </Label>
+                    
+                    {/* Manual input */}
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="owner/repo (e.g. facebook/react)"
+                        value={manualRepoInput}
+                        onChange={(e) => setManualRepoInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && manualRepoInput.trim()) {
+                            e.preventDefault();
+                            const repoName = manualRepoInput.trim();
+                            if (repoName.includes("/")) {
+                              const newRepo = {
+                                id: repoName,
+                                name: repoName.split("/")[1],
+                                full_name: repoName,
+                              };
+                              if (!availableRepos.find(r => r.full_name === repoName)) {
+                                setAvailableRepos(prev => [...prev, newRepo]);
+                              }
+                              if (!reposForReport.includes(repoName)) {
+                                setReposForReport(prev => [...prev, repoName]);
+                              }
+                              setManualRepoInput("");
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const repoName = manualRepoInput.trim();
+                          if (repoName && repoName.includes("/")) {
+                            const newRepo = {
+                              id: repoName,
+                              name: repoName.split("/")[1],
+                              full_name: repoName,
+                            };
+                            if (!availableRepos.find(r => r.full_name === repoName)) {
+                              setAvailableRepos(prev => [...prev, newRepo]);
+                            }
+                            if (!reposForReport.includes(repoName)) {
+                              setReposForReport(prev => [...prev, repoName]);
+                            }
+                            setManualRepoInput("");
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
                     </div>
                     
-                    {availableRepos.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p className="text-sm">No repositories found. Please sync your repositories on the dashboard first.</p>
-                      </div>
-                    ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Enter repository in format: owner/repo (press Enter or click Add)
+                    </p>
+                    
+                    {/* Selected repos list */}
+                    {reposForReport.length > 0 ? (
                       <ScrollArea className="h-48 border rounded-lg p-3">
                         <div className="space-y-2">
-                          {availableRepos.map((repo) => (
-                            <div
-                              key={repo.id}
-                              onClick={() => {
-                                setReposForReport(prev => 
-                                  prev.includes(repo.id) 
-                                    ? prev.filter(id => id !== repo.id)
-                                    : [...prev, repo.id]
-                                );
-                              }}
-                              className={`
-                                p-3 rounded-lg border cursor-pointer transition-all
-                                ${reposForReport.includes(repo.id)
-                                  ? "bg-primary/10 border-primary" 
-                                  : "bg-muted/50 border-transparent hover:border-muted-foreground/20"
-                                }
-                              `}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={`
-                                  w-4 h-4 rounded border-2 flex items-center justify-center
-                                  ${reposForReport.includes(repo.id) ? "bg-primary border-primary" : "border-muted-foreground/30"}
-                                `}>
-                                  {reposForReport.includes(repo.id) && (
-                                    <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
-                                  )}
+                          {reposForReport.map((repoId) => {
+                            const repo = availableRepos.find(r => r.id === repoId || r.full_name === repoId);
+                            const displayName = repo?.full_name || repoId;
+                            return (
+                              <div
+                                key={repoId}
+                                className="p-3 rounded-lg border bg-primary/10 border-primary flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                                  <span className="text-sm font-medium truncate">{displayName}</span>
                                 </div>
-                                <span className="text-sm font-medium truncate">{repo.full_name}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
+                                  onClick={() => {
+                                    setReposForReport(prev => prev.filter(id => id !== repoId));
+                                    setAvailableRepos(prev => prev.filter(r => r.id !== repoId && r.full_name !== repoId));
+                                  }}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </ScrollArea>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                        <p className="text-sm">No repositories added yet. Enter a repo name above.</p>
+                      </div>
                     )}
                   </div>
 
