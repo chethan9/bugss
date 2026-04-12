@@ -42,6 +42,38 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import { SmartInsights } from "@/components/analytics/SmartInsights";
+import { BugSeverityHeatmap } from "@/components/analytics/BugSeverityHeatmap";
+import { AverageResolutionTime } from "@/components/analytics/AverageResolutionTime";
+import { IssueTrendChart } from "@/components/analytics/IssueTrendChart";
+import { ModuleStabilityScore } from "@/components/analytics/ModuleStabilityScore";
+import { ReopenedIssuesTracker } from "@/components/analytics/ReopenedIssuesTracker";
+import { BugCategoryBreakdown } from "@/components/analytics/BugCategoryBreakdown";
+import { BugHotspots } from "@/components/analytics/BugHotspots";
+import { AtRiskRelease } from "@/components/analytics/AtRiskRelease";
+import { AgingIssues } from "@/components/analytics/AgingIssues";
+import { CriticalUntouched } from "@/components/analytics/CriticalUntouched";
+import { BacklogGrowth } from "@/components/analytics/BacklogGrowth";
+import { BugFixEfficiency } from "@/components/analytics/BugFixEfficiency";
+import { RepeatBugDetector } from "@/components/analytics/RepeatBugDetector";
+import { DeveloperLoad } from "@/components/analytics/DeveloperLoad";
+import { FocusRecommendations } from "@/components/analytics/FocusRecommendations";
+import { BugHeatmap } from "@/components/analytics/BugHeatmap";
+import { ResolutionHistogram } from "@/components/analytics/ResolutionHistogram";
+import { PriorityScatterPlot } from "@/components/analytics/PriorityScatterPlot";
+import { StackedAreaChart } from "@/components/analytics/StackedAreaChart";
+import { IssueFunnelChart } from "@/components/analytics/IssueFunnelChart";
+import { BacklogWaterfallChart } from "@/components/analytics/BacklogWaterfallChart";
+import { ModuleTreemap } from "@/components/analytics/ModuleTreemap";
+import { ModuleRadarChart } from "@/components/analytics/ModuleRadarChart";
+import { BulletChart } from "@/components/analytics/BulletChart";
+import { RepositoryFilter } from "@/components/analytics/RepositoryFilter";
+import { ProjectHealthGauge } from "@/components/analytics/ProjectHealthGauge";
+import { BurndownChart } from "@/components/analytics/BurndownChart";
+import { FlowEfficiency } from "@/components/analytics/FlowEfficiency";
+import { DashboardMetrics } from "@/components/DashboardMetrics";
+import { ProgressBar } from "@/components/ProgressBar";
+import type { Issue } from "@/services/githubService";
 
 interface Report {
   id: string;
@@ -131,6 +163,10 @@ export default function ReportsPage() {
   const [appName, setAppName] = useState("FixFlix");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
+  // Data for widgets
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
+
   // Check auth and load reports
   useEffect(() => {
     const checkAuth = async () => {
@@ -179,6 +215,26 @@ export default function ReportsPage() {
     if (data) {
       if (data.app_name) setAppName(data.app_name);
       if (data.logo_url) setLogoUrl(data.logo_url);
+    }
+
+    // Load issues and repos from localStorage for widget rendering
+    const savedIssues = localStorage.getItem("github_issues");
+    const savedRepos = localStorage.getItem("selected_repos");
+    
+    if (savedIssues) {
+      try {
+        setIssues(JSON.parse(savedIssues));
+      } catch (e) {
+        console.error("Failed to parse saved issues");
+      }
+    }
+    
+    if (savedRepos) {
+      try {
+        setSelectedRepos(JSON.parse(savedRepos));
+      } catch (e) {
+        console.error("Failed to parse saved repos");
+      }
     }
   };
 
@@ -739,7 +795,7 @@ export default function ReportsPage() {
         </main>
 
         {/* Hidden container for PDF widget capture - only render when generating */}
-        {isGenerating && (
+        {isGenerating && issues.length > 0 && (
           <div 
             id="pdf-widget-container" 
             style={{ 
@@ -751,17 +807,196 @@ export default function ReportsPage() {
               padding: '20px'
             }}
           >
-            {/* Render all enabled widgets here for capture */}
-            {/* This container is only visible during PDF generation */}
             <div className="space-y-6">
-              {widgets.filter(w => w.enabled).map(widget => (
-                <div key={widget.id} data-widget-id={widget.id} className="bg-white p-4 rounded-lg">
-                  <h3 className="text-sm font-semibold mb-2">{widget.name}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Widget placeholder - actual widget components should be imported and rendered here
-                  </p>
+              {widgets.find(w => w.id === "repositoryFilter" && w.enabled) && (
+                <div data-widget-id="repositoryFilter">
+                  <RepositoryFilter 
+                    selectedRepos={selectedRepos}
+                    onRepoToggle={() => {}}
+                    availableRepos={selectedRepos}
+                  />
                 </div>
-              ))}
+              )}
+              
+              {widgets.find(w => w.id === "smartInsights" && w.enabled) && (
+                <div data-widget-id="smartInsights">
+                  <SmartInsights issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "summaryMetrics" && w.enabled) && (
+                <div data-widget-id="summaryMetrics">
+                  <DashboardMetrics issues={issues} repositories={selectedRepos} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "progressBar" && w.enabled) && (
+                <div data-widget-id="progressBar">
+                  <ProgressBar issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "projectHealth" && w.enabled) && (
+                <div data-widget-id="projectHealth">
+                  <ProjectHealthGauge issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "burndownChart" && w.enabled) && (
+                <div data-widget-id="burndownChart">
+                  <BurndownChart issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "flowEfficiency" && w.enabled) && (
+                <div data-widget-id="flowEfficiency">
+                  <FlowEfficiency issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "issueTrend" && w.enabled) && (
+                <div data-widget-id="issueTrend">
+                  <IssueTrendChart issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "bugCategory" && w.enabled) && (
+                <div data-widget-id="bugCategory">
+                  <BugCategoryBreakdown issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "severityHeatmap" && w.enabled) && (
+                <div data-widget-id="severityHeatmap">
+                  <BugSeverityHeatmap issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "resolutionTime" && w.enabled) && (
+                <div data-widget-id="resolutionTime">
+                  <AverageResolutionTime issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "moduleStability" && w.enabled) && (
+                <div data-widget-id="moduleStability">
+                  <ModuleStabilityScore issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "reopenedTracker" && w.enabled) && (
+                <div data-widget-id="reopenedTracker">
+                  <ReopenedIssuesTracker issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "bugHotspots" && w.enabled) && (
+                <div data-widget-id="bugHotspots">
+                  <BugHotspots issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "atRiskRelease" && w.enabled) && (
+                <div data-widget-id="atRiskRelease">
+                  <AtRiskRelease issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "agingIssues" && w.enabled) && (
+                <div data-widget-id="agingIssues">
+                  <AgingIssues issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "criticalUntouched" && w.enabled) && (
+                <div data-widget-id="criticalUntouched">
+                  <CriticalUntouched issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "backlogGrowth" && w.enabled) && (
+                <div data-widget-id="backlogGrowth">
+                  <BacklogGrowth issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "bugFixEfficiency" && w.enabled) && (
+                <div data-widget-id="bugFixEfficiency">
+                  <BugFixEfficiency issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "repeatBugDetector" && w.enabled) && (
+                <div data-widget-id="repeatBugDetector">
+                  <RepeatBugDetector issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "developerLoad" && w.enabled) && (
+                <div data-widget-id="developerLoad">
+                  <DeveloperLoad issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "focusRecommendations" && w.enabled) && (
+                <div data-widget-id="focusRecommendations">
+                  <FocusRecommendations issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "bugHeatmap" && w.enabled) && (
+                <div data-widget-id="bugHeatmap">
+                  <BugHeatmap issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "resolutionHistogram" && w.enabled) && (
+                <div data-widget-id="resolutionHistogram">
+                  <ResolutionHistogram issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "priorityScatter" && w.enabled) && (
+                <div data-widget-id="priorityScatter">
+                  <PriorityScatterPlot issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "stackedArea" && w.enabled) && (
+                <div data-widget-id="stackedArea">
+                  <StackedAreaChart issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "issueFunnel" && w.enabled) && (
+                <div data-widget-id="issueFunnel">
+                  <IssueFunnelChart issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "backlogWaterfall" && w.enabled) && (
+                <div data-widget-id="backlogWaterfall">
+                  <BacklogWaterfallChart issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "moduleTreemap" && w.enabled) && (
+                <div data-widget-id="moduleTreemap">
+                  <ModuleTreemap issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "moduleRadar" && w.enabled) && (
+                <div data-widget-id="moduleRadar">
+                  <ModuleRadarChart issues={issues} />
+                </div>
+              )}
+              
+              {widgets.find(w => w.id === "bulletChart" && w.enabled) && (
+                <div data-widget-id="bulletChart">
+                  <BulletChart issues={issues} />
+                </div>
+              )}
             </div>
           </div>
         )}
