@@ -44,18 +44,39 @@ export interface ReportConfig {
 }
 
 export const DEFAULT_PDF_WIDGETS: PDFWidgetConfig[] = [
+  // Primary widgets - enabled by default
   { id: "smart-insights", label: "Smart Insights", enabled: true },
   { id: "project-health", label: "Project Health Gauge", enabled: true },
   { id: "burndown-chart", label: "Sprint Burndown", enabled: true },
   { id: "flow-efficiency", label: "Flow Efficiency", enabled: true },
   { id: "issue-trend", label: "Issue Trend Chart", enabled: true },
   { id: "bug-category", label: "Bug Category Breakdown", enabled: true },
-  { id: "priority-scatter", label: "Priority Distribution", enabled: false },
-  { id: "resolution-histogram", label: "Resolution Time", enabled: false },
+  // Secondary widgets - enabled by default
+  { id: "progress-bar", label: "Progress Bar", enabled: true },
+  { id: "severity-heatmap", label: "Bug Severity Heatmap", enabled: true },
+  { id: "resolution-time", label: "Average Resolution Time", enabled: true },
+  { id: "module-stability", label: "Module Stability Score", enabled: true },
+  { id: "reopened-issues", label: "Reopened Issues Tracker", enabled: true },
+  { id: "bug-hotspots", label: "Bug Hotspots", enabled: true },
+  // Tertiary widgets - disabled by default
+  { id: "at-risk-release", label: "At Risk Release", enabled: false },
+  { id: "aging-issues", label: "Aging Issues", enabled: false },
+  { id: "critical-untouched", label: "Critical Untouched", enabled: false },
+  { id: "backlog-growth", label: "Backlog Growth", enabled: false },
+  { id: "bug-fix-efficiency", label: "Bug Fix Efficiency", enabled: false },
+  { id: "repeat-bugs", label: "Repeat Bug Detector", enabled: false },
   { id: "developer-load", label: "Developer Workload", enabled: false },
-  { id: "module-treemap", label: "Module Distribution", enabled: false },
-  { id: "backlog-waterfall", label: "Backlog Changes", enabled: false },
+  { id: "focus-recommendations", label: "Focus Recommendations", enabled: false },
+  { id: "bug-heatmap", label: "Bug Heatmap", enabled: false },
+  { id: "resolution-histogram", label: "Resolution Histogram", enabled: false },
+  { id: "priority-scatter", label: "Priority Distribution", enabled: false },
   { id: "stacked-area", label: "Issue Timeline", enabled: false },
+  { id: "issue-funnel", label: "Issue Funnel Chart", enabled: false },
+  { id: "backlog-waterfall", label: "Backlog Changes", enabled: false },
+  { id: "module-treemap", label: "Module Distribution", enabled: false },
+  { id: "module-radar", label: "Module Radar Chart", enabled: false },
+  { id: "kpi-bullet", label: "KPI Bullet Chart", enabled: false },
+  { id: "repository-filter", label: "Repository Filter", enabled: false },
 ];
 
 export const DEFAULT_REPORT_CONFIG: ReportConfig = {
@@ -80,11 +101,27 @@ interface ReportSettingsProps {
 
 export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) {
   const [open, setOpen] = useState(false);
-  const [localConfig, setLocalConfig] = useState<ReportConfig>({
+  const [localConfig, setLocalConfig] = useState<ReportConfig>(() => ({
     ...DEFAULT_REPORT_CONFIG,
     ...config,
-    pdfWidgets: config.pdfWidgets?.length ? config.pdfWidgets : DEFAULT_PDF_WIDGETS,
-  });
+    pdfWidgets: mergeWidgets(config.pdfWidgets),
+  }));
+
+  // Merge saved widgets with defaults to ensure all widgets are present
+  function mergeWidgets(savedWidgets?: PDFWidgetConfig[]): PDFWidgetConfig[] {
+    if (!savedWidgets || savedWidgets.length === 0) {
+      return DEFAULT_PDF_WIDGETS;
+    }
+    
+    // Create a map of saved widget states
+    const savedMap = new Map(savedWidgets.map(w => [w.id, w.enabled]));
+    
+    // Return all default widgets with saved enabled states
+    return DEFAULT_PDF_WIDGETS.map(widget => ({
+      ...widget,
+      enabled: savedMap.has(widget.id) ? savedMap.get(widget.id)! : widget.enabled,
+    }));
+  }
 
   const handleSave = () => {
     onConfigChange(localConfig);
@@ -268,7 +305,7 @@ export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) 
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">PDF Content</h3>
               <span className="text-xs text-muted-foreground">
-                {enabledCount} widgets selected
+                {enabledCount} of {localConfig.pdfWidgets.length} widgets selected
               </span>
             </div>
 
@@ -300,7 +337,7 @@ export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) 
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">Analytics Widgets</Label>
+                <Label className="text-sm">Analytics Widgets ({enabledCount} selected)</Label>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -322,7 +359,7 @@ export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) 
                   </Button>
                 </div>
               </div>
-              <ScrollArea className="h-48 rounded-md border p-3">
+              <ScrollArea className="h-64 rounded-md border p-3">
                 <div className="space-y-2">
                   {localConfig.pdfWidgets.map((widget) => (
                     <div key={widget.id} className="flex items-center space-x-2">
