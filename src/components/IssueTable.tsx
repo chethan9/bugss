@@ -60,6 +60,7 @@ interface IssueTableProps {
   issues: Issue[];
   onIssueClick: (issue: Issue) => void;
   pageSize?: number;
+  headerRight?: React.ReactNode;
 }
 
 type SortField = "number" | "title" | "status" | "severity" | "assignee" | "repository" | "createdAt";
@@ -276,7 +277,7 @@ const IssueRow = memo(function IssueRow({
   );
 });
 
-export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTableProps) {
+export function IssueTable({ issues, onIssueClick, pageSize = 50, headerRight }: IssueTableProps) {
   const [titleSearch, setTitleSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -477,8 +478,13 @@ export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTablePr
           </Button>
         )}
 
-        <div className="ml-auto text-sm text-muted-foreground">
-          {filteredAndSortedIssues.length} of {issues.length} issues
+        {/* Right side - custom content or default count */}
+        <div className="ml-auto flex items-center gap-3">
+          {headerRight || (
+            <span className="text-sm text-muted-foreground">
+              {filteredAndSortedIssues.length} of {issues.length} issues
+            </span>
+          )}
         </div>
       </div>
 
