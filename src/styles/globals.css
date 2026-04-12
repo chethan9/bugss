@@ -223,3 +223,144 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* ===== DASHBOARD GRID SYSTEM ===== */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+.dashboard-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Card spans */
+.col-span-4 { grid-column: span 4; }
+.col-span-6 { grid-column: span 6; }
+.col-span-12 { grid-column: span 12; }
+
+/* ===== DASHBOARD CARD STYLES ===== */
+.dashboard-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.dashboard-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-card-title svg {
+  width: 16px;
+  height: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+.dashboard-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+/* Large stat display */
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: hsl(var(--foreground));
+}
+
+.stat-label {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 4px;
+}
+
+.stat-change {
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.stat-change.positive {
+  background: hsl(142 76% 45% / 0.1);
+  color: hsl(142 76% 36%);
+}
+
+.stat-change.negative {
+  background: hsl(0 84% 60% / 0.1);
+  color: hsl(0 84% 50%);
+}
+
+/* Chart container */
+.chart-container {
+  width: 100%;
+  height: 200px;
+  min-height: 180px;
+}
+
+.chart-container-lg {
+  height: 280px;
+}
+
+/* Row equal heights */
+.dashboard-row > * {
+  min-height: 280px;
+}
+
+.dashboard-row.compact > * {
+  min-height: 200px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .dashboard-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-row > * {
+    min-height: auto;
+  }
+}
