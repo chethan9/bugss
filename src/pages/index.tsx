@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -750,6 +750,20 @@ export default function Home() {
     });
   };
 
+  const [allWidgetsVisible, setAllWidgetsVisible] = useState(true);
+
+  const toggleAllWidgets = () => {
+    const newState = !allWidgetsVisible;
+    setAllWidgetsVisible(newState);
+    
+    const newVisibility = { ...widgetVisibility };
+    Object.keys(newVisibility).forEach((key) => {
+      newVisibility[key as keyof WidgetVisibility] = newState;
+    });
+    setWidgetVisibility(newVisibility);
+    localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -912,6 +926,24 @@ export default function Home() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                
+                {/* Widget Visibility Toggle */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAllWidgets}
+                  title={allWidgetsVisible ? "Hide all widgets" : "Show all widgets"}
+                  className="gap-2"
+                >
+                  {allWidgetsVisible ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline text-xs">
+                    {allWidgetsVisible ? "Hide" : "Show"}
+                  </span>
+                </Button>
               </>
             )}
             
