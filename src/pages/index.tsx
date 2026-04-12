@@ -1314,28 +1314,6 @@ export default function Home() {
 
                 {availableLabels.length > 0 && (
                   <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold">Issues</h3>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {filters.labels.length > 0 && (
-                          <button
-                            onClick={() => setFilters({ ...filters, labels: [] })}
-                            className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                          >
-                            Clear labels
-                          </button>
-                        )}
-                        {/* Create Issue Button - Right side */}
-                        <Link href={`/create-issue?repos=${encodeURIComponent(selectedRepos.join(","))}&token=${encodeURIComponent(token)}`}>
-                          <Button size="sm" className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            <span className="hidden sm:inline">Create Issue</span>
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
                     {(() => {
                       // Calculate label counts
                       const labelCounts = new Map<string, number>();
@@ -1444,6 +1422,15 @@ export default function Home() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
+                          
+                          {filters.labels.length > 0 && (
+                            <button
+                              onClick={() => setFilters({ ...filters, labels: [] })}
+                              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
                         </div>
                       );
                     })()}
@@ -1469,7 +1456,23 @@ export default function Home() {
 
                 <div id="issue-table-section">
                   <div className="space-y-6">
-                    <IssueTable issues={filteredIssues} onIssueClick={handleIssueClick} />
+                    <IssueTable 
+                      issues={filteredIssues} 
+                      onIssueClick={handleIssueClick}
+                      headerRight={
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            {filteredIssues.length} of {issues.length} issues
+                          </span>
+                          <Link href={`/create-issue?repos=${encodeURIComponent(selectedRepos.join(","))}&token=${encodeURIComponent(token)}`}>
+                            <Button size="sm" className="gap-2">
+                              <Plus className="h-4 w-4" />
+                              <span className="hidden sm:inline">Create Issue</span>
+                            </Button>
+                          </Link>
+                        </div>
+                      }
+                    />
                   </div>
                 </div>
 
