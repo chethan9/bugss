@@ -123,6 +123,7 @@ const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: "smartInsights", name: "Smart Insights", enabled: true },
   { id: "summaryMetrics", name: "Summary Metrics", enabled: true },
   { id: "progressBar", name: "Progress Bar", enabled: true },
+  { id: "issuesTable", name: "Issues Table", enabled: true },
   { id: "projectHealth", name: "Project Health Gauge", enabled: true },
   { id: "burndownChart", name: "Sprint Burndown", enabled: true },
   { id: "flowEfficiency", name: "Flow Efficiency", enabled: true },
@@ -555,11 +556,11 @@ export default function ReportsPage() {
       setGenerationProgress(80);
       setGenerationStatus("Building PDF layout...");
 
-      // 3-column grid layout
-      const cols = 3;
-      const gap = 4;
+      // 2-column grid layout with larger widgets
+      const cols = 2;
+      const gap = 6;
       const cellWidth = (contentWidth - gap * (cols - 1)) / cols;
-      const maxCellHeight = 45;
+      const maxCellHeight = 70;
       const startY = includeHeader ? margin + 22 : margin;
 
       let x = margin;
@@ -591,8 +592,8 @@ export default function ReportsPage() {
           rowHeight = 0;
         }
 
-        // Add as compressed JPEG
-        const imgData = cap.canvas.toDataURL("image/jpeg", 0.65);
+        // Add as compressed JPEG (slightly higher quality)
+        const imgData = cap.canvas.toDataURL("image/jpeg", 0.75);
         pdf.addImage(imgData, "JPEG", x, y, w, h);
 
         rowHeight = Math.max(rowHeight, h);
