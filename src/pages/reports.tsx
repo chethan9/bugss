@@ -292,48 +292,79 @@ export default function ReportsPage() {
   };
 
   const loadAvailableRepositories = async (userId: string) => {
-    const { data: connection } = await supabase
-      .from("github_connections")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
+    try {
+      console.log("📚 Loading repositories...");
+      
+      const { data: connection, error: connError } = await supabase
+        .from("github_connections")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-    if (!connection) return;
+      console.log("Connection:", { connection, connError });
 
-    // Fetch repos from issues instead of repositories table - more reliable
-    const { data: issues } = await supabase
-      .from("issues")
-      .select(`
-        repository_id,
-        repositories!inner(
-          id,
-          name,
-          full_name,
-          owner,
-          connection_id
-        )
-      `)
-      .eq("repositories.connection_id", connection.id);
+      if (!connection) {
+        console.warn("No GitHub connection found");
+        return;
+      }
 
-    if (issues && issues.length > 0) {
-      // Extract unique repositories
-      const uniqueRepos = Array.from(
-        new Map(
-          issues.map((issue: any) => [
-            issue.repositories.id,
-            {
-              id: issue.repositories.id,
-              name: issue.repositories.name,
-              full_name: issue.repositories.full_name,
-            }
-          ])
-        ).values()
-      );
+      // Query repositories directly with connection_id
+      const { data: reposData, error: reposError } = await supabase
+        .from("repositories")
+        .select("id, name, full_name")
+        .eq("connection_id", connection.id)
+        .order("name");
 
-      setAvailableRepos(uniqueRepos);
-      // Auto-select all by default
-      setReposForReport(uniqueRepos.map(r => r.id));
-      console.log(`📚 Loaded ${uniqueRepos.length} repositories with issues`);
+      console.log("Repositories from table:", { reposData, reposError, count: reposData?.length });
+
+      if (reposData && reposData.length > 0) {
+        setAvailableRepos(reposData);
+        setReposForReport(reposData.map(r => r.id));
+        console.log(`✅ Loaded ${reposData.length} repositories`);
+        return;
+      }
+
+      // Fallback: Fetch repos from issues if repositories table is empty
+      console.log("Trying fallback: fetch from issues...");
+      const { data: issues, error: issuesError } = await supabase
+        .from("issues")
+        .select(`
+          repository_id,
+          repositories!inner(
+            id,
+            name,
+            full_name,
+            owner,
+            connection_id
+          )
+        `)
+        .eq("repositories.connection_id", connection.id);
+
+      console.log("Issues query:", { issues, issuesError, count: issues?.length });
+
+      if (issues && issues.length > 0) {
+        // Extract unique repositories
+        const uniqueRepos = Array.from(
+          new Map(
+            issues.map((issue: any) => [
+              issue.repositories.id,
+              {
+                id: issue.repositories.id,
+                name: issue.repositories.name,
+                full_name: issue.repositories.full_name,
+              }
+            ])
+          ).values()
+        );
+
+        setAvailableRepos(uniqueRepos);
+        setReposForReport(uniqueRepos.map(r => r.id));
+        console.log(`✅ Loaded ${uniqueRepos.length} repositories from issues`);
+      } else {
+        console.warn("No repositories or issues found");
+      }
+    } catch (error) {
+      console.error("Error loading repositories:", error);
     }
   };
 
