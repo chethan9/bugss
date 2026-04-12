@@ -300,16 +300,40 @@ export default function ReportsPage() {
 
     if (!connection) return;
 
-    const { data: repos } = await supabase
-      .from("repositories")
-      .select("id, name, full_name")
-      .eq("connection_id", connection.id)
-      .order("name");
+    // Fetch repos from issues instead of repositories table - more reliable
+    const { data: issues } = await supabase
+      .from("issues")
+      .select(`
+        repository_id,
+        repositories!inner(
+          id,
+          name,
+          full_name,
+          owner,
+          connection_id
+        )
+      `)
+      .eq("repositories.connection_id", connection.id);
 
-    if (repos) {
-      setAvailableRepos(repos);
+    if (issues && issues.length > 0) {
+      // Extract unique repositories
+      const uniqueRepos = Array.from(
+        new Map(
+          issues.map((issue: any) => [
+            issue.repositories.id,
+            {
+              id: issue.repositories.id,
+              name: issue.repositories.name,
+              full_name: issue.repositories.full_name,
+            }
+          ])
+        ).values()
+      );
+
+      setAvailableRepos(uniqueRepos);
       // Auto-select all by default
-      setReposForReport(repos.map(r => r.id));
+      setReposForReport(uniqueRepos.map(r => r.id));
+      console.log(`📚 Loaded ${uniqueRepos.length} repositories with issues`);
     }
   };
 
