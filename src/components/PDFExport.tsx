@@ -30,47 +30,45 @@ interface PDFExportProps {
   issues?: Issue[];
 }
 
-// Widget sizing configuration - aspect ratios and relative sizes
-const WIDGET_CONFIG: Record<string, { size: "small" | "medium" | "large" | "wide"; aspectRatio: number }> = {
-  // Small widgets (4 per row) - simple stats/numbers
-  repositoryFilter: { size: "small", aspectRatio: 1.2 },
-  summaryMetrics: { size: "small", aspectRatio: 0.8 },
+// Widget column spans - how many columns each widget takes in a 3-column grid
+const WIDGET_SPANS: Record<string, 1 | 2 | 3> = {
+  // 1 column - small stat widgets
+  repositoryFilter: 1,
+  summaryMetrics: 1,
+  sparkline: 1,
   
-  // Medium widgets (2 per row) - charts with some detail
-  smartInsights: { size: "medium", aspectRatio: 0.9 },
-  progressBar: { size: "medium", aspectRatio: 0.6 },
-  projectHealthGauge: { size: "medium", aspectRatio: 1.1 },
-  bugCategoryBreakdown: { size: "medium", aspectRatio: 1.0 },
-  bugSeverityHeatmap: { size: "medium", aspectRatio: 0.8 },
-  averageResolutionTime: { size: "medium", aspectRatio: 0.7 },
-  moduleStabilityScore: { size: "medium", aspectRatio: 0.8 },
-  reopenedIssuesTracker: { size: "medium", aspectRatio: 0.7 },
-  bugHotspots: { size: "medium", aspectRatio: 0.9 },
-  atRiskRelease: { size: "medium", aspectRatio: 0.8 },
-  agingIssues: { size: "medium", aspectRatio: 0.8 },
-  criticalUntouched: { size: "medium", aspectRatio: 0.8 },
-  repeatBugDetector: { size: "medium", aspectRatio: 0.8 },
-  focusRecommendations: { size: "medium", aspectRatio: 0.9 },
-  bulletChart: { size: "medium", aspectRatio: 0.6 },
-  sparkline: { size: "medium", aspectRatio: 0.5 },
+  // 2 columns - medium charts and gauges
+  smartInsights: 2,
+  progressBar: 2,
+  projectHealthGauge: 2,
+  bugCategoryBreakdown: 2,
+  bugSeverityHeatmap: 2,
+  averageResolutionTime: 1,
+  moduleStabilityScore: 1,
+  reopenedIssuesTracker: 1,
+  bugHotspots: 2,
+  atRiskRelease: 2,
+  agingIssues: 2,
+  criticalUntouched: 2,
+  repeatBugDetector: 2,
+  focusRecommendations: 2,
+  bulletChart: 2,
+  burndownChart: 2,
+  flowEfficiency: 2,
+  developerLoad: 2,
+  moduleTreemap: 2,
+  moduleRadarChart: 2,
+  backlogGrowth: 2,
+  bugFixEfficiency: 2,
   
-  // Large widgets (2 per row but taller) - detailed charts
-  burndownChart: { size: "large", aspectRatio: 0.7 },
-  flowEfficiency: { size: "large", aspectRatio: 0.8 },
-  developerLoad: { size: "large", aspectRatio: 0.9 },
-  moduleTreemap: { size: "large", aspectRatio: 0.8 },
-  moduleRadarChart: { size: "large", aspectRatio: 1.0 },
-  
-  // Wide widgets (full width) - complex visualizations
-  issueTrendChart: { size: "wide", aspectRatio: 0.4 },
-  stackedAreaChart: { size: "wide", aspectRatio: 0.45 },
-  bugHeatmap: { size: "wide", aspectRatio: 0.5 },
-  backlogWaterfallChart: { size: "wide", aspectRatio: 0.45 },
-  resolutionHistogram: { size: "wide", aspectRatio: 0.4 },
-  priorityScatterPlot: { size: "wide", aspectRatio: 0.5 },
-  issueFunnelChart: { size: "wide", aspectRatio: 0.5 },
-  backlogGrowth: { size: "wide", aspectRatio: 0.45 },
-  bugFixEfficiency: { size: "wide", aspectRatio: 0.45 },
+  // 3 columns - full width charts
+  issueTrendChart: 3,
+  stackedAreaChart: 3,
+  bugHeatmap: 3,
+  backlogWaterfallChart: 3,
+  resolutionHistogram: 3,
+  priorityScatterPlot: 3,
+  issueFunnelChart: 3,
 };
 
 export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProps) {
@@ -85,109 +83,85 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
       const contentWidth = pageWidth - 2 * margin;
-      const headerHeight = 16;
+      const headerHeight = 14;
       const footerHeight = 8;
-      const gutter = 4; // Gap between widgets
+      const gap = 3; // Gap between widgets
+      const colWidth = (contentWidth - 2 * gap) / 3; // 3 column grid
 
       let currentPage = 1;
       let totalPages = 1;
-      let yPosition = headerHeight + 4;
+      let yPosition = headerHeight + 2;
 
-      // Helper: Add header
-      const addHeader = (isFirstPage: boolean) => {
+      // Header
+      const addHeader = () => {
         pdf.setFillColor(252, 252, 253);
-        pdf.rect(0, 0, pageWidth, headerHeight - 2, "F");
-        
-        if (reportConfig.companyLogo && isFirstPage) {
-          try {
-            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 3, 10, 5);
-          } catch (e) {
-            console.warn("Logo error:", e);
-          }
-        }
-
-        const textX = reportConfig.companyLogo && isFirstPage ? margin + 12 : margin;
+        pdf.rect(0, 0, pageWidth, headerHeight, "F");
         
         pdf.setFontSize(10);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(30, 41, 59);
-        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", textX, 7);
+        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", margin, 7);
 
         pdf.setFontSize(7);
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(100, 116, 139);
         const subtitle = [reportConfig.projectName, reportConfig.reportingPeriod].filter(Boolean).join(" • ");
-        if (subtitle) pdf.text(subtitle, textX, 11);
+        if (subtitle) pdf.text(subtitle, margin, 11);
 
-        const today = new Date().toLocaleDateString("en-US", { 
-          year: "numeric", 
-          month: "short", 
-          day: "numeric" 
-        });
+        const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
         pdf.text(today, pageWidth - margin, 7, { align: "right" });
 
         pdf.setDrawColor(226, 232, 240);
         pdf.setLineWidth(0.2);
-        pdf.line(margin, headerHeight - 2, pageWidth - margin, headerHeight - 2);
+        pdf.line(margin, headerHeight - 1, pageWidth - margin, headerHeight - 1);
       };
 
-      // Helper: Add footer
+      // Footer
       const addFooter = (pageNum: number, total: number) => {
-        const footerY = pageHeight - 4;
         pdf.setFontSize(7);
         pdf.setTextColor(148, 163, 184);
         if (reportConfig.showPageNumbers !== false) {
-          pdf.text(`Page ${pageNum} of ${total}`, pageWidth / 2, footerY, { align: "center" });
+          pdf.text(`Page ${pageNum} of ${total}`, pageWidth / 2, pageHeight - 4, { align: "center" });
         }
       };
 
-      // Helper: Start new page
+      // New page
       const startNewPage = () => {
         currentPage++;
         totalPages++;
         pdf.addPage();
-        addHeader(false);
-        yPosition = headerHeight + 4;
+        addHeader();
+        yPosition = headerHeight + 2;
       };
 
-      // Helper: Check if content fits
+      // Check if fits
       const fitsOnPage = (height: number): boolean => {
-        return (yPosition + height + 2) <= (pageHeight - footerHeight - 4);
+        return (yPosition + height) <= (pageHeight - footerHeight - 2);
       };
 
-      // Helper: Capture widget
-      const captureWidget = async (widgetId: string, captureWidth: number): Promise<HTMLCanvasElement | null> => {
+      // Capture widget
+      const captureWidget = async (widgetId: string, width: number): Promise<{ canvas: HTMLCanvasElement; isEmpty: boolean } | null> => {
         const printContainer = document.getElementById("pdf-print-container");
         let element = printContainer?.querySelector(`[data-pdf-widget-id="${widgetId}"]`) as HTMLElement;
-        
         if (!element) {
           element = document.querySelector(`[data-widget-id="${widgetId}"]`) as HTMLElement;
         }
-        
         if (!element) return null;
 
         try {
           const container = document.createElement("div");
-          container.style.cssText = `
-            position: fixed;
-            left: -9999px;
-            top: 0;
-            width: ${captureWidth}px;
-            background: #ffffff;
-            padding: 8px;
-            box-sizing: border-box;
-          `;
+          container.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;background:#fff;padding:8px;`;
           
           const clone = element.cloneNode(true) as HTMLElement;
-          clone.style.cssText = `width: 100%; max-width: 100%; background: #ffffff; color: #1e293b;`;
+          clone.style.cssText = "width:100%;max-width:100%;background:#fff;color:#1e293b;";
           
           // Fix colors for print
           const fixColors = (el: HTMLElement) => {
-            const computed = window.getComputedStyle(el);
-            if (computed.color.includes("255, 255, 255") || computed.color.includes("248, 250, 252")) {
+            const style = window.getComputedStyle(el);
+            if (style.color.includes("255, 255, 255") || style.color.includes("248, 250, 252")) {
               el.style.color = "#1e293b";
             }
-            if (computed.backgroundColor.includes("15, 23, 42") || computed.backgroundColor.includes("30, 41, 59")) {
+            if (style.backgroundColor.includes("15, 23, 42") || style.backgroundColor.includes("30, 41, 59")) {
               el.style.backgroundColor = "#ffffff";
             }
           };
@@ -201,18 +175,24 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
 
           container.appendChild(clone);
           document.body.appendChild(container);
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(r => setTimeout(r, 100));
+
+          // Check if widget is empty
+          const text = clone.textContent || "";
+          const hasCanvas = clone.querySelector("canvas, svg") !== null;
+          const hasNumbers = /\d/.test(text);
+          const isEmpty = !hasCanvas && !hasNumbers && text.trim().length < 20;
 
           const canvas = await html2canvas(container, {
             scale: 2,
             backgroundColor: "#ffffff",
             logging: false,
             useCORS: true,
-            width: captureWidth,
+            width: width,
           });
 
           document.body.removeChild(container);
-          return canvas;
+          return { canvas, isEmpty };
         } catch (error) {
           console.error(`Widget capture error for ${widgetId}:`, error);
           return null;
@@ -220,7 +200,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       };
 
       // Start PDF
-      addHeader(true);
+      addHeader();
 
       // Get enabled widgets
       const enabledWidgets = reportConfig.pdfWidgets?.filter((w) => w.enabled) || [];
@@ -229,127 +209,116 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         pdf.setFontSize(8);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(71, 85, 105);
-        pdf.text("ANALYTICS OVERVIEW", margin, yPosition);
-        yPosition += 5;
+        pdf.text("ANALYTICS OVERVIEW", margin, yPosition + 2);
+        yPosition += 6;
 
-        // Group widgets by size for fluid layout
-        const widgetsWithConfig = enabledWidgets.map(w => ({
-          ...w,
-          config: WIDGET_CONFIG[w.id] || { size: "medium", aspectRatio: 0.8 }
-        }));
+        // Process widgets in rows
+        let rowWidgets: Array<{ widget: typeof enabledWidgets[0]; span: number; capture: { canvas: HTMLCanvasElement; isEmpty: boolean } | null }> = [];
+        let rowSpan = 0;
 
-        // Process widgets in a flow layout
-        let rowWidgets: typeof widgetsWithConfig = [];
-        let rowWidth = 0;
-        
         const flushRow = async () => {
           if (rowWidgets.length === 0) return;
-          
-          // Calculate actual widths for this row
-          const totalUnits = rowWidgets.reduce((sum, w) => {
-            if (w.config.size === "small") return sum + 1;
-            if (w.config.size === "medium") return sum + 2;
-            if (w.config.size === "large") return sum + 2;
-            return sum + 4; // wide
-          }, 0);
-          
-          const unitWidth = (contentWidth - (rowWidgets.length - 1) * gutter) / Math.min(totalUnits, 4);
-          let xPosition = margin;
-          let maxHeight = 0;
-          
-          // First pass: capture all and find max height
-          const captures: { canvas: HTMLCanvasElement | null; width: number; height: number }[] = [];
-          
-          for (const widget of rowWidgets) {
-            let widgetUnits = 2;
-            if (widget.config.size === "small") widgetUnits = 1;
-            else if (widget.config.size === "wide") widgetUnits = 4;
-            
-            const pdfWidth = Math.min(unitWidth * widgetUnits, contentWidth);
-            const captureWidth = Math.round(pdfWidth * 8); // Scale for capture
-            
-            const canvas = await captureWidget(widget.id, captureWidth);
-            let pdfHeight = pdfWidth * widget.config.aspectRatio;
-            
-            if (canvas) {
-              // Use actual aspect ratio from captured canvas
-              const actualRatio = canvas.height / canvas.width;
-              pdfHeight = pdfWidth * actualRatio;
-            }
-            
-            // Limit height
-            pdfHeight = Math.min(pdfHeight, 80);
-            maxHeight = Math.max(maxHeight, pdfHeight);
-            
-            captures.push({ canvas, width: pdfWidth, height: pdfHeight });
+
+          // Filter out empty widgets
+          const validWidgets = rowWidgets.filter(w => w.capture && !w.capture.isEmpty);
+          if (validWidgets.length === 0) {
+            rowWidgets = [];
+            rowSpan = 0;
+            return;
           }
+
+          // Recalculate spans for valid widgets
+          const totalSpan = validWidgets.reduce((sum, w) => sum + w.span, 0);
           
+          // Find max height for this row
+          let maxHeight = 0;
+          const widgetData: Array<{ widget: typeof validWidgets[0]; pdfWidth: number; pdfHeight: number; xPos: number }> = [];
+          let xPos = margin;
+
+          for (const { widget, span, capture } of validWidgets) {
+            if (!capture) continue;
+            
+            // Calculate width based on span (in a 3-column grid)
+            const actualSpan = Math.min(span, 3);
+            const pdfWidth = actualSpan * colWidth + (actualSpan - 1) * gap;
+            
+            // Calculate height from canvas aspect ratio
+            const aspectRatio = capture.canvas.height / capture.canvas.width;
+            let pdfHeight = pdfWidth * aspectRatio * 0.5; // Scale down
+            pdfHeight = Math.min(pdfHeight, 70); // Max height
+            pdfHeight = Math.max(pdfHeight, 25); // Min height
+            
+            maxHeight = Math.max(maxHeight, pdfHeight);
+            widgetData.push({ widget: { widget: widget.widget, span, capture }, pdfWidth, pdfHeight, xPos });
+            xPos += pdfWidth + gap;
+          }
+
           // Check if row fits
           if (!fitsOnPage(maxHeight + 8)) {
             startNewPage();
           }
-          
-          // Second pass: draw widgets
-          for (let i = 0; i < rowWidgets.length; i++) {
-            const widget = rowWidgets[i];
-            const { canvas, width: pdfWidth, height: pdfHeight } = captures[i];
-            
-            // Draw label
+
+          // Draw widgets
+          for (const { widget, pdfWidth, pdfHeight, xPos } of widgetData) {
+            const { widget: w, capture } = widget;
+            if (!capture) continue;
+
+            // Label
             pdf.setFontSize(6);
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(100, 116, 139);
-            const label = widget.label.length > 25 ? widget.label.substring(0, 25) + "..." : widget.label;
-            pdf.text(label, xPosition, yPosition + 2);
-            
-            // Draw card background
+            const label = w.widget.label.length > 30 ? w.widget.label.substring(0, 30) + "..." : w.widget.label;
+            pdf.text(label, xPos, yPosition + 2);
+
+            // Card background
             pdf.setDrawColor(226, 232, 240);
             pdf.setFillColor(255, 255, 255);
-            pdf.roundedRect(xPosition, yPosition + 3, pdfWidth, pdfHeight, 1, 1, "FD");
-            
-            // Add image if captured
-            if (canvas) {
-              const imgData = canvas.toDataURL("image/png");
-              pdf.addImage(imgData, "PNG", xPosition + 1, yPosition + 4, pdfWidth - 2, pdfHeight - 2);
-            }
-            
-            xPosition += pdfWidth + gutter;
+            pdf.roundedRect(xPos, yPosition + 3, pdfWidth, pdfHeight, 1, 1, "FD");
+
+            // Image
+            const imgData = capture.canvas.toDataURL("image/png");
+            pdf.addImage(imgData, "PNG", xPos + 1, yPosition + 4, pdfWidth - 2, pdfHeight - 2);
           }
-          
+
           yPosition += maxHeight + 10;
           rowWidgets = [];
-          rowWidth = 0;
+          rowSpan = 0;
         };
 
         // Process each widget
-        for (const widget of widgetsWithConfig) {
-          let widgetUnits = 2;
-          if (widget.config.size === "small") widgetUnits = 1;
-          else if (widget.config.size === "wide") widgetUnits = 4;
-          else if (widget.config.size === "large") widgetUnits = 2;
+        for (const widget of enabledWidgets) {
+          const span = WIDGET_SPANS[widget.id] || 2;
           
-          // Wide widgets always get their own row
-          if (widget.config.size === "wide") {
+          // Capture widget
+          const captureWidth = span === 3 ? 680 : span === 2 ? 450 : 220;
+          const capture = await captureWidget(widget.id, captureWidth);
+          
+          // Skip if capture failed
+          if (!capture) continue;
+
+          // Full width widgets get their own row
+          if (span === 3) {
             await flushRow();
-            rowWidgets = [widget];
-            rowWidth = 4;
+            rowWidgets = [{ widget, span, capture }];
+            rowSpan = 3;
             await flushRow();
           } else {
-            // Check if widget fits in current row (max 4 units per row)
-            if (rowWidth + widgetUnits > 4) {
+            // Check if widget fits in current row
+            if (rowSpan + span > 3) {
               await flushRow();
             }
-            rowWidgets.push(widget);
-            rowWidth += widgetUnits;
+            rowWidgets.push({ widget, span, capture });
+            rowSpan += span;
           }
         }
         
-        // Flush remaining widgets
+        // Flush remaining
         await flushRow();
       }
 
       // Issue table
       if (reportConfig.includeIssueTable && issues.length > 0) {
-        if (yPosition > headerHeight + 40) {
+        if (yPosition > headerHeight + 50) {
           startNewPage();
         }
 
