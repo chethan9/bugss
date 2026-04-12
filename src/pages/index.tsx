@@ -753,6 +753,13 @@ export default function Home() {
 
   const [allWidgetsVisible, setAllWidgetsVisible] = useState(true);
 
+  // Sync allWidgetsVisible with actual widget visibility state
+  useEffect(() => {
+    const visibleCount = Object.values(widgetVisibility).filter(Boolean).length;
+    const totalCount = Object.keys(widgetVisibility).length;
+    setAllWidgetsVisible(visibleCount === totalCount);
+  }, [widgetVisibility]);
+
   const toggleAllWidgets = () => {
     const newState = !allWidgetsVisible;
     setAllWidgetsVisible(newState);
@@ -798,18 +805,6 @@ export default function Home() {
                   <GitBranch className="h-4 w-4" />
                   <span className="hidden sm:inline">Repos ({selectedRepos.length})</span>
                 </Button>
-                
-                {/* Create Issue Button */}
-                <CreateIssueDialog
-                  repositories={selectedRepos}
-                  token={token}
-                  onIssueCreated={() => {
-                    // Refresh issues after creating
-                    if (token && selectedRepos.length > 0) {
-                      fetchSelectedIssues(selectedRepos, token);
-                    }
-                  }}
-                />
                 
                 {/* Column Selector */}
                 <div className="hidden md:flex items-center border rounded-md">
@@ -1326,6 +1321,16 @@ export default function Home() {
                         <span className="text-sm text-muted-foreground">
                           Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
                         </span>
+                        {/* Create Issue Button - Moved here */}
+                        <CreateIssueDialog
+                          repositories={selectedRepos}
+                          token={token}
+                          onIssueCreated={() => {
+                            if (token && selectedRepos.length > 0) {
+                              fetchSelectedIssues(selectedRepos, token);
+                            }
+                          }}
+                        />
                       </div>
                       {filters.labels.length > 0 && (
                         <button
