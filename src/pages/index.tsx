@@ -799,6 +799,18 @@ export default function Home() {
                   <span className="hidden sm:inline">Repos ({selectedRepos.length})</span>
                 </Button>
                 
+                {/* Create Issue Button */}
+                <CreateIssueDialog
+                  repositories={selectedRepos}
+                  token={token}
+                  onIssueCreated={() => {
+                    // Refresh issues after creating
+                    if (token && selectedRepos.length > 0) {
+                      fetchSelectedIssues(selectedRepos, token);
+                    }
+                  }}
+                />
+                
                 {/* Column Selector */}
                 <div className="hidden md:flex items-center border rounded-md">
                   {[1, 2, 3, 4].map((cols) => (
