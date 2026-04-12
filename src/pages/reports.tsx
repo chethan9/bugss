@@ -442,283 +442,132 @@ export default function ReportsPage() {
   };
 
   const generateReport = async () => {
-    if (!user) return;
-    
     if (reposForReport.length === 0) {
-      toast({
-        title: "No repositories selected",
-        description: "Please select at least one repository to generate a report.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const enabledWidgets = widgets.filter(w => w.enabled);
-    if (enabledWidgets.length === 0) {
-      toast({
-        title: "No widgets selected",
-        description: "Please select at least one widget to include in the report.",
-        variant: "destructive",
-      });
+      toast({ title: "No repositories selected", variant: "destructive" });
       return;
     }
 
-    // Show loading status but DON'T set isGenerating yet (widgets won't render until we have data)
-    setGenerationStatus("Loading data...");
-    setGenerationProgress(5);
-
-    const { issues: fetchedIssues, repos: fetchedRepos } = await fetchIssuesFromSupabase();
-
-    // Validate we have data BEFORE rendering widgets
-    if (fetchedIssues.length === 0) {
-      toast({
-        title: "No data available",
-        description: "No issues found in selected repositories. Please sync your repositories on the dashboard first.",
-        variant: "destructive",
-      });
-      setGenerationProgress(0);
-      setGenerationStatus("");
-      return;
-    }
-
-    console.log(`📊 Generating report with ${fetchedIssues.length} issues from ${fetchedRepos.length} repositories`);
-
-    // NOW set isGenerating to true - this triggers the hidden container to render with the loaded data
     setIsGenerating(true);
-    
-    // Wait for React to update state and render the hidden container with widgets
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    setGenerationProgress(10);
+    setGenerationProgress(5);
     setGenerationStatus("Initializing...");
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      setGenerationProgress(10);
+      setGenerationStatus("Fetching issues from GitHub...");
+
+      // Fetch issues
+      const { issues: fetchedIssues, repos: fetchedRepos } = await fetchIssuesFromSupabase();
+      
+      if (fetchedIssues.length === 0) {
+        toast({ title: "No issues found", description: "Selected repositories have no issues.", variant: "destructive" });
+        setIsGenerating(false);
+        return;
+      }
+
+      console.log(`📊 Fetched ${fetchedIssues.length} issues from ${fetchedRepos.length} repos`);
+
+      setGenerationProgress(30);
+      setGenerationStatus("Creating report record...");
+
       // Create report record
-      const { data: reportData, error: insertError } = await supabase
+      const { data: reportData, error: reportError } = await supabase
         .from("reports")
         .insert({
           user_id: user.id,
-          name: reportName || `Report ${new Date().toISOString().split("T")[0]}`,
-          file_path: "",
-          file_size: 0,
+          name: reportName,
+          config: {
+            repos: reposForReport,
+            widgets: enabledWidgets.map(w => w.id),
+            includeHeader,
+            includeSummary,
+          },
           status: "generating",
-          settings: { widgets: enabledWidgets.map(w => w.id), includeHeader, includeSummary },
         })
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (reportError) throw reportError;
 
-      setGenerationProgress(15);
-      setGenerationStatus("Creating PDF document...");
+      setGenerationProgress(40);
+      setGenerationStatus("Generating PDF with Puppeteer...");
 
-      // Wait for widgets to render
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Generate PDF
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
+      // Call Puppeteer API to generate PDF
+      const response = await fetch("/api/generate-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportName,
+          reposForReport,
+          enabledWidgets: enabledWidgets.map(w => w.id),
+          includeHeader,
+          includeSummary,
+          issues: fetchedIssues,
+          selectedRepos: fetchedRepos,
+        }),
       });
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
-      let yPos = margin;
-
-      // Header
-      if (includeHeader) {
-        pdf.setFontSize(20);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("GitHub Issue Analytics Report", margin, yPos + 8);
-        
-        pdf.setFontSize(10);
-        pdf.setFont("helvetica", "normal");
-        pdf.setTextColor(128);
-        const dateStr = new Date().toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-        pdf.text(dateStr, pageWidth - margin - pdf.getTextWidth(dateStr), yPos + 8);
-        
-        pdf.text(`${appName} • Generated Report`, margin, yPos + 15);
-        pdf.setTextColor(0);
-        
-        yPos += 25;
-        pdf.setDrawColor(200);
-        pdf.line(margin, yPos, pageWidth - margin, yPos);
-        yPos += 10;
-      }
-
-      setGenerationProgress(25);
-      setGenerationStatus("Capturing widgets...");
-
-      // Capture each widget
-      const widgetElements = document.querySelectorAll("[data-widget-id]");
-      console.log(`📸 Found ${widgetElements.length} widget elements to capture`);
-
-      const capturedWidgets: { id: string; canvas: HTMLCanvasElement; width: number; height: number }[] = [];
-
-      let widgetIndex = 0;
-      for (const element of Array.from(widgetElements)) {
-        const widgetId = element.getAttribute("data-widget-id");
-        if (!widgetId || !enabledWidgets.find(w => w.id === widgetId)) continue;
-
-        try {
-          console.log(`📸 Capturing widget: ${widgetId}`);
-          const canvas = await html2canvas(element as HTMLElement, {
-            scale: 1.5, // Reduced from 2 for smaller file size
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: "#ffffff",
-            logging: false,
-          });
-          
-          capturedWidgets.push({
-            id: widgetId,
-            canvas,
-            width: canvas.width,
-            height: canvas.height,
-          });
-          console.log(`✅ Captured widget: ${widgetId} (${canvas.width}x${canvas.height})`);
-        } catch (err) {
-          console.error(`❌ Failed to capture widget ${widgetId}:`, err);
-        }
-
-        widgetIndex++;
-        const progress = 25 + Math.floor((widgetIndex / enabledWidgets.length) * 50);
-        setGenerationProgress(progress);
-        setGenerationStatus(`Capturing widget ${widgetIndex} of ${enabledWidgets.length}...`);
-      }
-
-      console.log(`📊 Captured ${capturedWidgets.length} widgets successfully`);
-
-      if (capturedWidgets.length === 0) {
-        throw new Error("No widgets were captured. Please try again.");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || "PDF generation failed");
       }
 
       setGenerationProgress(80);
-      setGenerationStatus("Arranging layout...");
+      setGenerationStatus("Downloading PDF...");
 
-      // Grid layout settings - 2 columns, multiple rows per page
-      const cols = 2;
-      const cellWidth = (contentWidth - 10) / cols; // 10mm gap
-      const maxCellHeight = 60; // Max height per widget in mm
-      const gapX = 10;
-      const gapY = 8;
-      const headerSpace = includeHeader ? 35 : 0;
-      const usableHeight = pageHeight - margin * 2 - headerSpace;
-
-      let currentX = margin;
-      let currentY = yPos;
-      let rowHeight = 0;
-      let widgetsOnPage = 0;
-
-      for (const widget of capturedWidgets) {
-        // Calculate widget dimensions to fit in cell
-        const aspectRatio = widget.width / widget.height;
-        let widgetWidth = cellWidth;
-        let widgetHeight = widgetWidth / aspectRatio;
-        
-        // Cap height
-        if (widgetHeight > maxCellHeight) {
-          widgetHeight = maxCellHeight;
-          widgetWidth = widgetHeight * aspectRatio;
-        }
-
-        // Check if we need a new row
-        if (currentX + widgetWidth > pageWidth - margin) {
-          currentX = margin;
-          currentY += rowHeight + gapY;
-          rowHeight = 0;
-        }
-
-        // Check if we need a new page
-        if (currentY + widgetHeight > pageHeight - margin) {
-          pdf.addPage();
-          currentX = margin;
-          currentY = margin;
-          rowHeight = 0;
-          widgetsOnPage = 0;
-        }
-
-        // Convert canvas to JPEG for compression
-        const imgData = widget.canvas.toDataURL("image/jpeg", 0.7);
-        pdf.addImage(imgData, "JPEG", currentX, currentY, widgetWidth, widgetHeight);
-
-        // Update position
-        rowHeight = Math.max(rowHeight, widgetHeight);
-        currentX += widgetWidth + gapX;
-        widgetsOnPage++;
-      }
-
-      setGenerationProgress(90);
-      setGenerationStatus("Saving report...");
-
-      // Generate PDF blob
-      const pdfBlob = pdf.output("blob");
+      // Get PDF blob and download
+      const pdfBlob = await response.blob();
       const fileName = `${reportName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}.pdf`;
 
-      // Try to upload to Supabase Storage with timeout
-      let uploadSuccess = false;
-      try {
-        const uploadPromise = supabase.storage
-          .from("reports")
-          .upload(`${user.id}/${fileName}`, pdfBlob, {
-            contentType: "application/pdf",
-          });
-        
-        // Add 10 second timeout for upload
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Upload timeout")), 10000)
-        );
-        
-        const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]) as any;
-        
-        if (!uploadError) {
-          uploadSuccess = true;
-        } else {
-          console.error("Storage upload failed:", uploadError);
-        }
-      } catch (uploadErr) {
-        console.error("Storage upload error:", uploadErr);
-      }
+      // Download file
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-      setGenerationProgress(95);
-      setGenerationStatus("Finalizing...");
+      setGenerationProgress(90);
+      setGenerationStatus("Saving to cloud...");
+
+      // Try to upload to storage
+      try {
+        await supabase.storage
+          .from("reports")
+          .upload(`${user.id}/${fileName}`, pdfBlob, { contentType: "application/pdf" });
+      } catch (uploadErr) {
+        console.warn("Cloud upload skipped:", uploadErr);
+      }
 
       // Update report record
       await supabase
         .from("reports")
         .update({
-          file_path: uploadSuccess ? `${user.id}/${fileName}` : "",
+          file_path: `${user.id}/${fileName}`,
           file_size: pdfBlob.size,
           status: "completed",
         })
         .eq("id", reportData.id);
 
-      // Always download the file locally
-      pdf.save(fileName);
-
       setGenerationProgress(100);
       setGenerationStatus("Complete!");
 
       toast({
-        title: "Report generated",
-        description: `Your report "${reportName}" has been downloaded.${!uploadSuccess ? " (Cloud save skipped)" : ""}`,
+        title: "Report generated!",
+        description: `${reportName} (${(pdfBlob.size / 1024 / 1024).toFixed(2)} MB) downloaded.`,
       });
 
-      // Reload reports list
       loadReports(user.id);
 
     } catch (error) {
-      console.error("Error generating report:", error);
+      console.error("Report generation error:", error);
       toast({
         title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate the report. Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
