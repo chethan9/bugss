@@ -90,27 +90,42 @@ export default function CreateIssuePage() {
     simpleBody: "",
   });
 
-  // Load token and repos from storage
+  // Load token and repos from URL params or storage
   useEffect(() => {
-    const savedToken = localStorage.getItem(STORAGE_KEYS.GITHUB_TOKEN);
-    const savedRepos = localStorage.getItem(STORAGE_KEYS.SELECTED_REPOS);
+    // Check URL params first
+    const urlRepos = router.query.repos as string;
+    const urlToken = router.query.token as string;
     
-    if (savedToken) {
-      setToken(savedToken);
-    }
-    
-    if (savedRepos) {
-      try {
-        const repos = JSON.parse(savedRepos);
-        setRepositories(repos);
-        if (repos.length === 1) {
-          setSelectedRepo(repos[0]);
-        }
-      } catch (e) {
-        console.error("Failed to parse saved repos");
+    if (urlToken) {
+      setToken(urlToken);
+    } else {
+      const savedToken = localStorage.getItem(STORAGE_KEYS.GITHUB_TOKEN);
+      if (savedToken) {
+        setToken(savedToken);
       }
     }
-  }, []);
+    
+    if (urlRepos) {
+      const repos = urlRepos.split(",").filter(Boolean);
+      setRepositories(repos);
+      if (repos.length === 1) {
+        setSelectedRepo(repos[0]);
+      }
+    } else {
+      const savedRepos = localStorage.getItem(STORAGE_KEYS.SELECTED_REPOS);
+      if (savedRepos) {
+        try {
+          const repos = JSON.parse(savedRepos);
+          setRepositories(repos);
+          if (repos.length === 1) {
+            setSelectedRepo(repos[0]);
+          }
+        } catch (e) {
+          console.error("Failed to parse saved repos");
+        }
+      }
+    }
+  }, [router.query]);
 
   // Load labels and collaborators when repo changes
   useEffect(() => {
