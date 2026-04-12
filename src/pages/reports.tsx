@@ -856,66 +856,27 @@ export default function ReportsPage() {
                     />
                   </div>
 
-                  {/* Repository Selection - Manual Input */}
+                  {/* Repository Selection */}
                   <div className="space-y-3">
-                    <Label className="text-base">
-                      Add Repositories ({reposForReport.length} selected)
-                    </Label>
-                    
-                    {/* Manual input */}
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="owner/repo (e.g. facebook/react)"
-                        value={manualRepoInput}
-                        onChange={(e) => setManualRepoInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && manualRepoInput.trim()) {
-                            e.preventDefault();
-                            const repoName = manualRepoInput.trim();
-                            if (repoName.includes("/")) {
-                              const newRepo = {
-                                id: repoName,
-                                name: repoName.split("/")[1],
-                                full_name: repoName,
-                              };
-                              if (!availableRepos.find(r => r.full_name === repoName)) {
-                                setAvailableRepos(prev => [...prev, newRepo]);
-                              }
-                              if (!reposForReport.includes(repoName)) {
-                                setReposForReport(prev => [...prev, repoName]);
-                              }
-                              setManualRepoInput("");
-                            }
-                          }
-                        }}
-                      />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base">
+                        Repositories ({reposForReport.length} selected)
+                      </Label>
                       <Button
-                        type="button"
-                        onClick={() => {
-                          const repoName = manualRepoInput.trim();
-                          if (repoName && repoName.includes("/")) {
-                            const newRepo = {
-                              id: repoName,
-                              name: repoName.split("/")[1],
-                              full_name: repoName,
-                            };
-                            if (!availableRepos.find(r => r.full_name === repoName)) {
-                              setAvailableRepos(prev => [...prev, newRepo]);
-                            }
-                            if (!reposForReport.includes(repoName)) {
-                              setReposForReport(prev => [...prev, repoName]);
-                            }
-                            setManualRepoInput("");
-                          }
-                        }}
+                        variant="default"
+                        size="sm"
+                        onClick={fetchGitHubRepos}
+                        disabled={isLoadingRepos}
+                        className="gap-2"
                       >
-                        Add
+                        {isLoadingRepos ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        Load Repos
                       </Button>
                     </div>
-                    
-                    <p className="text-xs text-muted-foreground">
-                      Enter repository in format: owner/repo (press Enter or click Add)
-                    </p>
                     
                     {/* Selected repos list */}
                     {reposForReport.length > 0 ? (
@@ -939,7 +900,6 @@ export default function ReportsPage() {
                                   className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
                                   onClick={() => {
                                     setReposForReport(prev => prev.filter(id => id !== repoId));
-                                    setAvailableRepos(prev => prev.filter(r => r.id !== repoId && r.full_name !== repoId));
                                   }}
                                 >
                                   <XCircle className="h-4 w-4" />
@@ -951,7 +911,7 @@ export default function ReportsPage() {
                       </ScrollArea>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                        <p className="text-sm">No repositories selected yet. Enter a repo name above.</p>
+                        <p className="text-sm">Click "Load Repos" to select repositories</p>
                       </div>
                     )}
                   </div>
