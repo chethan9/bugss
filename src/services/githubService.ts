@@ -437,3 +437,91 @@ export async function fetchUserRepositories(token: string): Promise<GitHubReposi
     throw new Error(`Failed to fetch repositories: ${error.message}`);
   }
 }
+
+/**
+ * Create a new issue in a GitHub repository
+ */
+export async function createGitHubIssue(
+  token: string,
+  owner: string,
+  repo: string,
+  title: string,
+  body?: string,
+  labels?: string[],
+  assignees?: string[]
+): Promise<GitHubIssue> {
+  const response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/issues`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title,
+        body: body || "",
+        labels: labels || [],
+        assignees: assignees || [],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || `Failed to create issue: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch labels for a repository
+ */
+export async function fetchRepositoryLabels(
+  token: string,
+  owner: string,
+  repo: string
+): Promise<Array<{ name: string; color: string }>> {
+  const response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/labels?per_page=100`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch collaborators for a repository
+ */
+export async function fetchRepositoryCollaborators(
+  token: string,
+  owner: string,
+  repo: string
+): Promise<Array<{ login: string; avatar_url: string }>> {
+  const response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/collaborators?per_page=100`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return response.json();
+}
