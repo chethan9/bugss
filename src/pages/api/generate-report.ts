@@ -44,15 +44,19 @@ export default async function handler(
     console.log("🚀 Starting Puppeteer PDF generation...");
     console.log(`📊 Issues: ${issues?.length}, Repos: ${selectedRepos?.length}, Widgets: ${enabledWidgets?.length}`);
 
-    // Launch browser with bundled Chromium
+    // Launch browser with explicit Chrome path
+    const chromePath = "/home/softgen/.cache/puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome";
+    
     browser = await puppeteer.launch({
       headless: true,
+      executablePath: chromePath,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--single-process",
+        "--no-zygote",
       ],
     });
 
