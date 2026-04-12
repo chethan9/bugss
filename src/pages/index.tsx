@@ -1034,251 +1034,247 @@ export default function Home() {
               />
             ) : (
               <>
-                <Masonry
-                  breakpointCols={{
-                    default: widgetsPerRow,
-                    1280: Math.min(widgetsPerRow, 3),
-                    1024: Math.min(widgetsPerRow, 2),
-                    768: 1
-                  }}
-                  className="flex -ml-6 w-auto"
-                  columnClassName="pl-6 bg-clip-padding"
-                  id="analytics-widgets-section"
-                >
-                  {widgetOrder.map((widgetKey) => {
-                    if (!widgetVisibility[widgetKey]) return null;
-                    
-                    switch (widgetKey) {
-                      case "repositoryFilter":
-                        return selectedRepos.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="repository-filter" className="mb-6">
-                            <RepositoryFilter
-                              repositories={selectedRepos}
-                              activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
-                              onToggle={(repo) => {
-                                setFilters(prev => {
-                                  const currentActive = prev.repositories.length > 0 ? prev.repositories : selectedRepos;
-                                  const isActive = currentActive.includes(repo);
-                                  let newRepos: string[];
-                                  
-                                  if (isActive) {
-                                    newRepos = currentActive.filter(r => r !== repo);
-                                  } else {
-                                    newRepos = [...currentActive, repo];
-                                  }
-                                  
-                                  // If all repos are selected, clear the filter
-                                  if (newRepos.length === selectedRepos.length) {
-                                    newRepos = [];
-                                  }
-                                  
-                                  return { ...prev, repositories: newRepos };
-                                });
-                              }}
-                              issueCounts={issues.reduce((acc, issue) => {
-                                acc[issue.repository] = (acc[issue.repository] || 0) + 1;
-                                return acc;
-                              }, {} as Record<string, number>)}
-                            />
-                          </div>
-                        ) : null;
-                      case "smartInsights":
-                        return analytics.insights.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="smart-insights" className="mb-6">
-                            <SmartInsights insights={analytics.insights} />
-                          </div>
-                        ) : null;
-                      case "summaryMetrics":
-                        return (
-                          <div key={widgetKey} data-widget-id="summary-metrics" id="summary-metrics-section" className="mb-6">
-                            <DashboardMetrics
-                              totalRepos={selectedRepos.length}
-                              totalIssues={filteredIssues.length}
-                              openIssues={metrics.statusCounts.open}
-                              closedIssues={metrics.statusCounts.closed}
-                              isLoading={isLoadingIssues}
-                            />
-                          </div>
-                        );
-                      case "progressBar":
-                        return (
-                          <div key={widgetKey} data-widget-id="progress-bar" className="mb-6">
-                            <ProgressBar
-                              open={metrics.statusCounts.open}
-                              inProgress={metrics.statusCounts.inProgress || 0}
-                              closed={metrics.statusCounts.closed}
-                              total={filteredIssues.length}
-                              isLoading={isLoadingIssues}
-                            />
-                          </div>
-                        );
-                      case "projectHealthGauge":
-                        return (
-                          <div key={widgetKey} data-widget-id="project-health" className="mb-6">
-                            <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
-                          </div>
-                        );
-                      case "burndownChart":
-                        return (
-                          <div key={widgetKey} data-widget-id="burndown-chart" className="mb-6">
-                            <BurndownChart issues={filteredIssues} />
-                          </div>
-                        );
-                      case "flowEfficiency":
-                        return (
-                          <div key={widgetKey} data-widget-id="flow-efficiency" className="mb-6">
-                            <FlowEfficiency issues={filteredIssues} />
-                          </div>
-                        );
-                      case "severityHeatmap":
-                        return Object.values(analytics.severities).some(v => v > 0) ? (
-                          <div key={widgetKey} data-widget-id="severity-heatmap" className="mb-6">
-                            <BugSeverityHeatmap severities={analytics.severities} />
-                          </div>
-                        ) : null;
-                      case "resolutionTime":
-                        return analytics.resolutionTime.overall > 0 ? (
-                          <div key={widgetKey} data-widget-id="resolution-time" className="mb-6">
-                            <AverageResolutionTime stats={analytics.resolutionTime} />
-                          </div>
-                        ) : null;
-                      case "trendChart":
-                        return analytics.trend.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="issue-trend" className="mb-6">
-                            <IssueTrendChart data={analytics.trend} days={30} />
-                          </div>
-                        ) : null;
-                      case "moduleStability":
-                        return analytics.stability.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="module-stability" className="mb-6">
-                            <ModuleStabilityScore stability={analytics.stability} />
-                          </div>
-                        ) : null;
-                      case "reopenedIssues":
-                        return (
-                          <div key={widgetKey} data-widget-id="reopened-issues" className="mb-6">
-                            <ReopenedIssuesTracker stats={analytics.reopened} />
-                          </div>
-                        );
-                      case "categoryBreakdown":
-                        return Object.values(analytics.categories).some(v => v > 0) ? (
-                          <div key={widgetKey} data-widget-id="bug-category" className="mb-6">
-                            <BugCategoryBreakdown categories={analytics.categories} />
-                          </div>
-                        ) : null;
-                      case "bugHotspots":
-                        return analytics.hotspots.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="bug-hotspots" className="mb-6">
-                            <BugHotspots hotspots={analytics.hotspots} />
-                          </div>
-                        ) : null;
-                      case "atRiskRelease":
-                        return (
-                          <div key={widgetKey} data-widget-id="at-risk-release" className="mb-6">
-                            <AtRiskRelease stats={analytics.atRiskRelease} />
-                          </div>
-                        );
-                      case "agingIssues":
-                        return (
-                          <div key={widgetKey} data-widget-id="aging-issues" className="mb-6">
-                            <AgingIssues stats={analytics.agingIssues} />
-                          </div>
-                        );
-                      case "criticalUntouched":
-                        return analytics.criticalUntouched.issues.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="critical-untouched" className="mb-6">
-                            <CriticalUntouched stats={analytics.criticalUntouched} />
-                          </div>
-                        ) : null;
-                      case "backlogGrowth":
-                        return (
-                          <div key={widgetKey} data-widget-id="backlog-growth" className="mb-6">
-                            <BacklogGrowth stats={analytics.backlogGrowth} />
-                          </div>
-                        );
-                      case "bugFixEfficiency":
-                        return (
-                          <div key={widgetKey} data-widget-id="bug-fix-efficiency" className="mb-6">
-                            <BugFixEfficiency stats={analytics.bugFixEfficiency} />
-                          </div>
-                        );
-                      case "repeatBugDetector":
-                        return analytics.repeatBugs.topRepeatingLabels.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="repeat-bugs" className="mb-6">
-                            <RepeatBugDetector stats={analytics.repeatBugs} />
-                          </div>
-                        ) : null;
-                      case "developerLoad":
-                        return analytics.developerLoad.developers.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="developer-load" className="mb-6">
-                            <DeveloperLoad stats={analytics.developerLoad} />
-                          </div>
-                        ) : null;
-                      case "focusRecommendations":
-                        return analytics.focusRecommendations.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="focus-recommendations" className="mb-6">
-                            <FocusRecommendations recommendations={analytics.focusRecommendations} />
-                          </div>
-                        ) : null;
-                      case "bugHeatmap":
-                        return analytics.bugHeatmap.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="bug-heatmap" className="mb-6">
-                            <BugHeatmap data={analytics.bugHeatmap} />
-                          </div>
-                        ) : null;
-                      case "resolutionHistogram":
-                        return analytics.resolutionHistogram.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="resolution-histogram" className="mb-6">
-                            <ResolutionHistogram data={analytics.resolutionHistogram} />
-                          </div>
-                        ) : null;
-                      case "priorityScatterPlot":
-                        return analytics.priorityScatter.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="priority-scatter" className="mb-6">
-                            <PriorityScatterPlot data={analytics.priorityScatter} />
-                          </div>
-                        ) : null;
-                      case "stackedAreaChart":
-                        return analytics.stackedAreaData.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="stacked-area" className="mb-6">
-                            <StackedAreaChart data={analytics.stackedAreaData} />
-                          </div>
-                        ) : null;
-                      case "issueFunnelChart":
-                        return analytics.issueFunnel.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="issue-funnel" className="mb-6">
-                            <IssueFunnelChart stages={analytics.issueFunnel} />
-                          </div>
-                        ) : null;
-                      case "backlogWaterfallChart":
-                        return analytics.backlogWaterfall.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="backlog-waterfall" className="mb-6">
-                            <BacklogWaterfallChart data={analytics.backlogWaterfall} />
-                          </div>
-                        ) : null;
-                      case "moduleTreemap":
-                        return analytics.moduleTreemap.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="module-treemap" className="mb-6">
-                            <ModuleTreemap data={analytics.moduleTreemap} />
-                          </div>
-                        ) : null;
-                      case "moduleRadarChart":
-                        return analytics.moduleRadar.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="module-radar" className="mb-6">
-                            <ModuleRadarChart data={analytics.moduleRadar} />
-                          </div>
-                        ) : null;
-                      case "kpiBulletChart":
-                        return (
-                          <div key={widgetKey} data-widget-id="kpi-bullet" className="mb-6">
-                            <BulletChart metrics={analytics.kpiMetrics} />
-                          </div>
-                        );
-                      default:
-                        return null;
-                    }
-                  })}
-                </Masonry>
+                {/* ===== STRUCTURED DASHBOARD GRID ===== */}
+                <div className="space-y-4" id="analytics-widgets-section">
+                  
+                  {/* Row 1: Key Metrics Overview */}
+                  {(widgetVisibility.summaryMetrics || widgetVisibility.progressBar) && (
+                    <div className="dashboard-row" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                      {widgetVisibility.summaryMetrics && (
+                        <div data-widget-id="summary-metrics" id="summary-metrics-section" className="dashboard-card">
+                          <DashboardMetrics
+                            totalRepos={selectedRepos.length}
+                            totalIssues={filteredIssues.length}
+                            openIssues={metrics.statusCounts.open}
+                            closedIssues={metrics.statusCounts.closed}
+                            isLoading={isLoadingIssues}
+                          />
+                        </div>
+                      )}
+                      {widgetVisibility.progressBar && (
+                        <div data-widget-id="progress-bar" className="dashboard-card">
+                          <ProgressBar
+                            open={metrics.statusCounts.open}
+                            inProgress={metrics.statusCounts.inProgress || 0}
+                            closed={metrics.statusCounts.closed}
+                            total={filteredIssues.length}
+                            isLoading={isLoadingIssues}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Row 2: Project Health, Burndown, Flow Efficiency */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.projectHealthGauge && (
+                      <div data-widget-id="project-health" className="dashboard-card">
+                        <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
+                      </div>
+                    )}
+                    {widgetVisibility.burndownChart && (
+                      <div data-widget-id="burndown-chart" className="dashboard-card">
+                        <BurndownChart issues={filteredIssues} />
+                      </div>
+                    )}
+                    {widgetVisibility.flowEfficiency && (
+                      <div data-widget-id="flow-efficiency" className="dashboard-card">
+                        <FlowEfficiency issues={filteredIssues} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 3: Issue Trend, Bug Category, Severity Heatmap */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.trendChart && analytics.trend.length > 0 && (
+                      <div data-widget-id="issue-trend" className="dashboard-card">
+                        <IssueTrendChart data={analytics.trend} days={30} />
+                      </div>
+                    )}
+                    {widgetVisibility.categoryBreakdown && Object.values(analytics.categories).some(v => v > 0) && (
+                      <div data-widget-id="bug-category" className="dashboard-card">
+                        <BugCategoryBreakdown categories={analytics.categories} />
+                      </div>
+                    )}
+                    {widgetVisibility.severityHeatmap && Object.values(analytics.severities).some(v => v > 0) && (
+                      <div data-widget-id="severity-heatmap" className="dashboard-card">
+                        <BugSeverityHeatmap severities={analytics.severities} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 4: Resolution Time, Priority Scatter, Module Stability */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.resolutionTime && analytics.resolutionTime.overall > 0 && (
+                      <div data-widget-id="resolution-time" className="dashboard-card">
+                        <AverageResolutionTime stats={analytics.resolutionTime} />
+                      </div>
+                    )}
+                    {widgetVisibility.priorityScatterPlot && analytics.priorityScatter.length > 0 && (
+                      <div data-widget-id="priority-scatter" className="dashboard-card">
+                        <PriorityScatterPlot data={analytics.priorityScatter} />
+                      </div>
+                    )}
+                    {widgetVisibility.moduleStability && analytics.stability.length > 0 && (
+                      <div data-widget-id="module-stability" className="dashboard-card">
+                        <ModuleStabilityScore stability={analytics.stability} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 5: Aging Issues, At Risk, Backlog Growth */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.agingIssues && (
+                      <div data-widget-id="aging-issues" className="dashboard-card">
+                        <AgingIssues stats={analytics.agingIssues} />
+                      </div>
+                    )}
+                    {widgetVisibility.atRiskRelease && (
+                      <div data-widget-id="at-risk-release" className="dashboard-card">
+                        <AtRiskRelease stats={analytics.atRiskRelease} />
+                      </div>
+                    )}
+                    {widgetVisibility.backlogGrowth && (
+                      <div data-widget-id="backlog-growth" className="dashboard-card">
+                        <BacklogGrowth stats={analytics.backlogGrowth} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 6: Bug Fix Efficiency, Developer Load, Focus Recommendations */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.bugFixEfficiency && (
+                      <div data-widget-id="bug-fix-efficiency" className="dashboard-card">
+                        <BugFixEfficiency stats={analytics.bugFixEfficiency} />
+                      </div>
+                    )}
+                    {widgetVisibility.developerLoad && analytics.developerLoad.developers.length > 0 && (
+                      <div data-widget-id="developer-load" className="dashboard-card">
+                        <DeveloperLoad stats={analytics.developerLoad} />
+                      </div>
+                    )}
+                    {widgetVisibility.focusRecommendations && analytics.focusRecommendations.length > 0 && (
+                      <div data-widget-id="focus-recommendations" className="dashboard-card">
+                        <FocusRecommendations recommendations={analytics.focusRecommendations} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 7: Charts - Stacked Area, Funnel, Waterfall */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.stackedAreaChart && analytics.stackedAreaData.length > 0 && (
+                      <div data-widget-id="stacked-area" className="dashboard-card">
+                        <StackedAreaChart data={analytics.stackedAreaData} />
+                      </div>
+                    )}
+                    {widgetVisibility.issueFunnelChart && analytics.issueFunnel.length > 0 && (
+                      <div data-widget-id="issue-funnel" className="dashboard-card">
+                        <IssueFunnelChart stages={analytics.issueFunnel} />
+                      </div>
+                    )}
+                    {widgetVisibility.backlogWaterfallChart && analytics.backlogWaterfall.length > 0 && (
+                      <div data-widget-id="backlog-waterfall" className="dashboard-card">
+                        <BacklogWaterfallChart data={analytics.backlogWaterfall} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 8: Module Treemap, Module Radar, KPI Bullet */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.moduleTreemap && analytics.moduleTreemap.length > 0 && (
+                      <div data-widget-id="module-treemap" className="dashboard-card">
+                        <ModuleTreemap data={analytics.moduleTreemap} />
+                      </div>
+                    )}
+                    {widgetVisibility.moduleRadarChart && analytics.moduleRadar.length > 0 && (
+                      <div data-widget-id="module-radar" className="dashboard-card">
+                        <ModuleRadarChart data={analytics.moduleRadar} />
+                      </div>
+                    )}
+                    {widgetVisibility.kpiBulletChart && (
+                      <div data-widget-id="kpi-bullet" className="dashboard-card">
+                        <BulletChart metrics={analytics.kpiMetrics} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 9: Secondary Widgets */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.bugHeatmap && analytics.bugHeatmap.length > 0 && (
+                      <div data-widget-id="bug-heatmap" className="dashboard-card">
+                        <BugHeatmap data={analytics.bugHeatmap} />
+                      </div>
+                    )}
+                    {widgetVisibility.resolutionHistogram && analytics.resolutionHistogram.length > 0 && (
+                      <div data-widget-id="resolution-histogram" className="dashboard-card">
+                        <ResolutionHistogram data={analytics.resolutionHistogram} />
+                      </div>
+                    )}
+                    {widgetVisibility.reopenedIssues && (
+                      <div data-widget-id="reopened-issues" className="dashboard-card">
+                        <ReopenedIssuesTracker stats={analytics.reopened} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 10: Remaining Widgets */}
+                  <div className="dashboard-row">
+                    {widgetVisibility.bugHotspots && analytics.hotspots.length > 0 && (
+                      <div data-widget-id="bug-hotspots" className="dashboard-card">
+                        <BugHotspots hotspots={analytics.hotspots} />
+                      </div>
+                    )}
+                    {widgetVisibility.criticalUntouched && analytics.criticalUntouched.issues.length > 0 && (
+                      <div data-widget-id="critical-untouched" className="dashboard-card">
+                        <CriticalUntouched stats={analytics.criticalUntouched} />
+                      </div>
+                    )}
+                    {widgetVisibility.repeatBugDetector && analytics.repeatBugs.topRepeatingLabels.length > 0 && (
+                      <div data-widget-id="repeat-bugs" className="dashboard-card">
+                        <RepeatBugDetector stats={analytics.repeatBugs} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Smart Insights & Repository Filter - Full Width */}
+                  {widgetVisibility.smartInsights && analytics.insights.length > 0 && (
+                    <div data-widget-id="smart-insights" className="dashboard-card">
+                      <SmartInsights insights={analytics.insights} />
+                    </div>
+                  )}
+
+                  {widgetVisibility.repositoryFilter && selectedRepos.length > 0 && (
+                    <div data-widget-id="repository-filter" className="dashboard-card">
+                      <RepositoryFilter
+                        repositories={selectedRepos}
+                        activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
+                        onToggle={(repo) => {
+                          setFilters(prev => {
+                            const currentActive = prev.repositories.length > 0 ? prev.repositories : selectedRepos;
+                            const isActive = currentActive.includes(repo);
+                            let newRepos: string[];
+                            
+                            if (isActive) {
+                              newRepos = currentActive.filter(r => r !== repo);
+                            } else {
+                              newRepos = [...currentActive, repo];
+                            }
+                            
+                            if (newRepos.length === selectedRepos.length) {
+                              newRepos = [];
+                            }
+                            
+                            return { ...prev, repositories: newRepos };
+                          });
+                        }}
+                        issueCounts={issues.reduce((acc, issue) => {
+                          acc[issue.repository] = (acc[issue.repository] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>)}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 {availableLabels.length > 0 && (
                   <div className="mb-6">
