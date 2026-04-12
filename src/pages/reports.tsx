@@ -473,7 +473,7 @@ export default function ReportsPage() {
       setGenerationStatus("Creating report record...");
 
       // Get current enabled widgets from state
-      const currentEnabledWidgets = enabledWidgets;
+      const currentEnabledWidgets = widgets.filter(w => w.enabled);
 
       // Create report record
       const { data: reportData, error: reportError } = await supabase
