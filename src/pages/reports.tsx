@@ -735,22 +735,30 @@ export default function ReportsPage() {
   const fetchGitHubRepos = async () => {
     setIsLoadingRepos(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log("Session check:", { session, sessionError });
+      
       if (!session) {
-        toast({ title: "Not authenticated", variant: "destructive" });
+        toast({ title: "Not authenticated", description: "Please log in again.", variant: "destructive" });
         return;
       }
 
-      const { data: connection } = await supabase
+      console.log("User ID:", session.user.id);
+
+      const { data: connection, error: connError } = await supabase
         .from("github_connections")
         .select("access_token")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
+      console.log("Connection query:", { connection, connError });
+
       if (!connection?.access_token) {
         toast({ title: "No GitHub token found", description: "Please connect GitHub on the dashboard.", variant: "destructive" });
         return;
       }
+
+      console.log("Token found, fetching repos...");
 
       const response = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
         headers: {
@@ -760,11 +768,14 @@ export default function ReportsPage() {
       });
 
       if (!response.ok) {
-        toast({ title: "Failed to fetch repos", variant: "destructive" });
+        console.error("GitHub API error:", response.status, await response.text());
+        toast({ title: "Failed to fetch repos", description: `GitHub API error: ${response.status}`, variant: "destructive" });
         return;
       }
 
       const repos = await response.json();
+      console.log(`Fetched ${repos.length} repos from GitHub`);
+      
       const repoList = repos.map((r: any) => ({
         id: r.full_name,
         name: r.name,
