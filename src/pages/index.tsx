@@ -1474,6 +1474,233 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {/* Hidden container for PDF export - renders widgets regardless of dashboard visibility */}
+      <div 
+        id="pdf-print-container" 
+        className="fixed -left-[9999px] top-0 w-[800px] bg-white"
+        aria-hidden="true"
+      >
+        {selectedRepos.length > 0 && !isLoadingIssues && (
+          <div className="p-4 space-y-4">
+            {/* Smart Insights */}
+            {analytics.insights.length > 0 && (
+              <div data-pdf-widget-id="smart-insights" className="bg-white p-4 rounded-lg border">
+                <SmartInsights insights={analytics.insights} />
+              </div>
+            )}
+            
+            {/* Summary Metrics */}
+            <div data-pdf-widget-id="summary-metrics" className="bg-white p-4 rounded-lg border">
+              <DashboardMetrics
+                totalRepos={selectedRepos.length}
+                totalIssues={filteredIssues.length}
+                openIssues={metrics.statusCounts.open}
+                closedIssues={metrics.statusCounts.closed}
+                isLoading={false}
+              />
+            </div>
+            
+            {/* Progress Bar */}
+            <div data-pdf-widget-id="progress-bar" className="bg-white p-4 rounded-lg border">
+              <ProgressBar
+                open={metrics.statusCounts.open}
+                inProgress={metrics.statusCounts.inProgress || 0}
+                closed={metrics.statusCounts.closed}
+                total={filteredIssues.length}
+                isLoading={false}
+              />
+            </div>
+            
+            {/* Project Health */}
+            <div data-pdf-widget-id="project-health" className="bg-white p-4 rounded-lg border">
+              <ProjectHealthGauge issues={filteredIssues} isLoading={false} />
+            </div>
+            
+            {/* Burndown Chart */}
+            <div data-pdf-widget-id="burndown-chart" className="bg-white p-4 rounded-lg border">
+              <BurndownChart issues={filteredIssues} />
+            </div>
+            
+            {/* Flow Efficiency */}
+            <div data-pdf-widget-id="flow-efficiency" className="bg-white p-4 rounded-lg border">
+              <FlowEfficiency issues={filteredIssues} />
+            </div>
+            
+            {/* Severity Heatmap */}
+            {Object.values(analytics.severities).some(v => v > 0) && (
+              <div data-pdf-widget-id="severity-heatmap" className="bg-white p-4 rounded-lg border">
+                <BugSeverityHeatmap severities={analytics.severities} />
+              </div>
+            )}
+            
+            {/* Resolution Time */}
+            {analytics.resolutionTime.overall > 0 && (
+              <div data-pdf-widget-id="resolution-time" className="bg-white p-4 rounded-lg border">
+                <AverageResolutionTime stats={analytics.resolutionTime} />
+              </div>
+            )}
+            
+            {/* Issue Trend */}
+            {analytics.trend.length > 0 && (
+              <div data-pdf-widget-id="issue-trend" className="bg-white p-4 rounded-lg border">
+                <IssueTrendChart data={analytics.trend} days={30} />
+              </div>
+            )}
+            
+            {/* Module Stability */}
+            {analytics.stability.length > 0 && (
+              <div data-pdf-widget-id="module-stability" className="bg-white p-4 rounded-lg border">
+                <ModuleStabilityScore stability={analytics.stability} />
+              </div>
+            )}
+            
+            {/* Reopened Issues */}
+            <div data-pdf-widget-id="reopened-issues" className="bg-white p-4 rounded-lg border">
+              <ReopenedIssuesTracker stats={analytics.reopened} />
+            </div>
+            
+            {/* Bug Category */}
+            {Object.values(analytics.categories).some(v => v > 0) && (
+              <div data-pdf-widget-id="bug-category" className="bg-white p-4 rounded-lg border">
+                <BugCategoryBreakdown categories={analytics.categories} />
+              </div>
+            )}
+            
+            {/* Bug Hotspots */}
+            {analytics.hotspots.length > 0 && (
+              <div data-pdf-widget-id="bug-hotspots" className="bg-white p-4 rounded-lg border">
+                <BugHotspots hotspots={analytics.hotspots} />
+              </div>
+            )}
+            
+            {/* At Risk Release */}
+            <div data-pdf-widget-id="at-risk-release" className="bg-white p-4 rounded-lg border">
+              <AtRiskRelease stats={analytics.atRiskRelease} />
+            </div>
+            
+            {/* Aging Issues */}
+            <div data-pdf-widget-id="aging-issues" className="bg-white p-4 rounded-lg border">
+              <AgingIssues stats={analytics.agingIssues} />
+            </div>
+            
+            {/* Critical Untouched */}
+            {analytics.criticalUntouched.issues.length > 0 && (
+              <div data-pdf-widget-id="critical-untouched" className="bg-white p-4 rounded-lg border">
+                <CriticalUntouched stats={analytics.criticalUntouched} />
+              </div>
+            )}
+            
+            {/* Backlog Growth */}
+            <div data-pdf-widget-id="backlog-growth" className="bg-white p-4 rounded-lg border">
+              <BacklogGrowth stats={analytics.backlogGrowth} />
+            </div>
+            
+            {/* Bug Fix Efficiency */}
+            <div data-pdf-widget-id="bug-fix-efficiency" className="bg-white p-4 rounded-lg border">
+              <BugFixEfficiency stats={analytics.bugFixEfficiency} />
+            </div>
+            
+            {/* Repeat Bugs */}
+            {analytics.repeatBugs.topRepeatingLabels.length > 0 && (
+              <div data-pdf-widget-id="repeat-bugs" className="bg-white p-4 rounded-lg border">
+                <RepeatBugDetector stats={analytics.repeatBugs} />
+              </div>
+            )}
+            
+            {/* Developer Load */}
+            {analytics.developerLoad.developers.length > 0 && (
+              <div data-pdf-widget-id="developer-load" className="bg-white p-4 rounded-lg border">
+                <DeveloperLoad stats={analytics.developerLoad} />
+              </div>
+            )}
+            
+            {/* Focus Recommendations */}
+            {analytics.focusRecommendations.length > 0 && (
+              <div data-pdf-widget-id="focus-recommendations" className="bg-white p-4 rounded-lg border">
+                <FocusRecommendations recommendations={analytics.focusRecommendations} />
+              </div>
+            )}
+            
+            {/* Bug Heatmap */}
+            {analytics.bugHeatmap.length > 0 && (
+              <div data-pdf-widget-id="bug-heatmap" className="bg-white p-4 rounded-lg border">
+                <BugHeatmap data={analytics.bugHeatmap} />
+              </div>
+            )}
+            
+            {/* Resolution Histogram */}
+            {analytics.resolutionHistogram.length > 0 && (
+              <div data-pdf-widget-id="resolution-histogram" className="bg-white p-4 rounded-lg border">
+                <ResolutionHistogram data={analytics.resolutionHistogram} />
+              </div>
+            )}
+            
+            {/* Priority Scatter */}
+            {analytics.priorityScatter.length > 0 && (
+              <div data-pdf-widget-id="priority-scatter" className="bg-white p-4 rounded-lg border">
+                <PriorityScatterPlot data={analytics.priorityScatter} />
+              </div>
+            )}
+            
+            {/* Stacked Area */}
+            {analytics.stackedAreaData.length > 0 && (
+              <div data-pdf-widget-id="stacked-area" className="bg-white p-4 rounded-lg border">
+                <StackedAreaChart data={analytics.stackedAreaData} />
+              </div>
+            )}
+            
+            {/* Issue Funnel */}
+            {analytics.issueFunnel.length > 0 && (
+              <div data-pdf-widget-id="issue-funnel" className="bg-white p-4 rounded-lg border">
+                <IssueFunnelChart stages={analytics.issueFunnel} />
+              </div>
+            )}
+            
+            {/* Backlog Waterfall */}
+            {analytics.backlogWaterfall.length > 0 && (
+              <div data-pdf-widget-id="backlog-waterfall" className="bg-white p-4 rounded-lg border">
+                <BacklogWaterfallChart data={analytics.backlogWaterfall} />
+              </div>
+            )}
+            
+            {/* Module Treemap */}
+            {analytics.moduleTreemap.length > 0 && (
+              <div data-pdf-widget-id="module-treemap" className="bg-white p-4 rounded-lg border">
+                <ModuleTreemap data={analytics.moduleTreemap} />
+              </div>
+            )}
+            
+            {/* Module Radar */}
+            {analytics.moduleRadar.length > 0 && (
+              <div data-pdf-widget-id="module-radar" className="bg-white p-4 rounded-lg border">
+                <ModuleRadarChart data={analytics.moduleRadar} />
+              </div>
+            )}
+            
+            {/* KPI Bullet */}
+            <div data-pdf-widget-id="kpi-bullet" className="bg-white p-4 rounded-lg border">
+              <BulletChart metrics={analytics.kpiMetrics} />
+            </div>
+            
+            {/* Repository Filter */}
+            {selectedRepos.length > 0 && (
+              <div data-pdf-widget-id="repository-filter" className="bg-white p-4 rounded-lg border">
+                <RepositoryFilter
+                  repositories={selectedRepos}
+                  activeRepositories={selectedRepos}
+                  onToggle={() => {}}
+                  issueCounts={issues.reduce((acc, issue) => {
+                    acc[issue.repository] = (acc[issue.repository] || 0) + 1;
+                    return acc;
+                  }, {} as Record<string, number>)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* GitHub Connection Dialog */}
       <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
