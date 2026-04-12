@@ -159,7 +159,14 @@ export default function ReportsPage() {
       return;
     }
     
-    setReports(data || []);
+    // Cast the data to Report type with proper status typing
+    const typedReports: Report[] = (data || []).map(row => ({
+      ...row,
+      status: row.status as "generating" | "completed" | "failed",
+      settings: row.settings as Record<string, unknown>,
+    }));
+    
+    setReports(typedReports);
   };
 
   const loadSettings = async (userId: string) => {
