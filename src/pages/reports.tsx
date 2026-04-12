@@ -570,7 +570,7 @@ export default function ReportsPage() {
         try {
           console.log(`📸 Capturing widget: ${widgetId}`);
           const canvas = await html2canvas(element as HTMLElement, {
-            scale: 2,
+            scale: 1.5, // Reduced from 2 for smaller file size
             useCORS: true,
             allowTaint: true,
             backgroundColor: "#ffffff",
@@ -603,21 +603,56 @@ export default function ReportsPage() {
       setGenerationProgress(80);
       setGenerationStatus("Arranging layout...");
 
-      // Add widgets to PDF with flow layout
+      // Grid layout settings - 2 columns, multiple rows per page
+      const cols = 2;
+      const cellWidth = (contentWidth - 10) / cols; // 10mm gap
+      const maxCellHeight = 60; // Max height per widget in mm
+      const gapX = 10;
+      const gapY = 8;
+      const headerSpace = includeHeader ? 35 : 0;
+      const usableHeight = pageHeight - margin * 2 - headerSpace;
+
+      let currentX = margin;
+      let currentY = yPos;
+      let rowHeight = 0;
+      let widgetsOnPage = 0;
+
       for (const widget of capturedWidgets) {
+        // Calculate widget dimensions to fit in cell
         const aspectRatio = widget.width / widget.height;
-        const widgetWidth = contentWidth;
-        const widgetHeight = widgetWidth / aspectRatio;
+        let widgetWidth = cellWidth;
+        let widgetHeight = widgetWidth / aspectRatio;
         
-        // Check if widget fits on current page
-        if (yPos + widgetHeight > pageHeight - margin) {
-          pdf.addPage();
-          yPos = margin;
+        // Cap height
+        if (widgetHeight > maxCellHeight) {
+          widgetHeight = maxCellHeight;
+          widgetWidth = widgetHeight * aspectRatio;
         }
 
-        const imgData = widget.canvas.toDataURL("image/png");
-        pdf.addImage(imgData, "PNG", margin, yPos, widgetWidth, widgetHeight);
-        yPos += widgetHeight + 8;
+        // Check if we need a new row
+        if (currentX + widgetWidth > pageWidth - margin) {
+          currentX = margin;
+          currentY += rowHeight + gapY;
+          rowHeight = 0;
+        }
+
+        // Check if we need a new page
+        if (currentY + widgetHeight > pageHeight - margin) {
+          pdf.addPage();
+          currentX = margin;
+          currentY = margin;
+          rowHeight = 0;
+          widgetsOnPage = 0;
+        }
+
+        // Convert canvas to JPEG for compression
+        const imgData = widget.canvas.toDataURL("image/jpeg", 0.7);
+        pdf.addImage(imgData, "JPEG", currentX, currentY, widgetWidth, widgetHeight);
+
+        // Update position
+        rowHeight = Math.max(rowHeight, widgetHeight);
+        currentX += widgetWidth + gapX;
+        widgetsOnPage++;
       }
 
       setGenerationProgress(90);
