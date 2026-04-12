@@ -30,47 +30,6 @@ interface PDFExportProps {
   issues?: Issue[];
 }
 
-// Widget column spans - how many columns each widget takes in a 3-column grid
-const WIDGET_SPANS: Record<string, 1 | 2 | 3> = {
-  // 1 column - small stat widgets
-  repositoryFilter: 1,
-  summaryMetrics: 1,
-  sparkline: 1,
-  
-  // 2 columns - medium charts and gauges
-  smartInsights: 2,
-  progressBar: 2,
-  projectHealthGauge: 2,
-  bugCategoryBreakdown: 2,
-  bugSeverityHeatmap: 2,
-  averageResolutionTime: 1,
-  moduleStabilityScore: 1,
-  reopenedIssuesTracker: 1,
-  bugHotspots: 2,
-  atRiskRelease: 2,
-  agingIssues: 2,
-  criticalUntouched: 2,
-  repeatBugDetector: 2,
-  focusRecommendations: 2,
-  bulletChart: 2,
-  burndownChart: 2,
-  flowEfficiency: 2,
-  developerLoad: 2,
-  moduleTreemap: 2,
-  moduleRadarChart: 2,
-  backlogGrowth: 2,
-  bugFixEfficiency: 2,
-  
-  // 3 columns - full width charts
-  issueTrendChart: 3,
-  stackedAreaChart: 3,
-  bugHeatmap: 3,
-  backlogWaterfallChart: 3,
-  resolutionHistogram: 3,
-  priorityScatterPlot: 3,
-  issueFunnelChart: 3,
-};
-
 export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -81,66 +40,53 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
+      const margin = 8;
       const contentWidth = pageWidth - 2 * margin;
-      const headerHeight = 14;
-      const footerHeight = 8;
-      const gap = 3; // Gap between widgets
-      const colWidth = (contentWidth - 2 * gap) / 3; // 3 column grid
+      const headerHeight = 12;
+      const footerHeight = 6;
+      
+      // Grid settings: 3 columns, 3 rows = 9 widgets per page
+      const cols = 3;
+      const rows = 3;
+      const gap = 4;
+      const cellWidth = (contentWidth - (cols - 1) * gap) / cols;
+      const availableHeight = pageHeight - headerHeight - footerHeight - margin * 2;
+      const cellHeight = (availableHeight - (rows - 1) * gap) / rows;
 
       let currentPage = 1;
       let totalPages = 1;
-      let yPosition = headerHeight + 2;
 
       // Header
       const addHeader = () => {
-        pdf.setFillColor(252, 252, 253);
+        pdf.setFillColor(250, 250, 252);
         pdf.rect(0, 0, pageWidth, headerHeight, "F");
         
-        pdf.setFontSize(10);
+        pdf.setFontSize(9);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(30, 41, 59);
         pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", margin, 7);
 
-        pdf.setFontSize(7);
+        pdf.setFontSize(6);
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(100, 116, 139);
         const subtitle = [reportConfig.projectName, reportConfig.reportingPeriod].filter(Boolean).join(" • ");
-        if (subtitle) pdf.text(subtitle, margin, 11);
+        if (subtitle) pdf.text(subtitle, margin, 10);
 
         const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
         pdf.text(today, pageWidth - margin, 7, { align: "right" });
-
-        pdf.setDrawColor(226, 232, 240);
-        pdf.setLineWidth(0.2);
-        pdf.line(margin, headerHeight - 1, pageWidth - margin, headerHeight - 1);
       };
 
       // Footer
       const addFooter = (pageNum: number, total: number) => {
-        pdf.setFontSize(7);
+        pdf.setFontSize(6);
         pdf.setTextColor(148, 163, 184);
         if (reportConfig.showPageNumbers !== false) {
-          pdf.text(`Page ${pageNum} of ${total}`, pageWidth / 2, pageHeight - 4, { align: "center" });
+          pdf.text(`Page ${pageNum} of ${total}`, pageWidth / 2, pageHeight - 3, { align: "center" });
         }
       };
 
-      // New page
-      const startNewPage = () => {
-        currentPage++;
-        totalPages++;
-        pdf.addPage();
-        addHeader();
-        yPosition = headerHeight + 2;
-      };
-
-      // Check if fits
-      const fitsOnPage = (height: number): boolean => {
-        return (yPosition + height) <= (pageHeight - footerHeight - 2);
-      };
-
-      // Capture widget
-      const captureWidget = async (widgetId: string, width: number): Promise<{ canvas: HTMLCanvasElement; isEmpty: boolean } | null> => {
+      // Capture widget with compression
+      const captureWidget = async (widgetId: string): Promise<string | null> => {
         const printContainer = document.getElementById("pdf-print-container");
         let element = printContainer?.querySelector(`[data-pdf-widget-id="${widgetId}"]`) as HTMLElement;
         if (!element) {
@@ -150,7 +96,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
 
         try {
           const container = document.createElement("div");
-          container.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;background:#fff;padding:8px;`;
+          container.style.cssText = `position:fixed;left:-9999px;top:0;width:280px;background:#fff;padding:6px;`;
           
           const clone = element.cloneNode(true) as HTMLElement;
           clone.style.cssText = "width:100%;max-width:100%;background:#fff;color:#1e293b;";
@@ -175,24 +121,30 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
 
           container.appendChild(clone);
           document.body.appendChild(container);
-          await new Promise(r => setTimeout(r, 100));
+          await new Promise(r => setTimeout(r, 50));
 
           // Check if widget is empty
           const text = clone.textContent || "";
           const hasCanvas = clone.querySelector("canvas, svg") !== null;
           const hasNumbers = /\d/.test(text);
-          const isEmpty = !hasCanvas && !hasNumbers && text.trim().length < 20;
+          if (!hasCanvas && !hasNumbers && text.trim().length < 20) {
+            document.body.removeChild(container);
+            return null;
+          }
 
+          // Low resolution capture for smaller file size
           const canvas = await html2canvas(container, {
-            scale: 2,
+            scale: 1, // Lower scale = smaller file
             backgroundColor: "#ffffff",
             logging: false,
             useCORS: true,
-            width: width,
+            width: 280,
           });
 
           document.body.removeChild(container);
-          return { canvas, isEmpty };
+          
+          // Convert to JPEG with compression (0.6 quality)
+          return canvas.toDataURL("image/jpeg", 0.6);
         } catch (error) {
           console.error(`Widget capture error for ${widgetId}:`, error);
           return null;
@@ -206,145 +158,97 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const enabledWidgets = reportConfig.pdfWidgets?.filter((w) => w.enabled) || [];
       
       if (enabledWidgets.length > 0) {
-        pdf.setFontSize(8);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(71, 85, 105);
-        pdf.text("ANALYTICS OVERVIEW", margin, yPosition + 2);
-        yPosition += 6;
-
-        // Process widgets in rows
-        let rowWidgets: Array<{ widget: typeof enabledWidgets[0]; span: number; capture: { canvas: HTMLCanvasElement; isEmpty: boolean } | null }> = [];
-        let rowSpan = 0;
-
-        const flushRow = async () => {
-          if (rowWidgets.length === 0) return;
-
-          // Filter out empty widgets
-          const validWidgets = rowWidgets.filter(w => w.capture && !w.capture.isEmpty);
-          if (validWidgets.length === 0) {
-            rowWidgets = [];
-            rowSpan = 0;
-            return;
-          }
-
-          // Recalculate spans for valid widgets
-          const totalSpan = validWidgets.reduce((sum, w) => sum + w.span, 0);
-          
-          // Find max height for this row
-          let maxHeight = 0;
-          const widgetData: Array<{ config: typeof validWidgets[0]; pdfWidth: number; pdfHeight: number; xPos: number }> = [];
-          let xPos = margin;
-
-          for (const item of validWidgets) {
-            if (!item.capture) continue;
-            
-            // Calculate width based on span (in a 3-column grid)
-            const actualSpan = Math.min(item.span, 3);
-            const pdfWidth = actualSpan * colWidth + (actualSpan - 1) * gap;
-            
-            // Calculate height from canvas aspect ratio
-            const aspectRatio = item.capture.canvas.height / item.capture.canvas.width;
-            let pdfHeight = pdfWidth * aspectRatio * 0.5; // Scale down
-            pdfHeight = Math.min(pdfHeight, 65); // Max height
-            pdfHeight = Math.max(pdfHeight, 20); // Min height
-            
-            maxHeight = Math.max(maxHeight, pdfHeight);
-            widgetData.push({ config: item, pdfWidth, pdfHeight, xPos });
-            xPos += pdfWidth + gap;
-          }
-
-          // Check if row fits
-          if (!fitsOnPage(maxHeight + 8)) {
-            startNewPage();
-          }
-
-          // Draw widgets
-          for (const { config, pdfWidth, pdfHeight, xPos } of widgetData) {
-            if (!config.capture) continue;
-
-            // Label - access from the widget property which is PDFWidgetConfig
-            const widgetLabel = config.widget.label || config.widget.id || "";
-
-            // Label
-            pdf.setFontSize(6);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(100, 116, 139);
-            const label = widgetLabel.length > 30 ? widgetLabel.substring(0, 30) + "..." : widgetLabel;
-            pdf.text(label, xPos, yPosition + 2);
-
-            // Card background
-            pdf.setDrawColor(226, 232, 240);
-            pdf.setFillColor(255, 255, 255);
-            pdf.roundedRect(xPos, yPosition + 3, pdfWidth, pdfHeight, 1, 1, "FD");
-
-            // Image
-            const imgData = config.capture.canvas.toDataURL("image/png");
-            pdf.addImage(imgData, "PNG", xPos + 1, yPosition + 4, pdfWidth - 2, pdfHeight - 2);
-          }
-
-          yPosition += maxHeight + 10;
-          rowWidgets = [];
-          rowSpan = 0;
-        };
-
-        // Process each widget
+        // Capture all widgets first
+        const capturedWidgets: Array<{ id: string; label: string; imgData: string }> = [];
+        
         for (const widget of enabledWidgets) {
-          const span = WIDGET_SPANS[widget.id] || 2;
-          
-          // Capture widget
-          const captureWidth = span === 3 ? 680 : span === 2 ? 450 : 220;
-          const capture = await captureWidget(widget.id, captureWidth);
-          
-          // Skip if capture failed
-          if (!capture) continue;
-
-          // Full width widgets get their own row
-          if (span === 3) {
-            await flushRow();
-            rowWidgets = [{ widget, span, capture }];
-            rowSpan = 3;
-            await flushRow();
-          } else {
-            // Check if widget fits in current row
-            if (rowSpan + span > 3) {
-              await flushRow();
-            }
-            rowWidgets.push({ widget, span, capture });
-            rowSpan += span;
+          const imgData = await captureWidget(widget.id);
+          if (imgData) {
+            capturedWidgets.push({
+              id: widget.id,
+              label: widget.label || widget.id,
+              imgData,
+            });
           }
         }
-        
-        // Flush remaining
-        await flushRow();
+
+        // Calculate pages needed (9 widgets per page)
+        const widgetsPerPage = cols * rows;
+        const widgetPages = Math.ceil(capturedWidgets.length / widgetsPerPage);
+        totalPages = widgetPages + (reportConfig.includeIssueTable && issues.length > 0 ? Math.ceil(issues.length / 25) : 0);
+
+        // Render widgets in grid
+        let widgetIndex = 0;
+        const yStart = headerHeight + 2;
+
+        for (let page = 0; page < widgetPages; page++) {
+          if (page > 0) {
+            pdf.addPage();
+            currentPage++;
+            addHeader();
+          }
+
+          // Draw widgets in 3x3 grid
+          for (let row = 0; row < rows && widgetIndex < capturedWidgets.length; row++) {
+            for (let col = 0; col < cols && widgetIndex < capturedWidgets.length; col++) {
+              const widget = capturedWidgets[widgetIndex];
+              const x = margin + col * (cellWidth + gap);
+              const y = yStart + row * (cellHeight + gap);
+
+              // Label
+              pdf.setFontSize(5);
+              pdf.setFont("helvetica", "bold");
+              pdf.setTextColor(100, 116, 139);
+              const label = widget.label.length > 25 ? widget.label.substring(0, 25) + "..." : widget.label;
+              pdf.text(label, x, y + 3);
+
+              // Card background
+              pdf.setDrawColor(226, 232, 240);
+              pdf.setFillColor(255, 255, 255);
+              pdf.roundedRect(x, y + 4, cellWidth, cellHeight - 5, 1, 1, "FD");
+
+              // Image - fit within cell
+              try {
+                pdf.addImage(widget.imgData, "JPEG", x + 1, y + 5, cellWidth - 2, cellHeight - 7);
+              } catch (e) {
+                console.error("Failed to add image:", e);
+              }
+
+              widgetIndex++;
+            }
+          }
+        }
       }
 
       // Issue table
       if (reportConfig.includeIssueTable && issues.length > 0) {
-        if (yPosition > headerHeight + 50) {
-          startNewPage();
-        }
+        pdf.addPage();
+        currentPage++;
+        addHeader();
 
-        pdf.setFontSize(8);
+        let yPosition = headerHeight + 2;
+
+        pdf.setFontSize(7);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(71, 85, 105);
         pdf.text(`ISSUE LIST (${issues.length} total)`, margin, yPosition);
-        yPosition += 5;
+        yPosition += 4;
         
-        const colWidths = [12, 75, 16, 28, 38];
+        const colWidths = [10, 70, 14, 25, 35];
         const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-        const rowHeight = 5;
+        const rowHeight = 4;
         
         const drawTableHeader = () => {
           pdf.setFillColor(241, 245, 249);
           pdf.rect(margin, yPosition, tableWidth, rowHeight + 0.5, "F");
           
-          pdf.setFontSize(6);
+          pdf.setFontSize(5);
           pdf.setFont("helvetica", "bold");
           pdf.setTextColor(71, 85, 105);
           
           let xPos = margin + 1;
           ["#", "Title", "State", "Labels", "Repository"].forEach((header, i) => {
-            pdf.text(header, xPos, yPosition + 3.5);
+            pdf.text(header, xPos, yPosition + 3);
             xPos += colWidths[i];
           });
           
@@ -353,21 +257,25 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
 
         drawTableHeader();
         pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(5.5);
+        pdf.setFontSize(5);
 
         for (let i = 0; i < issues.length; i++) {
           const issue = issues[i];
           
-          if (yPosition + rowHeight > pageHeight - footerHeight - 4) {
-            startNewPage();
-            pdf.setFontSize(8);
+          if (yPosition + rowHeight > pageHeight - footerHeight - 3) {
+            pdf.addPage();
+            currentPage++;
+            totalPages++;
+            addHeader();
+            yPosition = headerHeight + 2;
+            pdf.setFontSize(7);
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(71, 85, 105);
             pdf.text("ISSUE LIST (continued)", margin, yPosition);
-            yPosition += 5;
+            yPosition += 4;
             drawTableHeader();
             pdf.setFont("helvetica", "normal");
-            pdf.setFontSize(5.5);
+            pdf.setFontSize(5);
           }
 
           if (i % 2 === 0) {
@@ -378,12 +286,12 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           let xPos = margin + 1;
           pdf.setTextColor(71, 85, 105);
 
-          pdf.text(`#${issue.number}`, xPos, yPosition + 3.2);
+          pdf.text(`#${issue.number}`, xPos, yPosition + 2.8);
           xPos += colWidths[0];
 
           pdf.setTextColor(30, 41, 59);
-          const title = issue.title.length > 50 ? issue.title.substring(0, 50) + "..." : issue.title;
-          pdf.text(title, xPos, yPosition + 3.2);
+          const title = issue.title.length > 45 ? issue.title.substring(0, 45) + "..." : issue.title;
+          pdf.text(title, xPos, yPosition + 2.8);
           xPos += colWidths[1];
 
           const state = issue.status || issue.state || "open";
@@ -393,12 +301,12 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             closed: [148, 163, 184],
           };
           pdf.setTextColor(...(colors[state] || [148, 163, 184]));
-          pdf.text(String(state).replace("_", " "), xPos, yPosition + 3.2);
+          pdf.text(String(state).replace("_", " "), xPos, yPosition + 2.8);
           xPos += colWidths[2];
 
           pdf.setTextColor(100, 116, 139);
           const labels = issue.labels.slice(0, 2).map(l => typeof l === "string" ? l : l.name).join(", ");
-          pdf.text(labels.substring(0, 20) || "-", xPos, yPosition + 3.2);
+          pdf.text(labels.substring(0, 18) || "-", xPos, yPosition + 2.8);
           xPos += colWidths[3];
 
           pdf.setTextColor(71, 85, 105);
@@ -408,19 +316,19 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           } else if (issue.repositories) {
             repo = issue.repositories.name || issue.repositories.full_name;
           }
-          pdf.text(repo.substring(0, 22), xPos, yPosition + 3.2);
+          pdf.text(repo.substring(0, 20), xPos, yPosition + 2.8);
 
           yPosition += rowHeight;
         }
       }
 
-      // Add footers
-      for (let i = 1; i <= totalPages; i++) {
+      // Add footers to all pages
+      for (let i = 1; i <= currentPage; i++) {
         pdf.setPage(i);
-        addFooter(i, totalPages);
+        addFooter(i, currentPage);
       }
 
-      // Save
+      // Save with compression
       const filename = `${(reportConfig.projectName || "report").replace(/\s+/g, "-")}-${
         new Date().toISOString().split("T")[0]
       }.pdf`;
