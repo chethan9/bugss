@@ -44,16 +44,16 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const contentWidth = pageWidth - 2 * margin;
       const headerHeight = 25;
       const footerHeight = 10;
-      const usableHeight = pageHeight - headerHeight - footerHeight;
 
-      // Grid settings - 3 columns
+      // Grid settings - 3 columns, 2 rows = 6 widgets per page
       const columns = 3;
+      const rows = 2;
+      const widgetsPerPage = columns * rows;
       const gap = 4;
       const colWidth = (contentWidth - (columns - 1) * gap) / columns;
+      const widgetHeight = 55; // Fixed height per widget
 
       let currentPage = 1;
-      let yPosition = headerHeight;
-      let colIndex = 0;
 
       // Helper: Add header
       const addHeader = (isFirstPage: boolean) => {
@@ -104,19 +104,13 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         }
       };
 
-      // Helper: Start new page
-      const newPage = () => {
-        currentPage++;
-        pdf.addPage();
-        addHeader(false);
-        yPosition = headerHeight;
-        colIndex = 0;
-      };
-
       // Helper: Capture widget with clean styling
       const captureWidget = async (widgetId: string): Promise<HTMLCanvasElement | null> => {
         const element = document.querySelector(`[data-widget-id="${widgetId}"]`) as HTMLElement;
-        if (!element) return null;
+        if (!element) {
+          console.warn(`Widget not found: ${widgetId}`);
+          return null;
+        }
 
         try {
           const container = document.createElement("div");
@@ -126,7 +120,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             top: 0;
             width: 320px;
             background: #ffffff;
-            padding: 12px;
+            padding: 8px;
             box-sizing: border-box;
           `;
           
@@ -139,20 +133,22 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             overflow: visible;
           `;
           
-          // Fix dark mode colors
+          // Fix dark mode colors recursively
           const fixColors = (el: HTMLElement) => {
             const computed = window.getComputedStyle(el);
             const color = computed.color;
             const bg = computed.backgroundColor;
             
+            // Fix light text (dark mode)
             if (color.includes("255, 255, 255") || color.includes("248, 250, 252") || color.includes("226, 232, 240")) {
               el.style.color = "#1e293b";
             }
+            // Fix dark backgrounds
             if (bg.includes("15, 23, 42") || bg.includes("30, 41, 59") || bg.includes("51, 65, 85") || bg === "rgba(0, 0, 0, 0)") {
               el.style.backgroundColor = "#ffffff";
             }
             
-            // Fix SVG
+            // Fix SVG elements
             if (el.tagName === "svg" || el.closest("svg")) {
               if (computed.fill === "rgb(255, 255, 255)") el.style.fill = "#1e293b";
               if (computed.stroke === "rgb(255, 255, 255)") el.style.stroke = "#1e293b";
@@ -162,6 +158,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           fixColors(clone);
           clone.querySelectorAll("*").forEach((child) => fixColors(child as HTMLElement));
           
+          // Fix card backgrounds
           clone.querySelectorAll('[class*="card"], [class*="Card"]').forEach((card) => {
             (card as HTMLElement).style.backgroundColor = "#ffffff";
             (card as HTMLElement).style.borderColor = "#e2e8f0";
@@ -170,7 +167,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           container.appendChild(clone);
           document.body.appendChild(container);
 
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           const canvas = await html2canvas(container, {
             scale: 2,
@@ -189,85 +186,105 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
 
       // Start PDF
       addHeader(true);
+      let yPosition = headerHeight;
 
-      // Capture and render widgets in 3-column grid
+      // Capture all enabled widgets
       const enabledWidgets = reportConfig.pdfWidgets?.filter((w) => w.enabled) || [];
+      console.log(`Capturing ${enabledWidgets.length} enabled widgets...`);
       
-      if (enabledWidgets.length > 0) {
-        // Section title
+      const widgetCanvases: { canvas: HTMLCanvasElement; label: string }[] = [];
+      
+      for (const widget of enabledWidgets) {
+        const canvas = await captureWidget(widget.id);
+        if (canvas) {
+          widgetCanvases.push({ canvas, label: widget.label });
+          console.log(`Captured: ${widget.label}`);
+        }
+      }
+
+      console.log(`Successfully captured ${widgetCanvases.length} widgets`);
+
+      if (widgetCanvases.length > 0) {
+        // Section title on first page
         pdf.setFontSize(9);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(71, 85, 105);
         pdf.text("ANALYTICS WIDGETS", margin, yPosition + 4);
         yPosition += 8;
 
-        const widgetCanvases: { canvas: HTMLCanvasElement; label: string }[] = [];
+        // Render widgets in grid - 6 per page (3 columns x 2 rows)
+        let widgetIndex = 0;
         
-        for (const widget of enabledWidgets) {
-          const canvas = await captureWidget(widget.id);
-          if (canvas) {
-            widgetCanvases.push({ canvas, label: widget.label });
+        while (widgetIndex < widgetCanvases.length) {
+          // Check if we need a new page (not first page and at start of new batch)
+          if (widgetIndex > 0 && widgetIndex % widgetsPerPage === 0) {
+            currentPage++;
+            pdf.addPage();
+            addHeader(false);
+            yPosition = headerHeight;
+            
+            // Section title on continuation pages
+            pdf.setFontSize(9);
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(71, 85, 105);
+            pdf.text("ANALYTICS WIDGETS (continued)", margin, yPosition + 4);
+            yPosition += 8;
           }
-        }
 
-        // Calculate row heights and render widgets
-        let rowWidgets: { canvas: HTMLCanvasElement; label: string; height: number }[] = [];
-        
-        for (let i = 0; i < widgetCanvases.length; i++) {
-          const { canvas, label } = widgetCanvases[i];
-          const aspectRatio = canvas.height / canvas.width;
-          const widgetHeight = Math.min(colWidth * aspectRatio, 50); // Cap height at 50mm
+          // Render up to 6 widgets on this page
+          const pageWidgets = widgetCanvases.slice(widgetIndex, widgetIndex + widgetsPerPage);
           
-          rowWidgets.push({ canvas, label, height: widgetHeight });
-          
-          // When we have 3 widgets or it's the last widget, render the row
-          if (rowWidgets.length === columns || i === widgetCanvases.length - 1) {
-            const rowHeight = Math.max(...rowWidgets.map(w => w.height)) + 6; // +6 for label
+          for (let i = 0; i < pageWidgets.length; i++) {
+            const { canvas, label } = pageWidgets[i];
+            const row = Math.floor(i / columns);
+            const col = i % columns;
             
-            // Check if row fits on current page
-            if (yPosition + rowHeight > pageHeight - footerHeight) {
-              newPage();
-            }
+            const xPos = margin + col * (colWidth + gap);
+            const yPos = yPosition + row * (widgetHeight + gap + 6);
             
-            // Render row
-            rowWidgets.forEach((widget, idx) => {
-              const xPos = margin + idx * (colWidth + gap);
-              
-              // Widget label
-              pdf.setFontSize(6);
-              pdf.setFont("helvetica", "bold");
-              pdf.setTextColor(100, 116, 139);
-              const truncatedLabel = widget.label.length > 20 ? widget.label.substring(0, 18) + "..." : widget.label;
-              pdf.text(truncatedLabel, xPos, yPosition + 3);
-              
-              // Widget border
-              pdf.setDrawColor(226, 232, 240);
-              pdf.setFillColor(255, 255, 255);
-              pdf.setLineWidth(0.2);
-              pdf.roundedRect(xPos, yPosition + 4, colWidth, widget.height, 1, 1, "FD");
-              
-              // Widget image
-              pdf.addImage(
-                widget.canvas.toDataURL("image/png"),
-                "PNG",
-                xPos + 1,
-                yPosition + 5,
-                colWidth - 2,
-                widget.height - 2
-              );
-            });
+            // Widget label
+            pdf.setFontSize(6);
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(100, 116, 139);
+            const truncatedLabel = label.length > 22 ? label.substring(0, 20) + "..." : label;
+            pdf.text(truncatedLabel, xPos, yPos + 3);
             
-            yPosition += rowHeight + 4;
-            rowWidgets = [];
+            // Widget border/background
+            pdf.setDrawColor(226, 232, 240);
+            pdf.setFillColor(255, 255, 255);
+            pdf.setLineWidth(0.3);
+            pdf.roundedRect(xPos, yPos + 4, colWidth, widgetHeight, 2, 2, "FD");
+            
+            // Widget image - fit to cell
+            const imgWidth = colWidth - 4;
+            const imgHeight = widgetHeight - 4;
+            pdf.addImage(
+              canvas.toDataURL("image/png"),
+              "PNG",
+              xPos + 2,
+              yPos + 6,
+              imgWidth,
+              imgHeight
+            );
           }
+
+          widgetIndex += widgetsPerPage;
         }
+        
+        // Update yPosition after all widgets on current page
+        const widgetsOnLastPage = widgetCanvases.length % widgetsPerPage || widgetsPerPage;
+        const rowsOnLastPage = Math.ceil(widgetsOnLastPage / columns);
+        yPosition += rowsOnLastPage * (widgetHeight + gap + 6) + 10;
       }
 
       // Issue table
       if (reportConfig.includeIssueTable && issues.length > 0) {
-        // Start on new page if less than 40mm remaining
-        if (yPosition > pageHeight - footerHeight - 40) {
-          newPage();
+        // Start on new page if less than 50mm remaining
+        if (yPosition > pageHeight - footerHeight - 50) {
+          currentPage++;
+          pdf.addPage();
+          addHeader(false);
+          yPosition = headerHeight;
         }
 
         // Section title
@@ -309,7 +326,10 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           const issue = issues[i];
           
           if (yPosition + rowHeight > pageHeight - footerHeight) {
-            newPage();
+            currentPage++;
+            pdf.addPage();
+            addHeader(false);
+            yPosition = headerHeight;
             pdf.setFontSize(9);
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(71, 85, 105);
@@ -385,6 +405,8 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         new Date().toISOString().split("T")[0]
       }.pdf`;
       pdf.save(filename);
+      
+      console.log(`PDF generated: ${filename}, ${totalPages} pages`);
     } catch (error) {
       console.error("PDF generation error:", error);
       alert("Failed to generate PDF. Please try again.");
