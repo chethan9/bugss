@@ -238,10 +238,11 @@ export default function Home() {
           if (settings.widget_visibility) {
             setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
           }
-          if (settings.widget_order) {
+          if (settings.widget_order && Array.isArray(settings.widget_order)) {
             setWidgetOrder(settings.widget_order as (keyof WidgetVisibility)[]);
           }
-          if (settings.widgets_per_row) {
+          // Fix: Check for number type instead of truthy value (0 would fail truthy check)
+          if (typeof settings.widgets_per_row === "number" && settings.widgets_per_row >= 1 && settings.widgets_per_row <= 4) {
             setWidgetsPerRow(settings.widgets_per_row);
           }
           if (settings.app_name) {
