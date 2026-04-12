@@ -6,15 +6,7 @@ import Masonry from "react-masonry-css";
 import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff, Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -194,6 +186,7 @@ export default function Home() {
   const [widgetsPerRow, setWidgetsPerRow] = useState(3);
   const [widgetOrder, setWidgetOrder] = useState<WidgetKey[]>(DEFAULT_WIDGET_ORDER);
   const [widgetSizes, setWidgetSizes] = useState<Record<WidgetKey, WidgetSize>>(DEFAULT_WIDGET_SIZES);
+  const [showWidgetSettings, setShowWidgetSettings] = useState(false);
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -973,17 +966,9 @@ export default function Home() {
                       Manage Repositories
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <WidgetSettings 
-                        visibility={widgetVisibility}
-                        onVisibilityChange={handleVisibilityChange}
-                        widgetsPerRow={widgetsPerRow}
-                        onWidgetsPerRowChange={setWidgetsPerRow}
-                        widgetOrder={widgetOrder}
-                        onWidgetOrderChange={setWidgetOrder}
-                        widgetSizes={widgetSizes}
-                        onWidgetSizeChange={handleWidgetSizeChange}
-                      />
+                    <DropdownMenuItem onClick={() => setShowWidgetSettings(true)}>
+                      <LayoutGrid className="mr-2 h-4 w-4" />
+                      Widget Settings
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -1836,6 +1821,28 @@ export default function Home() {
               </div>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Widget Settings Modal */}
+      <Dialog open={showWidgetSettings} onOpenChange={setShowWidgetSettings}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LayoutGrid className="h-5 w-5" />
+              Widget Settings
+            </DialogTitle>
+          </DialogHeader>
+          <WidgetSettings 
+            visibility={widgetVisibility}
+            onVisibilityChange={handleVisibilityChange}
+            widgetsPerRow={widgetsPerRow}
+            onWidgetsPerRowChange={setWidgetsPerRow}
+            widgetOrder={widgetOrder}
+            onWidgetOrderChange={setWidgetOrder}
+            widgetSizes={widgetSizes}
+            onWidgetSizeChange={handleWidgetSizeChange}
+          />
         </DialogContent>
       </Dialog>
     </div>
