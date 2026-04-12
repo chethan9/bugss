@@ -193,6 +193,10 @@ export default function ReportsPage() {
   // Data for widgets
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
+  
+  // Available repositories
+  const [availableRepos, setAvailableRepos] = useState<Array<{ id: string; name: string; full_name: string }>>([]);
+  const [reposForReport, setReposForReport] = useState<string[]>([]);
 
   // Calculate analytics data for widgets
   const analytics = useMemo(() => {
@@ -246,6 +250,7 @@ export default function ReportsPage() {
       setUser(session.user);
       loadReports(session.user.id);
       loadSettings(session.user.id);
+      loadAvailableRepositories(session.user.id);
       setIsLoading(false);
     };
     checkAuth();
@@ -284,70 +289,40 @@ export default function ReportsPage() {
       if (data.app_name) setAppName(data.app_name);
       if (data.logo_url) setLogoUrl(data.logo_url);
     }
+  };
 
-    // Load issues and repos from localStorage for widget rendering
-    const savedIssues = localStorage.getItem("github_issues");
-    const savedRepos = localStorage.getItem("selected_repos");
-    
-    if (savedIssues) {
-      try {
-        setIssues(JSON.parse(savedIssues));
-      } catch (e) {
-        console.error("Failed to parse saved issues");
-      }
-    }
-    
-    if (savedRepos) {
-      try {
-        setSelectedRepos(JSON.parse(savedRepos));
-      } catch (e) {
-        console.error("Failed to parse saved repos");
-      }
+  const loadAvailableRepositories = async (userId: string) => {
+    const { data: connection } = await supabase
+      .from("github_connections")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!connection) return;
+
+    const { data: repos } = await supabase
+      .from("repositories")
+      .select("id, name, full_name")
+      .eq("connection_id", connection.id)
+      .order("name");
+
+    if (repos) {
+      setAvailableRepos(repos);
+      // Auto-select all by default
+      setReposForReport(repos.map(r => r.id));
     }
   };
 
   const fetchIssuesFromSupabase = async (): Promise<{ issues: GitHubIssue[]; repos: string[] }> => {
     try {
-      console.log("🔍 Fetching issues from Supabase...");
+      console.log("🔍 Fetching issues for selected repositories...");
       
-      // Get user from session directly, not from state
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log("Session check:", { session, sessionError });
-      
-      if (!session || !session.user) {
-        console.error("❌ No session found");
+      if (reposForReport.length === 0) {
+        console.warn("❌ No repositories selected");
         return { issues: [], repos: [] };
       }
 
-      const userId = session.user.id;
-      
-      const { data: connection, error: connError } = await supabase
-        .from("github_connections")
-        .select("id")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      console.log("Connection query:", { connection, connError });
-
-      if (!connection) {
-        console.warn("❌ No GitHub connection found");
-        return { issues: [], repos: [] };
-      }
-
-      // Get ALL repositories (remove is_tracked filter)
-      const { data: repos, error: reposError } = await supabase
-        .from("repositories")
-        .select("id, name, full_name")
-        .eq("connection_id", connection.id);
-
-      console.log("Repositories query:", { repos, reposError, count: repos?.length });
-
-      if (!repos || repos.length === 0) {
-        console.warn("❌ No repositories found");
-        return { issues: [], repos: [] };
-      }
-
-      // Get all issues from repositories
+      // Get all issues from selected repositories
       const { data: issuesData, error: issuesError } = await supabase
         .from("issues")
         .select(`
@@ -360,10 +335,10 @@ export default function ReportsPage() {
             connection_id
           )
         `)
-        .in("repository_id", repos.map(r => r.id))
+        .in("repository_id", reposForReport)
         .order("created_at", { ascending: false });
 
-      console.log("Issues query:", { issuesData, issuesError, count: issuesData?.length });
+      console.log("Issues query:", { issuesError, count: issuesData?.length });
 
       if (issuesData && issuesData.length > 0) {
         // Transform to GitHubIssue format
@@ -384,17 +359,19 @@ export default function ReportsPage() {
           url: issue.html_url,
         }));
 
-        const repoNames = repos.map(r => r.full_name);
+        const repoNames = availableRepos
+          .filter(r => reposForReport.includes(r.id))
+          .map(r => r.full_name);
         
         // Update state for hidden widget container
         setIssues(transformedIssues);
         setSelectedRepos(repoNames);
         
-        console.log(`✅ Loaded ${transformedIssues.length} issues from ${repos.length} repositories`);
+        console.log(`✅ Loaded ${transformedIssues.length} issues from ${repoNames.length} repositories`);
         return { issues: transformedIssues, repos: repoNames };
       } else {
-        console.warn("❌ No issues found in repositories");
-        return { issues: [], repos: repos.map(r => r.full_name) };
+        console.warn("❌ No issues found in selected repositories");
+        return { issues: [], repos: [] };
       }
     } catch (error) {
       console.error("❌ Error fetching issues from Supabase:", error);
@@ -419,6 +396,15 @@ export default function ReportsPage() {
   const generateReport = async () => {
     if (!user) return;
     
+    if (reposForReport.length === 0) {
+      toast({
+        title: "No repositories selected",
+        description: "Please select at least one repository to generate a report.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const enabledWidgets = widgets.filter(w => w.enabled);
     if (enabledWidgets.length === 0) {
       toast({
@@ -439,7 +425,7 @@ export default function ReportsPage() {
     if (fetchedIssues.length === 0) {
       toast({
         title: "No data available",
-        description: "Please go to the dashboard and sync your repositories first.",
+        description: "No issues found in selected repositories. Please sync your repositories on the dashboard first.",
         variant: "destructive",
       });
       setGenerationProgress(0);
@@ -764,6 +750,75 @@ export default function ReportsPage() {
                     />
                   </div>
 
+                  {/* Repository Selection */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base">
+                        Select Repositories ({reposForReport.length}/{availableRepos.length})
+                      </Label>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setReposForReport(availableRepos.map(r => r.id))}
+                        >
+                          Select All
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setReposForReport([])}
+                        >
+                          Deselect All
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {availableRepos.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm">No repositories found. Please sync your repositories on the dashboard first.</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-48 border rounded-lg p-3">
+                        <div className="space-y-2">
+                          {availableRepos.map((repo) => (
+                            <div
+                              key={repo.id}
+                              onClick={() => {
+                                setReposForReport(prev => 
+                                  prev.includes(repo.id) 
+                                    ? prev.filter(id => id !== repo.id)
+                                    : [...prev, repo.id]
+                                );
+                              }}
+                              className={`
+                                p-3 rounded-lg border cursor-pointer transition-all
+                                ${reposForReport.includes(repo.id)
+                                  ? "bg-primary/10 border-primary" 
+                                  : "bg-muted/50 border-transparent hover:border-muted-foreground/20"
+                                }
+                              `}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={`
+                                  w-4 h-4 rounded border-2 flex items-center justify-center
+                                  ${reposForReport.includes(repo.id) ? "bg-primary border-primary" : "border-muted-foreground/30"}
+                                `}>
+                                  {reposForReport.includes(repo.id) && (
+                                    <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium truncate">{repo.full_name}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+
+                  <Separator />
+
                   {/* Options */}
                   <div className="flex flex-wrap gap-6">
                     <div className="flex items-center gap-2">
@@ -850,7 +905,7 @@ export default function ReportsPage() {
                   {/* Generate Button */}
                   <Button
                     onClick={generateReport}
-                    disabled={isGenerating || enabledCount === 0}
+                    disabled={isGenerating || enabledCount === 0 || reposForReport.length === 0}
                     className="w-full gap-2"
                     size="lg"
                   >
@@ -862,7 +917,7 @@ export default function ReportsPage() {
                     ) : (
                       <>
                         <FileDown className="h-4 w-4" />
-                        Generate Report
+                        Generate Report ({reposForReport.length} {reposForReport.length === 1 ? "repo" : "repos"})
                       </>
                     )}
                   </Button>
