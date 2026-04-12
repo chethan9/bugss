@@ -306,7 +306,7 @@ export default function ReportsPage() {
     }
   };
 
-  const fetchIssuesFromSupabase = async () => {
+  const fetchIssuesFromSupabase = async (): Promise<{ issues: GitHubIssue[]; repos: string[] }> => {
     try {
       const { data: connection } = await supabase
         .from("github_connections")
@@ -316,7 +316,7 @@ export default function ReportsPage() {
 
       if (!connection) {
         console.warn("No GitHub connection found");
-        return;
+        return { issues: [], repos: [] };
       }
 
       // Get all tracked repositories
@@ -328,7 +328,7 @@ export default function ReportsPage() {
 
       if (!repos || repos.length === 0) {
         console.warn("No tracked repositories found");
-        return;
+        return { issues: [], repos: [] };
       }
 
       // Get all issues from tracked repositories
@@ -366,14 +366,21 @@ export default function ReportsPage() {
           url: issue.html_url,
         }));
 
+        const repoNames = repos.map(r => r.full_name);
+        
+        // Update state for hidden widget container
         setIssues(transformedIssues);
-        setSelectedRepos(repos.map(r => r.full_name));
+        setSelectedRepos(repoNames);
+        
         console.log(`✅ Loaded ${transformedIssues.length} issues from ${repos.length} repositories`);
+        return { issues: transformedIssues, repos: repoNames };
       } else {
         console.warn("No issues found in tracked repositories");
+        return { issues: [], repos: repos.map(r => r.full_name) };
       }
     } catch (error) {
       console.error("Error fetching issues from Supabase:", error);
+      return { issues: [], repos: [] };
     }
   };
 
@@ -409,15 +416,13 @@ export default function ReportsPage() {
     setIsGenerating(true);
     setGenerationProgress(5);
 
-    await fetchIssuesFromSupabase();
+    const { issues: fetchedIssues, repos: fetchedRepos } = await fetchIssuesFromSupabase();
 
-    // Wait a bit for state to update
+    // Wait a bit for state to update for the hidden container
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Validate we have data
-    const currentIssues = issues.length > 0 ? issues : JSON.parse(localStorage.getItem("github_issues") || "[]");
-    
-    if (currentIssues.length === 0) {
+    // Use the returned data, not state
+    if (fetchedIssues.length === 0) {
       toast({
         title: "No data available",
         description: "Please go to the dashboard and sync your repositories first.",
@@ -429,7 +434,7 @@ export default function ReportsPage() {
       return;
     }
 
-    console.log(`📊 Generating report with ${currentIssues.length} issues from ${selectedRepos.length} repositories`);
+    console.log(`📊 Generating report with ${fetchedIssues.length} issues from ${fetchedRepos.length} repositories`);
 
     setGenerationProgress(10);
     setGenerationStatus("Initializing...");
