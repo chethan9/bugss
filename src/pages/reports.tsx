@@ -411,30 +411,31 @@ export default function ReportsPage() {
       return;
     }
 
-    // Fetch fresh data from Supabase
+    // Show loading status but DON'T set isGenerating yet (widgets won't render until we have data)
     setGenerationStatus("Loading data...");
-    setIsGenerating(true);
     setGenerationProgress(5);
 
     const { issues: fetchedIssues, repos: fetchedRepos } = await fetchIssuesFromSupabase();
 
-    // Wait a bit for state to update for the hidden container
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Use the returned data, not state
+    // Validate we have data BEFORE rendering widgets
     if (fetchedIssues.length === 0) {
       toast({
         title: "No data available",
         description: "Please go to the dashboard and sync your repositories first.",
         variant: "destructive",
       });
-      setIsGenerating(false);
       setGenerationProgress(0);
       setGenerationStatus("");
       return;
     }
 
     console.log(`📊 Generating report with ${fetchedIssues.length} issues from ${fetchedRepos.length} repositories`);
+
+    // NOW set isGenerating to true - this triggers the hidden container to render with the loaded data
+    setIsGenerating(true);
+    
+    // Wait for React to update state and render the hidden container with widgets
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     setGenerationProgress(10);
     setGenerationStatus("Initializing...");
