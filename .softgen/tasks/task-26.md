@@ -1,6 +1,6 @@
 ---
 title: Create Reports Page with History
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [reports, pdf, history]
@@ -20,4 +20,4 @@ Create a dedicated Reports page accessible via Menu > Reports. The page should i
 - [x] Display report history with name, date, size, download button
 - [x] Show ongoing generation status with progress
 - [x] Add Reports link to Menu dropdown
-- [ ] Update index.tsx to use simple export button linking to reports page
+- [x] Update index.tsx to use simple export button linking to reports page
