@@ -310,10 +310,21 @@ export default function ReportsPage() {
     try {
       console.log("🔍 Fetching issues from Supabase...");
       
+      // Get user from session directly, not from state
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log("Session check:", { session, sessionError });
+      
+      if (!session || !session.user) {
+        console.error("❌ No session found");
+        return { issues: [], repos: [] };
+      }
+
+      const userId = session.user.id;
+      
       const { data: connection, error: connError } = await supabase
         .from("github_connections")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .maybeSingle();
 
       console.log("Connection query:", { connection, connError });
