@@ -31,10 +31,22 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 
   if (!data) return null;
 
+  // Ensure widgets_per_row is a valid number
+  let widgetsPerRow = 2; // default
+  if (data.widgets_per_row !== null && data.widgets_per_row !== undefined) {
+    const parsed = typeof data.widgets_per_row === "number" 
+      ? data.widgets_per_row 
+      : parseInt(String(data.widgets_per_row), 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 4) {
+      widgetsPerRow = parsed;
+    }
+  }
+
   return {
     ...data,
     widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
     widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    widgets_per_row: widgetsPerRow,
     selected_repos: (data.selected_repos as unknown as string[]) || [],
     app_name: data.app_name || "FixFlix",
     logo_url: data.logo_url || null,
@@ -66,6 +78,7 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     ...data,
     widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
     widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
+    widgets_per_row: data.widgets_per_row || 3,
     selected_repos: (data.selected_repos as unknown as string[]) || [],
     app_name: data.app_name || "FixFlix",
     logo_url: data.logo_url || null,
