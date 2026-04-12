@@ -308,31 +308,36 @@ export default function ReportsPage() {
 
   const fetchIssuesFromSupabase = async (): Promise<{ issues: GitHubIssue[]; repos: string[] }> => {
     try {
-      const { data: connection } = await supabase
+      console.log("🔍 Fetching issues from Supabase...");
+      
+      const { data: connection, error: connError } = await supabase
         .from("github_connections")
         .select("id")
         .eq("user_id", user.id)
         .maybeSingle();
 
+      console.log("Connection query:", { connection, connError });
+
       if (!connection) {
-        console.warn("No GitHub connection found");
+        console.warn("❌ No GitHub connection found");
         return { issues: [], repos: [] };
       }
 
-      // Get all tracked repositories
-      const { data: repos } = await supabase
+      // Get ALL repositories (remove is_tracked filter)
+      const { data: repos, error: reposError } = await supabase
         .from("repositories")
         .select("id, name, full_name")
-        .eq("connection_id", connection.id)
-        .eq("is_tracked", true);
+        .eq("connection_id", connection.id);
+
+      console.log("Repositories query:", { repos, reposError, count: repos?.length });
 
       if (!repos || repos.length === 0) {
-        console.warn("No tracked repositories found");
+        console.warn("❌ No repositories found");
         return { issues: [], repos: [] };
       }
 
-      // Get all issues from tracked repositories
-      const { data: issuesData } = await supabase
+      // Get all issues from repositories
+      const { data: issuesData, error: issuesError } = await supabase
         .from("issues")
         .select(`
           *,
@@ -346,6 +351,8 @@ export default function ReportsPage() {
         `)
         .in("repository_id", repos.map(r => r.id))
         .order("created_at", { ascending: false });
+
+      console.log("Issues query:", { issuesData, issuesError, count: issuesData?.length });
 
       if (issuesData && issuesData.length > 0) {
         // Transform to GitHubIssue format
@@ -375,11 +382,11 @@ export default function ReportsPage() {
         console.log(`✅ Loaded ${transformedIssues.length} issues from ${repos.length} repositories`);
         return { issues: transformedIssues, repos: repoNames };
       } else {
-        console.warn("No issues found in tracked repositories");
+        console.warn("❌ No issues found in repositories");
         return { issues: [], repos: repos.map(r => r.full_name) };
       }
     } catch (error) {
-      console.error("Error fetching issues from Supabase:", error);
+      console.error("❌ Error fetching issues from Supabase:", error);
       return { issues: [], repos: [] };
     }
   };
