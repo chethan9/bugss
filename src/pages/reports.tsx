@@ -293,143 +293,134 @@ export default function ReportsPage() {
 
   const loadAvailableRepositories = async (userId: string) => {
     try {
-      console.log("📚 Loading repositories...");
+      console.log("📚 Loading repositories from GitHub...");
       
-      const { data: connection, error: connError } = await supabase
+      // Get GitHub token from connection
+      const { data: connection } = await supabase
         .from("github_connections")
-        .select("id")
+        .select("id, access_token")
         .eq("user_id", userId)
         .maybeSingle();
 
-      console.log("Connection:", { connection, connError });
-
-      if (!connection) {
-        console.warn("No GitHub connection found");
+      if (!connection || !connection.access_token) {
+        console.warn("No GitHub connection or token found");
         return;
       }
 
-      // Query repositories directly with connection_id
-      const { data: reposData, error: reposError } = await supabase
-        .from("repositories")
-        .select("id, name, full_name")
-        .eq("connection_id", connection.id)
-        .order("name");
+      // Fetch repos directly from GitHub API
+      const response = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
+        headers: {
+          Authorization: `Bearer ${connection.access_token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
 
-      console.log("Repositories from table:", { reposData, reposError, count: reposData?.length });
-
-      if (reposData && reposData.length > 0) {
-        setAvailableRepos(reposData);
-        setReposForReport(reposData.map(r => r.id));
-        console.log(`✅ Loaded ${reposData.length} repositories`);
+      if (!response.ok) {
+        console.error("GitHub API error:", response.status);
         return;
       }
 
-      // Fallback: Fetch repos from issues if repositories table is empty
-      console.log("Trying fallback: fetch from issues...");
-      const { data: issues, error: issuesError } = await supabase
-        .from("issues")
-        .select(`
-          repository_id,
-          repositories!inner(
-            id,
-            name,
-            full_name,
-            owner,
-            connection_id
-          )
-        `)
-        .eq("repositories.connection_id", connection.id);
+      const repos = await response.json();
+      console.log(`✅ Fetched ${repos.length} repos from GitHub`);
 
-      console.log("Issues query:", { issues, issuesError, count: issues?.length });
+      const repoList = repos.map((r: any) => ({
+        id: r.id.toString(),
+        name: r.name,
+        full_name: r.full_name,
+      }));
 
-      if (issues && issues.length > 0) {
-        // Extract unique repositories
-        const uniqueRepos = Array.from(
-          new Map(
-            issues.map((issue: any) => [
-              issue.repositories.id,
-              {
-                id: issue.repositories.id,
-                name: issue.repositories.name,
-                full_name: issue.repositories.full_name,
-              }
-            ])
-          ).values()
-        );
-
-        setAvailableRepos(uniqueRepos);
-        setReposForReport(uniqueRepos.map(r => r.id));
-        console.log(`✅ Loaded ${uniqueRepos.length} repositories from issues`);
-      } else {
-        console.warn("No repositories or issues found");
-      }
+      setAvailableRepos(repoList);
+      // Auto-select first 5 or all if less
+      setReposForReport(repoList.slice(0, 5).map((r: any) => r.id));
     } catch (error) {
-      console.error("Error loading repositories:", error);
+      console.error("Error loading repos from GitHub:", error);
     }
   };
 
   const fetchIssuesFromSupabase = async (): Promise<{ issues: GitHubIssue[]; repos: string[] }> => {
     try {
-      console.log("🔍 Fetching issues for selected repositories...");
+      console.log("🔍 Fetching issues from GitHub...");
       
       if (reposForReport.length === 0) {
         console.warn("❌ No repositories selected");
         return { issues: [], repos: [] };
       }
 
-      // Get all issues from selected repositories
-      const { data: issuesData, error: issuesError } = await supabase
-        .from("issues")
-        .select(`
-          *,
-          repositories!inner(
-            id,
-            name,
-            full_name,
-            owner,
-            connection_id
-          )
-        `)
-        .in("repository_id", reposForReport)
-        .order("created_at", { ascending: false });
+      // Get GitHub token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { issues: [], repos: [] };
 
-      console.log("Issues query:", { issuesError, count: issuesData?.length });
+      const { data: connection } = await supabase
+        .from("github_connections")
+        .select("access_token")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
 
-      if (issuesData && issuesData.length > 0) {
-        // Transform to GitHubIssue format
-        const transformedIssues: GitHubIssue[] = issuesData.map((issue: any) => ({
-          id: issue.id,
-          number: issue.number,
-          title: issue.title,
-          body: issue.body || "",
-          status: issue.state === "closed" ? "closed" : "open",
-          labels: (issue.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
-          assignees: issue.assignees || [],
-          created_at: issue.created_at,
-          updated_at: issue.updated_at,
-          closed_at: issue.closed_at,
-          repository: issue.repositories?.full_name || "Unknown",
-          html_url: issue.html_url,
-          createdAt: issue.created_at,
-          url: issue.html_url,
-        }));
-
-        const repoNames = availableRepos
-          .filter(r => reposForReport.includes(r.id))
-          .map(r => r.full_name);
-        
-        // Update state for hidden widget container
-        setIssues(transformedIssues);
-        setSelectedRepos(repoNames);
-        
-        console.log(`✅ Loaded ${transformedIssues.length} issues from ${repoNames.length} repositories`);
-        return { issues: transformedIssues, repos: repoNames };
-      } else {
-        console.warn("❌ No issues found in selected repositories");
+      if (!connection?.access_token) {
+        console.error("No GitHub token found");
         return { issues: [], repos: [] };
       }
+
+      // Get selected repo full names
+      const selectedRepoNames = availableRepos
+        .filter(r => reposForReport.includes(r.id))
+        .map(r => r.full_name);
+
+      console.log("Fetching issues for repos:", selectedRepoNames);
+
+      // Fetch issues directly from GitHub for each selected repo
+      const allIssues: GitHubIssue[] = [];
+      
+      for (const repoFullName of selectedRepoNames) {
+        try {
+          const response = await fetch(
+            `https://api.github.com/repos/${repoFullName}/issues?state=all&per_page=100`,
+            {
+              headers: {
+                Authorization: `Bearer ${connection.access_token}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            }
+          );
+
+          if (response.ok) {
+            const issues = await response.json();
+            // Filter out pull requests
+            const actualIssues = issues.filter((i: any) => !i.pull_request);
+            
+            const transformed = actualIssues.map((issue: any) => ({
+              id: issue.id.toString(),
+              number: issue.number,
+              title: issue.title,
+              body: issue.body || "",
+              status: issue.state === "closed" ? "closed" : "open",
+              labels: (issue.labels || []).map((l: any) => l.name),
+              assignees: issue.assignees || [],
+              created_at: issue.created_at,
+              updated_at: issue.updated_at,
+              closed_at: issue.closed_at,
+              repository: repoFullName,
+              html_url: issue.html_url,
+              createdAt: issue.created_at,
+              url: issue.html_url,
+            }));
+
+            allIssues.push(...transformed);
+            console.log(`✅ ${repoFullName}: ${transformed.length} issues`);
+          }
+        } catch (err) {
+          console.error(`Failed to fetch issues for ${repoFullName}:`, err);
+        }
+      }
+
+      // Update state for hidden widget container
+      setIssues(allIssues);
+      setSelectedRepos(selectedRepoNames);
+      
+      console.log(`✅ Total: ${allIssues.length} issues from ${selectedRepoNames.length} repos`);
+      return { issues: allIssues, repos: selectedRepoNames };
     } catch (error) {
-      console.error("❌ Error fetching issues from Supabase:", error);
+      console.error("❌ Error fetching issues:", error);
       return { issues: [], repos: [] };
     }
   };
