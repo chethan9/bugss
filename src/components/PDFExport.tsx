@@ -9,7 +9,8 @@ interface Issue {
   id: string;
   number: number;
   title: string;
-  status: "open" | "in_progress" | "closed";
+  state: string;
+  status?: "open" | "in_progress" | "closed";
   repository: string;
   labels: string[];
   assignee?: string;
@@ -36,86 +37,107 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 15;
       const contentWidth = pageWidth - 2 * margin;
-      const headerHeight = 25;
-      const footerHeight = 15;
-      const availableHeight = pageHeight - headerHeight - footerHeight - margin;
+      const headerHeight = 30;
+      const footerHeight = 12;
+      const usableHeight = pageHeight - headerHeight - footerHeight;
 
       let currentPage = 1;
-      let totalPages = 1;
-      let yPosition = headerHeight + 5;
+      let yPosition = headerHeight;
 
-      // Helper: Add header to page
-      const addHeader = () => {
-        if (reportConfig.companyLogo) {
+      // Helper: Add header
+      const addHeader = (isFirstPage: boolean) => {
+        // Background header bar
+        pdf.setFillColor(248, 250, 252);
+        pdf.rect(0, 0, pageWidth, headerHeight - 5, "F");
+        
+        if (reportConfig.companyLogo && isFirstPage) {
           try {
-            pdf.addImage(reportConfig.companyLogo, "PNG", margin, margin, 30, 10);
+            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 8, 25, 12);
           } catch (e) {
-            console.warn("Failed to add logo:", e);
+            console.warn("Logo error:", e);
           }
         }
 
-        pdf.setFontSize(16);
+        const textX = reportConfig.companyLogo && isFirstPage ? margin + 30 : margin;
+        
+        pdf.setFontSize(14);
         pdf.setFont("helvetica", "bold");
-        pdf.text(reportConfig.reportTitle, reportConfig.companyLogo ? margin + 35 : margin, margin + 7);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(reportConfig.reportTitle, textX, 14);
 
-        pdf.setFontSize(10);
+        pdf.setFontSize(9);
         pdf.setFont("helvetica", "normal");
-        pdf.text(reportConfig.projectName, reportConfig.companyLogo ? margin + 35 : margin, margin + 12);
+        pdf.setTextColor(100, 116, 139);
+        const subtitle = [reportConfig.projectName, reportConfig.reportingPeriod].filter(Boolean).join(" • ");
+        pdf.text(subtitle, textX, 20);
 
-        const today = new Date().toLocaleDateString();
-        pdf.text(today, pageWidth - margin, margin + 7, { align: "right" });
-        pdf.text(reportConfig.reportingPeriod, pageWidth - margin, margin + 12, { align: "right" });
+        // Right side date
+        const today = new Date().toLocaleDateString("en-US", { 
+          year: "numeric", 
+          month: "long", 
+          day: "numeric" 
+        });
+        pdf.text(today, pageWidth - margin, 14, { align: "right" });
+        
+        if (reportConfig.companyName) {
+          pdf.text(reportConfig.companyName, pageWidth - margin, 20, { align: "right" });
+        }
 
-        pdf.setDrawColor(200, 200, 200);
-        pdf.line(margin, margin + 18, pageWidth - margin, margin + 18);
+        // Separator line
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setLineWidth(0.3);
+        pdf.line(margin, headerHeight - 5, pageWidth - margin, headerHeight - 5);
       };
 
-      // Helper: Add footer to page
-      const addFooter = (pageNum: number, total: number) => {
-        pdf.setFontSize(8);
-        pdf.setTextColor(100, 100, 100);
+      // Helper: Add footer
+      const addFooter = (pageNum: number, totalPages: number) => {
+        const footerY = pageHeight - 8;
+        
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setLineWidth(0.3);
+        pdf.line(margin, footerY - 4, pageWidth - margin, footerY - 4);
 
-        pdf.setDrawColor(200, 200, 200);
-        pdf.line(margin, pageHeight - margin + 5, pageWidth - margin, pageHeight - margin + 5);
+        pdf.setFontSize(7);
+        pdf.setTextColor(148, 163, 184);
 
         if (reportConfig.customFooter) {
-          pdf.text(reportConfig.customFooter, margin, pageHeight - margin + 10);
+          pdf.text(reportConfig.customFooter, margin, footerY);
         }
 
         if (reportConfig.showPageNumbers) {
-          pdf.text(`Page ${pageNum} of ${total}`, pageWidth / 2, pageHeight - margin + 10, { align: "center" });
+          pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, footerY, { align: "center" });
         }
 
-        const timestamp = new Date().toLocaleString();
-        let rightText = "";
         if (reportConfig.showTimestamp) {
-          rightText = timestamp;
+          const timestamp = new Date().toLocaleString();
+          pdf.text(timestamp, pageWidth - margin, footerY, { align: "right" });
         }
+
         if (reportConfig.confidentialityLevel !== "none") {
-          if (rightText) rightText += " • ";
-          rightText += reportConfig.confidentialityLevel.toUpperCase();
-        }
-        if (rightText) {
+          pdf.setFontSize(6);
           if (reportConfig.confidentialityLevel === "confidential") {
-            pdf.setTextColor(200, 0, 0);
-          } else if (reportConfig.confidentialityLevel === "internal") {
-            pdf.setTextColor(200, 100, 0);
+            pdf.setTextColor(220, 38, 38);
+          } else {
+            pdf.setTextColor(148, 163, 184);
           }
-          pdf.text(rightText, pageWidth - margin, pageHeight - margin + 10, { align: "right" });
-          pdf.setTextColor(100, 100, 100);
+          pdf.text(
+            reportConfig.confidentialityLevel.toUpperCase(),
+            pageWidth - margin,
+            footerY - 3,
+            { align: "right" }
+          );
         }
 
         pdf.setTextColor(0, 0, 0);
       };
 
-      // Helper: Check if need new page
-      const checkNewPage = (neededHeight: number) => {
-        if (yPosition + neededHeight > availableHeight + headerHeight) {
-          addFooter(currentPage, totalPages);
-          pdf.addPage();
+      // Helper: Check for new page
+      const checkNewPage = (neededHeight: number): boolean => {
+        if (yPosition + neededHeight > pageHeight - footerHeight) {
           currentPage++;
-          addHeader();
-          yPosition = headerHeight + 5;
+          pdf.addPage();
+          addHeader(false);
+          yPosition = headerHeight;
           return true;
         }
         return false;
@@ -124,277 +146,255 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       // Helper: Add section title
       const addSectionTitle = (title: string) => {
         checkNewPage(15);
-        pdf.setFontSize(12);
+        
+        pdf.setFontSize(11);
         pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(60, 60, 60);
-        pdf.text(title, margin, yPosition + 5);
-        pdf.setDrawColor(220, 220, 220);
-        pdf.line(margin, yPosition + 7, pageWidth - margin, yPosition + 7);
-        yPosition += 12;
-        pdf.setTextColor(0, 0, 0);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(title, margin, yPosition + 6);
+        
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setLineWidth(0.2);
+        pdf.line(margin, yPosition + 9, pageWidth - margin, yPosition + 9);
+        
+        yPosition += 14;
         pdf.setFont("helvetica", "normal");
       };
 
-      // Helper: Capture element with expanded content
-      const captureElement = async (element: HTMLElement): Promise<HTMLCanvasElement | null> => {
+      // Helper: Capture widget with clean styling
+      const captureWidget = async (elementId: string): Promise<HTMLCanvasElement | null> => {
+        const element = document.querySelector(`[data-widget-id="${elementId}"]`) as HTMLElement;
+        if (!element) return null;
+
         try {
-          const originalStyles = {
-            height: element.style.height,
-            maxHeight: element.style.maxHeight,
-            overflow: element.style.overflow,
-          };
-
-          element.style.height = "auto";
-          element.style.maxHeight = "none";
-          element.style.overflow = "visible";
-
-          const scrollableChildren = element.querySelectorAll("[class*='overflow'], [style*='overflow']");
-          const childStyles: { el: HTMLElement; styles: { height: string; maxHeight: string; overflow: string } }[] = [];
+          // Create a wrapper with white background
+          const wrapper = document.createElement("div");
+          wrapper.style.cssText = `
+            position: fixed;
+            left: -9999px;
+            top: 0;
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          `;
           
-          scrollableChildren.forEach((child) => {
-            const htmlChild = child as HTMLElement;
-            childStyles.push({
-              el: htmlChild,
-              styles: {
-                height: htmlChild.style.height,
-                maxHeight: htmlChild.style.maxHeight,
-                overflow: htmlChild.style.overflow,
-              },
-            });
-            htmlChild.style.height = "auto";
-            htmlChild.style.maxHeight = "none";
-            htmlChild.style.overflow = "visible";
+          const clone = element.cloneNode(true) as HTMLElement;
+          clone.style.background = "white";
+          clone.style.color = "#1e293b";
+          
+          // Fix text colors in clone
+          clone.querySelectorAll("*").forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            const computed = window.getComputedStyle(htmlEl);
+            if (computed.color.includes("255, 255, 255") || computed.color === "rgb(255, 255, 255)") {
+              htmlEl.style.color = "#1e293b";
+            }
           });
 
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          wrapper.appendChild(clone);
+          document.body.appendChild(wrapper);
 
-          const canvas = await html2canvas(element, {
+          const canvas = await html2canvas(wrapper, {
             scale: 2,
-            useCORS: true,
-            logging: false,
             backgroundColor: "#ffffff",
-            windowHeight: element.scrollHeight + 100,
-            height: element.scrollHeight,
+            logging: false,
+            useCORS: true,
           });
 
-          element.style.height = originalStyles.height;
-          element.style.maxHeight = originalStyles.maxHeight;
-          element.style.overflow = originalStyles.overflow;
-
-          childStyles.forEach(({ el, styles }) => {
-            el.style.height = styles.height;
-            el.style.maxHeight = styles.maxHeight;
-            el.style.overflow = styles.overflow;
-          });
-
+          document.body.removeChild(wrapper);
           return canvas;
         } catch (error) {
-          console.error("Failed to capture element:", error);
+          console.error("Widget capture error:", error);
           return null;
         }
       };
 
-      // Helper: Add image to PDF with page splitting
-      const addImageToPDF = (canvas: HTMLCanvasElement, imgWidth: number) => {
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let remainingHeight = imgHeight;
-        let srcY = 0;
+      // Start generating PDF
+      addHeader(true);
 
-        while (remainingHeight > 0) {
-          const spaceLeft = availableHeight + headerHeight - yPosition;
-          const heightToRender = Math.min(remainingHeight, spaceLeft);
-          
-          const srcHeight = (heightToRender / imgHeight) * canvas.height;
-
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = canvas.width;
-          tempCanvas.height = srcHeight;
-          const ctx = tempCanvas.getContext("2d");
-          
-          if (ctx) {
-            ctx.drawImage(
-              canvas,
-              0, srcY, canvas.width, srcHeight,
-              0, 0, canvas.width, srcHeight
+      // Summary metrics section
+      if (reportConfig.includeSummaryMetrics) {
+        addSectionTitle("EXECUTIVE SUMMARY");
+        
+        const summaryEl = document.getElementById("summary-metrics-section");
+        if (summaryEl) {
+          try {
+            const canvas = await html2canvas(summaryEl, {
+              scale: 2,
+              backgroundColor: "#ffffff",
+              logging: false,
+            });
+            const imgHeight = (canvas.height * contentWidth) / canvas.width;
+            
+            if (checkNewPage(imgHeight + 5)) {
+              // Page was added
+            }
+            
+            pdf.addImage(
+              canvas.toDataURL("image/png"),
+              "PNG",
+              margin,
+              yPosition,
+              contentWidth,
+              Math.min(imgHeight, usableHeight - 20)
             );
-            const clippedImgData = tempCanvas.toDataURL("image/jpeg", 0.92);
-            pdf.addImage(clippedImgData, "JPEG", margin, yPosition, imgWidth, heightToRender);
-          }
-
-          srcY += srcHeight;
-          remainingHeight -= heightToRender;
-          yPosition += heightToRender;
-
-          if (remainingHeight > 0) {
-            addFooter(currentPage, totalPages);
-            pdf.addPage();
-            currentPage++;
-            totalPages++;
-            addHeader();
-            yPosition = headerHeight + 5;
+            yPosition += imgHeight + 10;
+          } catch (e) {
+            console.warn("Summary capture error:", e);
           }
         }
-      };
-
-      // Calculate total pages first (estimate)
-      const analyticsSections = [
-        "smart-insights-section",
-        "summary-metrics-section",
-        "progress-bar-section",
-        "analytics-widgets-section",
-      ];
-      
-      // Estimate pages for analytics + issues table
-      const issueRowsPerPage = Math.floor(availableHeight / 6); // ~6mm per row
-      const tablePages = Math.ceil(issues.length / issueRowsPerPage);
-      totalPages = 2 + tablePages; // Rough estimate
-
-      // Start generating
-      addHeader();
-
-      // Capture analytics sections
-      for (const sectionId of analyticsSections) {
-        const element = document.getElementById(sectionId);
-        if (!element) continue;
-
-        const canvas = await captureElement(element);
-        if (!canvas) continue;
-
-        const sectionTitles: Record<string, string> = {
-          "smart-insights-section": "SMART INSIGHTS",
-          "summary-metrics-section": "EXECUTIVE SUMMARY",
-          "progress-bar-section": "ISSUE PROGRESS",
-          "analytics-widgets-section": "ANALYTICS & INSIGHTS",
-        };
-
-        addSectionTitle(sectionTitles[sectionId] || sectionId.toUpperCase());
-        addImageToPDF(canvas, contentWidth);
-        yPosition += 8;
       }
 
-      // Generate issues table directly (not via html2canvas)
-      if (issues.length > 0) {
+      // Capture enabled widgets
+      const enabledWidgets = reportConfig.pdfWidgets?.filter((w) => w.enabled) || [];
+      
+      if (enabledWidgets.length > 0) {
+        addSectionTitle("ANALYTICS & INSIGHTS");
+
+        for (const widget of enabledWidgets) {
+          const canvas = await captureWidget(widget.id);
+          if (!canvas) continue;
+
+          const imgWidth = contentWidth * 0.9;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          const maxHeight = usableHeight * 0.4;
+          const finalHeight = Math.min(imgHeight, maxHeight);
+
+          checkNewPage(finalHeight + 15);
+
+          // Widget label
+          pdf.setFontSize(9);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(100, 116, 139);
+          pdf.text(widget.label, margin, yPosition + 4);
+          yPosition += 8;
+
+          // Widget border
+          pdf.setDrawColor(226, 232, 240);
+          pdf.setFillColor(255, 255, 255);
+          pdf.roundedRect(margin, yPosition, contentWidth, finalHeight + 8, 2, 2, "FD");
+
+          // Widget image
+          pdf.addImage(
+            canvas.toDataURL("image/png"),
+            "PNG",
+            margin + (contentWidth - imgWidth) / 2,
+            yPosition + 4,
+            imgWidth,
+            finalHeight
+          );
+
+          yPosition += finalHeight + 16;
+        }
+      }
+
+      // Issue table
+      if (reportConfig.includeIssueTable && issues.length > 0) {
         addSectionTitle("DETAILED ISSUE LIST");
         
-        // Table header
-        const colWidths = [15, 70, 25, 25, 45]; // #, Title, Status, Severity, Repository
+        const colWidths = [12, 75, 22, 30, 40];
         const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-        const startX = margin;
+        const rowHeight = 6;
         
-        pdf.setFontSize(8);
-        pdf.setFont("helvetica", "bold");
-        pdf.setFillColor(245, 245, 245);
-        pdf.rect(startX, yPosition, tableWidth, 7, "F");
-        
-        let xPos = startX + 2;
-        const headers = ["#", "Title", "Status", "Severity", "Repository"];
-        headers.forEach((header, i) => {
-          pdf.text(header, xPos, yPosition + 5);
-          xPos += colWidths[i];
-        });
-        yPosition += 7;
+        // Table header
+        const drawTableHeader = () => {
+          pdf.setFillColor(241, 245, 249);
+          pdf.rect(margin, yPosition, tableWidth, rowHeight + 1, "F");
+          
+          pdf.setFontSize(7);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(71, 85, 105);
+          
+          let xPos = margin + 2;
+          const headers = ["#", "Title", "State", "Labels", "Repository"];
+          headers.forEach((header, i) => {
+            pdf.text(header, xPos, yPosition + 4.5);
+            xPos += colWidths[i];
+          });
+          
+          yPosition += rowHeight + 1;
+        };
 
-        // Table rows
+        drawTableHeader();
+
         pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(7);
+        pdf.setFontSize(6.5);
 
         for (let i = 0; i < issues.length; i++) {
           const issue = issues[i];
           
-          // Check if need new page
-          if (yPosition + 6 > availableHeight + headerHeight) {
-            addFooter(currentPage, totalPages);
-            pdf.addPage();
+          if (yPosition + rowHeight > pageHeight - footerHeight) {
             currentPage++;
-            if (currentPage > totalPages) totalPages = currentPage;
-            addHeader();
-            yPosition = headerHeight + 5;
-            
-            // Repeat table header on new page
-            pdf.setFontSize(8);
-            pdf.setFont("helvetica", "bold");
-            pdf.setFillColor(245, 245, 245);
-            pdf.rect(startX, yPosition, tableWidth, 7, "F");
-            
-            xPos = startX + 2;
-            headers.forEach((header, idx) => {
-              pdf.text(header, xPos, yPosition + 5);
-              xPos += colWidths[idx];
-            });
-            yPosition += 7;
-            pdf.setFont("helvetica", "normal");
-            pdf.setFontSize(7);
+            pdf.addPage();
+            addHeader(false);
+            yPosition = headerHeight;
+            drawTableHeader();
           }
 
-          // Alternate row background
+          // Alternating row background
           if (i % 2 === 0) {
-            pdf.setFillColor(250, 250, 250);
-            pdf.rect(startX, yPosition, tableWidth, 6, "F");
+            pdf.setFillColor(248, 250, 252);
+            pdf.rect(margin, yPosition, tableWidth, rowHeight, "F");
           }
 
-          // Draw row
-          xPos = startX + 2;
-          
+          let xPos = margin + 2;
+          pdf.setTextColor(71, 85, 105);
+
           // Issue number
           pdf.text(`#${issue.number}`, xPos, yPosition + 4);
           xPos += colWidths[0];
-          
-          // Title (truncate if too long)
-          const maxTitleLength = 45;
-          const title = issue.title.length > maxTitleLength 
-            ? issue.title.substring(0, maxTitleLength) + "..." 
+
+          // Title (truncated)
+          pdf.setTextColor(30, 41, 59);
+          const maxTitleLen = 50;
+          const title = issue.title.length > maxTitleLen 
+            ? issue.title.substring(0, maxTitleLen) + "..." 
             : issue.title;
           pdf.text(title, xPos, yPosition + 4);
           xPos += colWidths[1];
-          
-          // Status with color
-          const statusColors: Record<string, [number, number, number]> = {
+
+          // State with color
+          const state = issue.status || issue.state;
+          const stateColors: Record<string, [number, number, number]> = {
             open: [34, 197, 94],
             in_progress: [234, 179, 8],
-            closed: [107, 114, 128],
+            closed: [148, 163, 184],
           };
-          const statusColor = statusColors[issue.status] || [107, 114, 128];
-          pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-          pdf.text(issue.status.replace("_", " "), xPos, yPosition + 4);
-          pdf.setTextColor(0, 0, 0);
+          const stateColor = stateColors[state] || [148, 163, 184];
+          pdf.setTextColor(stateColor[0], stateColor[1], stateColor[2]);
+          pdf.text(state.replace("_", " "), xPos, yPosition + 4);
           xPos += colWidths[2];
-          
-          // Severity
-          const labelText = issue.labels.join(" ").toLowerCase();
-          let severity = "-";
-          if (labelText.includes("critical")) severity = "Critical";
-          else if (labelText.includes("high")) severity = "High";
-          else if (labelText.includes("medium")) severity = "Medium";
-          else if (labelText.includes("low")) severity = "Low";
-          pdf.text(severity, xPos, yPosition + 4);
+
+          // Labels
+          pdf.setTextColor(100, 116, 139);
+          const labelsText = issue.labels.slice(0, 2).join(", ");
+          pdf.text(labelsText.substring(0, 20) || "-", xPos, yPosition + 4);
           xPos += colWidths[3];
-          
-          // Repository (truncate if needed)
-          const maxRepoLength = 25;
-          const repo = issue.repository.length > maxRepoLength
-            ? "..." + issue.repository.slice(-maxRepoLength + 3)
-            : issue.repository;
-          pdf.text(repo, xPos, yPosition + 4);
-          
-          yPosition += 6;
+
+          // Repository
+          pdf.setTextColor(71, 85, 105);
+          const repoName = issue.repository.split("/").pop() || issue.repository;
+          pdf.text(repoName.substring(0, 25), xPos, yPosition + 4);
+
+          yPosition += rowHeight;
         }
 
         // Table border
-        pdf.setDrawColor(220, 220, 220);
-        pdf.rect(startX, headerHeight + 17, tableWidth, yPosition - headerHeight - 17);
+        pdf.setDrawColor(226, 232, 240);
+        pdf.rect(margin, headerHeight + 14, tableWidth, yPosition - headerHeight - 14);
       }
 
-      // Update total pages and re-add footers
-      totalPages = currentPage;
-      
-      // Go back and update all footers with correct total
-      for (let p = 1; p <= totalPages; p++) {
-        pdf.setPage(p);
-        addFooter(p, totalPages);
+      // Add footers to all pages
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        addFooter(i, totalPages);
       }
 
-      // Save PDF
-      const filename = `${reportConfig.projectName.replace(/\s+/g, "-")}-report-${new Date().toISOString().split("T")[0]}.pdf`;
+      // Save
+      const filename = `${reportConfig.projectName.replace(/\s+/g, "-")}-report-${
+        new Date().toISOString().split("T")[0]
+      }.pdf`;
       pdf.save(filename);
     } catch (error) {
       console.error("PDF generation error:", error);
