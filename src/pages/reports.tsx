@@ -362,6 +362,8 @@ export default function ReportsPage() {
           closed_at: issue.closed_at,
           repository: issue.repositories?.full_name || "Unknown",
           html_url: issue.html_url,
+          createdAt: issue.created_at,
+          url: issue.html_url,
         }));
 
         setIssues(transformedIssues);
