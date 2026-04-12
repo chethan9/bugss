@@ -30,15 +30,56 @@ interface PDFExportProps {
   issues?: Issue[];
 }
 
-interface CapturedWidget {
-  canvas: HTMLCanvasElement;
-  label: string;
-  width: number;
-  height: number;
-}
+// Define widget sizes - which widgets need more space
+const WIDE_WIDGETS = [
+  "burndownChart",
+  "flowEfficiency", 
+  "issueTrendChart",
+  "stackedAreaChart",
+  "bugHeatmap",
+  "moduleRadarChart",
+  "priorityScatterPlot",
+  "backlogWaterfallChart",
+  "resolutionHistogram",
+];
+
+const MEDIUM_WIDGETS = [
+  "projectHealthGauge",
+  "bugCategoryBreakdown",
+  "moduleTreemap",
+  "issueFunnelChart",
+  "bugSeverityHeatmap",
+  "developerLoad",
+  "focusRecommendations",
+  "bulletChart",
+];
+
+// Small widgets that can fit in narrow columns
+const SMALL_WIDGETS = [
+  "smartInsights",
+  "averageResolutionTime",
+  "moduleStabilityScore",
+  "reopenedIssuesTracker",
+  "bugHotspots",
+  "atRiskRelease",
+  "agingIssues",
+  "criticalUntouched",
+  "backlogGrowth",
+  "bugFixEfficiency",
+  "repeatBugDetector",
+  "sparkline",
+  "repositoryFilter",
+  "dateRangeFilter",
+];
 
 export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const getWidgetSize = (widgetId: string): "wide" | "medium" | "small" => {
+    if (WIDE_WIDGETS.includes(widgetId)) return "wide";
+    if (MEDIUM_WIDGETS.includes(widgetId)) return "medium";
+    return "small";
+  };
 
   const generatePDF = async () => {
     setIsGenerating(true);
@@ -47,24 +88,14 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 12;
+      const margin = 10;
       const contentWidth = pageWidth - 2 * margin;
-      const headerHeight = 22;
+      const headerHeight = 20;
       const footerHeight = 8;
-      const usableHeight = pageHeight - headerHeight - footerHeight - 5;
-
-      // Masonry settings - 3 columns
-      const columns = 3;
-      const gap = 4;
-      const colWidth = (contentWidth - (columns - 1) * gap) / columns;
-      const maxWidgetHeight = 90; // Max height in mm for any widget
 
       let currentPage = 1;
       let totalPages = 1;
-
-      // Track column heights for masonry layout
-      let columnHeights = [0, 0, 0];
-      let yStart = headerHeight + 8;
+      let yPosition = headerHeight + 5;
 
       // Helper: Add header
       const addHeader = (isFirstPage: boolean) => {
@@ -73,31 +104,31 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         
         if (reportConfig.companyLogo && isFirstPage) {
           try {
-            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 4, 16, 8);
+            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 3, 14, 7);
           } catch (e) {
             console.warn("Logo error:", e);
           }
         }
 
-        const textX = reportConfig.companyLogo && isFirstPage ? margin + 20 : margin;
+        const textX = reportConfig.companyLogo && isFirstPage ? margin + 18 : margin;
         
-        pdf.setFontSize(11);
+        pdf.setFontSize(10);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(30, 41, 59);
-        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", textX, 9);
+        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", textX, 8);
 
         pdf.setFontSize(7);
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(100, 116, 139);
         const subtitle = [reportConfig.projectName, reportConfig.reportingPeriod].filter(Boolean).join(" • ");
-        if (subtitle) pdf.text(subtitle, textX, 14);
+        if (subtitle) pdf.text(subtitle, textX, 13);
 
         const today = new Date().toLocaleDateString("en-US", { 
           year: "numeric", 
           month: "short", 
           day: "numeric" 
         });
-        pdf.text(today, pageWidth - margin, 9, { align: "right" });
+        pdf.text(today, pageWidth - margin, 8, { align: "right" });
 
         pdf.setDrawColor(226, 232, 240);
         pdf.setLineWidth(0.2);
@@ -114,8 +145,22 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         }
       };
 
-      // Helper: Capture widget at natural size
-      const captureWidget = async (widgetId: string): Promise<CapturedWidget | null> => {
+      // Helper: Start new page
+      const startNewPage = () => {
+        currentPage++;
+        totalPages++;
+        pdf.addPage();
+        addHeader(false);
+        yPosition = headerHeight + 5;
+      };
+
+      // Helper: Check if content fits on current page
+      const fitsOnPage = (height: number): boolean => {
+        return (yPosition + height + 5) <= (pageHeight - footerHeight - 5);
+      };
+
+      // Helper: Capture widget
+      const captureWidget = async (widgetId: string, targetWidth: number): Promise<HTMLCanvasElement | null> => {
         const printContainer = document.getElementById("pdf-print-container");
         let element = printContainer?.querySelector(`[data-pdf-widget-id="${widgetId}"]`) as HTMLElement;
         
@@ -134,9 +179,9 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             position: fixed;
             left: -9999px;
             top: 0;
-            width: 380px;
+            width: ${targetWidth}px;
             background: #ffffff;
-            padding: 12px;
+            padding: 16px;
             box-sizing: border-box;
           `;
           
@@ -179,7 +224,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           container.appendChild(clone);
           document.body.appendChild(container);
 
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 150));
 
           const canvas = await html2canvas(container, {
             scale: 2,
@@ -189,164 +234,227 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           });
 
           document.body.removeChild(container);
-          
-          // Calculate dimensions in mm (assuming 96 DPI, scale 2)
-          const pxToMm = 0.264583;
-          const widthMm = (canvas.width / 2) * pxToMm;
-          const heightMm = Math.min((canvas.height / 2) * pxToMm, maxWidgetHeight);
-          
-          return {
-            canvas,
-            label: "",
-            width: widthMm,
-            height: heightMm,
-          };
+          return canvas;
         } catch (error) {
           console.error(`Widget capture error for ${widgetId}:`, error);
           return null;
         }
       };
 
-      // Find shortest column
-      const getShortestColumn = (): number => {
-        let minHeight = columnHeights[0];
-        let minIndex = 0;
-        for (let i = 1; i < columns; i++) {
-          if (columnHeights[i] < minHeight) {
-            minHeight = columnHeights[i];
-            minIndex = i;
-          }
-        }
-        return minIndex;
-      };
-
-      // Check if widget fits on current page
-      const widgetFitsOnPage = (height: number): boolean => {
-        const shortestCol = getShortestColumn();
-        return (yStart + columnHeights[shortestCol] + height + 8) <= (pageHeight - footerHeight - 5);
-      };
-
-      // Start new page
-      const startNewPage = () => {
-        currentPage++;
-        totalPages++;
-        pdf.addPage();
-        addHeader(false);
-        columnHeights = [0, 0, 0];
-        yStart = headerHeight + 8;
-        
-        // Section title for continued pages
-        pdf.setFontSize(8);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(71, 85, 105);
-        pdf.text("ANALYTICS WIDGETS (continued)", margin, yStart);
-        yStart += 6;
-      };
-
       // Start PDF
       addHeader(true);
 
-      // Capture all enabled widgets
+      // Capture and layout widgets
       const enabledWidgets = reportConfig.pdfWidgets?.filter((w) => w.enabled) || [];
-      console.log(`Capturing ${enabledWidgets.length} widgets...`);
-      
-      const capturedWidgets: Array<{ widget: CapturedWidget; label: string }> = [];
-      
-      for (const widget of enabledWidgets) {
-        const captured = await captureWidget(widget.id);
-        if (captured) {
-          capturedWidgets.push({ widget: captured, label: widget.label });
-        }
-      }
+      console.log(`Processing ${enabledWidgets.length} widgets...`);
 
-      console.log(`Captured ${capturedWidgets.length} widgets`);
-
-      if (capturedWidgets.length > 0) {
-        // Section title
-        pdf.setFontSize(8);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(71, 85, 105);
-        pdf.text("ANALYTICS WIDGETS", margin, yStart);
-        yStart += 6;
-
-        // Place widgets using masonry layout
-        for (const { widget, label } of capturedWidgets) {
-          // Calculate widget height in PDF (scaled to column width)
-          const aspectRatio = widget.canvas.width / widget.canvas.height;
-          const pdfWidgetWidth = colWidth - 2;
-          const pdfWidgetHeight = Math.min(pdfWidgetWidth / aspectRatio, maxWidgetHeight);
-          const totalHeight = pdfWidgetHeight + 8; // Include label space
-
-          // Check if fits on current page
-          if (!widgetFitsOnPage(totalHeight)) {
-            startNewPage();
-          }
-
-          // Find shortest column and place widget
-          const col = getShortestColumn();
-          const xPos = margin + col * (colWidth + gap);
-          const yPos = yStart + columnHeights[col];
-
-          // Draw label
-          pdf.setFontSize(6);
-          pdf.setFont("helvetica", "bold");
-          pdf.setTextColor(100, 116, 139);
-          const truncatedLabel = label.length > 28 ? label.substring(0, 26) + "..." : label;
-          pdf.text(truncatedLabel, xPos, yPos + 3);
-
-          // Draw widget border
-          pdf.setDrawColor(226, 232, 240);
-          pdf.setFillColor(255, 255, 255);
-          pdf.setLineWidth(0.3);
-          pdf.roundedRect(xPos, yPos + 4, colWidth - 2, pdfWidgetHeight, 2, 2, "FD");
-
-          // Draw widget image
-          pdf.addImage(
-            widget.canvas.toDataURL("image/png"),
-            "PNG",
-            xPos + 1,
-            yPos + 5,
-            pdfWidgetWidth - 2,
-            pdfWidgetHeight - 2
-          );
-
-          // Update column height
-          columnHeights[col] += totalHeight + gap;
-        }
-      }
-
-      // ALWAYS start issue table on a new page
-      if (reportConfig.includeIssueTable && issues.length > 0) {
-        currentPage++;
-        totalPages++;
-        pdf.addPage();
-        addHeader(false);
-        let yPosition = headerHeight;
-
+      if (enabledWidgets.length > 0) {
         // Section title
         pdf.setFontSize(9);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(71, 85, 105);
-        pdf.text(`ISSUE LIST (${issues.length} total)`, margin, yPosition + 4);
-        yPosition += 10;
+        pdf.text("ANALYTICS OVERVIEW", margin, yPosition);
+        yPosition += 8;
+
+        // Group widgets by size for better layout
+        const widgetGroups: Array<{ widget: typeof enabledWidgets[0]; size: "wide" | "medium" | "small" }> = 
+          enabledWidgets.map(w => ({ widget: w, size: getWidgetSize(w.id) }));
+
+        // Process widgets in a flowing 2-column layout
+        let pendingSmallWidget: { canvas: HTMLCanvasElement; label: string; height: number } | null = null;
+        const halfWidth = (contentWidth - 4) / 2;
+        const pxToMm = 0.264583;
+
+        for (const { widget, size } of widgetGroups) {
+          // Determine render width based on widget size
+          const renderWidthPx = size === "wide" ? 720 : size === "medium" ? 500 : 360;
+          const canvas = await captureWidget(widget.id, renderWidthPx);
+          
+          if (!canvas) continue;
+
+          // Calculate dimensions
+          const aspectRatio = canvas.width / canvas.height;
+          let pdfWidth: number;
+          let pdfHeight: number;
+          let xPos: number;
+
+          if (size === "wide") {
+            // Full width
+            pdfWidth = contentWidth - 4;
+            pdfHeight = Math.min(pdfWidth / aspectRatio, 85);
+            xPos = margin + 2;
+
+            // Flush any pending small widget first
+            if (pendingSmallWidget) {
+              if (!fitsOnPage(pendingSmallWidget.height + 10)) {
+                startNewPage();
+              }
+              // Draw pending widget on left
+              pdf.setFontSize(6);
+              pdf.setFont("helvetica", "bold");
+              pdf.setTextColor(100, 116, 139);
+              pdf.text(pendingSmallWidget.label.substring(0, 35), margin + 2, yPosition + 3);
+              
+              pdf.setDrawColor(226, 232, 240);
+              pdf.setFillColor(255, 255, 255);
+              pdf.roundedRect(margin + 2, yPosition + 4, halfWidth - 2, pendingSmallWidget.height, 2, 2, "FD");
+              pdf.addImage(pendingSmallWidget.canvas.toDataURL("image/png"), "PNG", margin + 3, yPosition + 5, halfWidth - 4, pendingSmallWidget.height - 2);
+              
+              yPosition += pendingSmallWidget.height + 12;
+              pendingSmallWidget = null;
+            }
+
+            // Check page fit
+            if (!fitsOnPage(pdfHeight + 10)) {
+              startNewPage();
+            }
+
+            // Draw label
+            pdf.setFontSize(6);
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(100, 116, 139);
+            pdf.text(widget.label.substring(0, 50), xPos, yPosition + 3);
+
+            // Draw widget
+            pdf.setDrawColor(226, 232, 240);
+            pdf.setFillColor(255, 255, 255);
+            pdf.roundedRect(xPos, yPosition + 4, pdfWidth, pdfHeight, 2, 2, "FD");
+            pdf.addImage(canvas.toDataURL("image/png"), "PNG", xPos + 1, yPosition + 5, pdfWidth - 2, pdfHeight - 2);
+
+            yPosition += pdfHeight + 12;
+
+          } else if (size === "medium") {
+            // Medium widgets - 60% width, centered or paired
+            pdfWidth = contentWidth * 0.6;
+            pdfHeight = Math.min(pdfWidth / aspectRatio, 70);
+            xPos = margin + (contentWidth - pdfWidth) / 2;
+
+            // Flush pending small widget
+            if (pendingSmallWidget) {
+              if (!fitsOnPage(pendingSmallWidget.height + 10)) {
+                startNewPage();
+              }
+              pdf.setFontSize(6);
+              pdf.setFont("helvetica", "bold");
+              pdf.setTextColor(100, 116, 139);
+              pdf.text(pendingSmallWidget.label.substring(0, 35), margin + 2, yPosition + 3);
+              
+              pdf.setDrawColor(226, 232, 240);
+              pdf.setFillColor(255, 255, 255);
+              pdf.roundedRect(margin + 2, yPosition + 4, halfWidth - 2, pendingSmallWidget.height, 2, 2, "FD");
+              pdf.addImage(pendingSmallWidget.canvas.toDataURL("image/png"), "PNG", margin + 3, yPosition + 5, halfWidth - 4, pendingSmallWidget.height - 2);
+              
+              yPosition += pendingSmallWidget.height + 12;
+              pendingSmallWidget = null;
+            }
+
+            if (!fitsOnPage(pdfHeight + 10)) {
+              startNewPage();
+            }
+
+            pdf.setFontSize(6);
+            pdf.setFont("helvetica", "bold");
+            pdf.setTextColor(100, 116, 139);
+            pdf.text(widget.label.substring(0, 45), xPos, yPosition + 3);
+
+            pdf.setDrawColor(226, 232, 240);
+            pdf.setFillColor(255, 255, 255);
+            pdf.roundedRect(xPos, yPosition + 4, pdfWidth, pdfHeight, 2, 2, "FD");
+            pdf.addImage(canvas.toDataURL("image/png"), "PNG", xPos + 1, yPosition + 5, pdfWidth - 2, pdfHeight - 2);
+
+            yPosition += pdfHeight + 12;
+
+          } else {
+            // Small widgets - pair them side by side
+            pdfWidth = halfWidth - 2;
+            pdfHeight = Math.min(pdfWidth / aspectRatio, 55);
+
+            if (pendingSmallWidget) {
+              // We have a pair - draw both side by side
+              const maxHeight = Math.max(pendingSmallWidget.height, pdfHeight);
+              
+              if (!fitsOnPage(maxHeight + 10)) {
+                startNewPage();
+              }
+
+              // Left widget (pending)
+              pdf.setFontSize(6);
+              pdf.setFont("helvetica", "bold");
+              pdf.setTextColor(100, 116, 139);
+              pdf.text(pendingSmallWidget.label.substring(0, 28), margin + 2, yPosition + 3);
+              
+              pdf.setDrawColor(226, 232, 240);
+              pdf.setFillColor(255, 255, 255);
+              pdf.roundedRect(margin + 2, yPosition + 4, halfWidth - 2, pendingSmallWidget.height, 2, 2, "FD");
+              pdf.addImage(pendingSmallWidget.canvas.toDataURL("image/png"), "PNG", margin + 3, yPosition + 5, halfWidth - 4, pendingSmallWidget.height - 2);
+
+              // Right widget (current)
+              const rightX = margin + halfWidth + 2;
+              pdf.text(widget.label.substring(0, 28), rightX, yPosition + 3);
+              
+              pdf.roundedRect(rightX, yPosition + 4, halfWidth - 2, pdfHeight, 2, 2, "FD");
+              pdf.addImage(canvas.toDataURL("image/png"), "PNG", rightX + 1, yPosition + 5, halfWidth - 4, pdfHeight - 2);
+
+              yPosition += maxHeight + 12;
+              pendingSmallWidget = null;
+
+            } else {
+              // Save for pairing with next small widget
+              pendingSmallWidget = {
+                canvas,
+                label: widget.label,
+                height: pdfHeight,
+              };
+            }
+          }
+        }
+
+        // Flush any remaining pending widget
+        if (pendingSmallWidget) {
+          if (!fitsOnPage(pendingSmallWidget.height + 10)) {
+            startNewPage();
+          }
+          pdf.setFontSize(6);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(100, 116, 139);
+          pdf.text(pendingSmallWidget.label.substring(0, 35), margin + 2, yPosition + 3);
+          
+          pdf.setDrawColor(226, 232, 240);
+          pdf.setFillColor(255, 255, 255);
+          pdf.roundedRect(margin + 2, yPosition + 4, halfWidth - 2, pendingSmallWidget.height, 2, 2, "FD");
+          pdf.addImage(pendingSmallWidget.canvas.toDataURL("image/png"), "PNG", margin + 3, yPosition + 5, halfWidth - 4, pendingSmallWidget.height - 2);
+          
+          yPosition += pendingSmallWidget.height + 12;
+        }
+      }
+
+      // Issue table on NEW PAGE
+      if (reportConfig.includeIssueTable && issues.length > 0) {
+        startNewPage();
+
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(71, 85, 105);
+        pdf.text(`ISSUE LIST (${issues.length} total)`, margin, yPosition);
+        yPosition += 8;
         
-        const colWidths = [14, 72, 20, 32, 40];
+        const colWidths = [12, 75, 18, 30, 42];
         const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-        const rowHeight = 6;
+        const rowHeight = 5.5;
         
         // Table header
         const drawTableHeader = () => {
           pdf.setFillColor(241, 245, 249);
           pdf.rect(margin, yPosition, tableWidth, rowHeight + 1, "F");
           
-          pdf.setFontSize(7);
+          pdf.setFontSize(6.5);
           pdf.setFont("helvetica", "bold");
           pdf.setTextColor(71, 85, 105);
           
           let xPos = margin + 2;
           const headers = ["#", "Title", "State", "Labels", "Repository"];
           headers.forEach((header, i) => {
-            pdf.text(header, xPos, yPosition + 4.5);
+            pdf.text(header, xPos, yPosition + 4);
             xPos += colWidths[i];
           });
           
@@ -356,30 +464,25 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         drawTableHeader();
 
         pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(6.5);
+        pdf.setFontSize(6);
 
         for (let i = 0; i < issues.length; i++) {
           const issue = issues[i];
           
           if (yPosition + rowHeight > pageHeight - footerHeight - 5) {
-            currentPage++;
-            totalPages++;
-            pdf.addPage();
-            addHeader(false);
-            yPosition = headerHeight;
+            startNewPage();
             
             pdf.setFontSize(9);
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(71, 85, 105);
-            pdf.text("ISSUE LIST (continued)", margin, yPosition + 4);
-            yPosition += 10;
+            pdf.text("ISSUE LIST (continued)", margin, yPosition);
+            yPosition += 8;
             
             drawTableHeader();
             pdf.setFont("helvetica", "normal");
-            pdf.setFontSize(6.5);
+            pdf.setFontSize(6);
           }
 
-          // Alternating row background
           if (i % 2 === 0) {
             pdf.setFillColor(248, 250, 252);
             pdf.rect(margin, yPosition, tableWidth, rowHeight, "F");
@@ -388,20 +491,17 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           let xPos = margin + 2;
           pdf.setTextColor(71, 85, 105);
 
-          // Issue number
-          pdf.text(`#${issue.number}`, xPos, yPosition + 4);
+          pdf.text(`#${issue.number}`, xPos, yPosition + 3.5);
           xPos += colWidths[0];
 
-          // Title
           pdf.setTextColor(30, 41, 59);
-          const maxTitleLen = 48;
+          const maxTitleLen = 50;
           const title = issue.title.length > maxTitleLen 
             ? issue.title.substring(0, maxTitleLen) + "..." 
             : issue.title;
-          pdf.text(title, xPos, yPosition + 4);
+          pdf.text(title, xPos, yPosition + 3.5);
           xPos += colWidths[1];
 
-          // State
           const state = issue.status || issue.state || "open";
           const stateColors: Record<string, [number, number, number]> = {
             open: [34, 197, 94],
@@ -410,19 +510,17 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           };
           const stateColor = stateColors[state] || [148, 163, 184];
           pdf.setTextColor(stateColor[0], stateColor[1], stateColor[2]);
-          pdf.text(String(state).replace("_", " "), xPos, yPosition + 4);
+          pdf.text(String(state).replace("_", " "), xPos, yPosition + 3.5);
           xPos += colWidths[2];
 
-          // Labels
           pdf.setTextColor(100, 116, 139);
           const labelNames = issue.labels.slice(0, 2).map((l) => 
             typeof l === "string" ? l : l.name
           );
           const labelsText = labelNames.join(", ");
-          pdf.text(labelsText.substring(0, 22) || "-", xPos, yPosition + 4);
+          pdf.text(labelsText.substring(0, 20) || "-", xPos, yPosition + 3.5);
           xPos += colWidths[3];
 
-          // Repository
           pdf.setTextColor(71, 85, 105);
           let repoName = "-";
           if (typeof issue.repository === "string") {
@@ -430,7 +528,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           } else if (issue.repositories) {
             repoName = issue.repositories.name || issue.repositories.full_name;
           }
-          pdf.text(repoName.substring(0, 25), xPos, yPosition + 4);
+          pdf.text(repoName.substring(0, 28), xPos, yPosition + 3.5);
 
           yPosition += rowHeight;
         }
