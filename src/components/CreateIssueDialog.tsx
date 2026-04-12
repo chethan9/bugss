@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, X, Loader2, Github, Tag, Users } from "lucide-react";
 import {
@@ -28,21 +27,15 @@ import {
 } from "@/services/githubService";
 import { useToast } from "@/hooks/use-toast";
 
-interface Repository {
-  full_name: string;
-  name: string;
-  owner: string;
-}
-
 interface CreateIssueDialogProps {
-  repositories: Repository[];
-  accessToken: string;
+  repositories: string[];
+  token: string;
   onIssueCreated?: () => void;
 }
 
 export function CreateIssueDialog({
   repositories,
-  accessToken,
+  token,
   onIssueCreated,
 }: CreateIssueDialogProps) {
   const [open, setOpen] = useState(false);
@@ -59,7 +52,7 @@ export function CreateIssueDialog({
 
   // Load labels and collaborators when repo changes
   useEffect(() => {
-    if (!selectedRepo || !accessToken) {
+    if (!selectedRepo || !token) {
       setAvailableLabels([]);
       setAvailableCollaborators([]);
       return;
@@ -71,8 +64,8 @@ export function CreateIssueDialog({
       
       try {
         const [labels, collaborators] = await Promise.all([
-          fetchRepositoryLabels(accessToken, owner, repo),
-          fetchRepositoryCollaborators(accessToken, owner, repo),
+          fetchRepositoryLabels(token, owner, repo),
+          fetchRepositoryCollaborators(token, owner, repo),
         ]);
         setAvailableLabels(labels);
         setAvailableCollaborators(collaborators);
@@ -84,7 +77,7 @@ export function CreateIssueDialog({
     };
 
     loadRepoMeta();
-  }, [selectedRepo, accessToken]);
+  }, [selectedRepo, token]);
 
   const resetForm = () => {
     setTitle("");
@@ -111,7 +104,7 @@ export function CreateIssueDialog({
 
     try {
       await createGitHubIssue(
-        accessToken,
+        token,
         owner,
         repo,
         title.trim(),
@@ -181,8 +174,8 @@ export function CreateIssueDialog({
               </SelectTrigger>
               <SelectContent>
                 {repositories.map((repo) => (
-                  <SelectItem key={repo.full_name} value={repo.full_name}>
-                    {repo.full_name}
+                  <SelectItem key={repo} value={repo}>
+                    {repo}
                   </SelectItem>
                 ))}
               </SelectContent>
