@@ -627,30 +627,45 @@ export default function ReportsPage() {
       const pdfBlob = pdf.output("blob");
       const fileName = `${reportName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}.pdf`;
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from("reports")
-        .upload(`${user.id}/${fileName}`, pdfBlob, {
-          contentType: "application/pdf",
-        });
-
-      if (uploadError) {
-        console.error("Storage upload failed:", uploadError);
-        // Fall back to local download
-        pdf.save(fileName);
+      // Try to upload to Supabase Storage with timeout
+      let uploadSuccess = false;
+      try {
+        const uploadPromise = supabase.storage
+          .from("reports")
+          .upload(`${user.id}/${fileName}`, pdfBlob, {
+            contentType: "application/pdf",
+          });
+        
+        // Add 10 second timeout for upload
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Upload timeout")), 10000)
+        );
+        
+        const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]) as any;
+        
+        if (!uploadError) {
+          uploadSuccess = true;
+        } else {
+          console.error("Storage upload failed:", uploadError);
+        }
+      } catch (uploadErr) {
+        console.error("Storage upload error:", uploadErr);
       }
+
+      setGenerationProgress(95);
+      setGenerationStatus("Finalizing...");
 
       // Update report record
       await supabase
         .from("reports")
         .update({
-          file_path: `${user.id}/${fileName}`,
+          file_path: uploadSuccess ? `${user.id}/${fileName}` : "",
           file_size: pdfBlob.size,
           status: "completed",
         })
         .eq("id", reportData.id);
 
-      // Download the file
+      // Always download the file locally
       pdf.save(fileName);
 
       setGenerationProgress(100);
@@ -658,7 +673,7 @@ export default function ReportsPage() {
 
       toast({
         title: "Report generated",
-        description: `Your report has been created with ${capturedWidgets.length} widgets.`,
+        description: `Your report "${reportName}" has been downloaded.${!uploadSuccess ? " (Cloud save skipped)" : ""}`,
       });
 
       // Reload reports list
