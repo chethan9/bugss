@@ -3,12 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -17,7 +15,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ExternalLink, Search, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { 
+  ExternalLink, 
+  Search, 
+  X, 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronsLeft, 
+  ChevronsRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Filter,
+  Check
+} from "lucide-react";
 
 export interface GitHubIssue {
   id: string;
@@ -51,6 +62,9 @@ interface IssueTableProps {
   pageSize?: number;
 }
 
+type SortField = "number" | "title" | "status" | "severity" | "assignee" | "repository" | "createdAt";
+type SortDirection = "asc" | "desc";
+
 // Helper functions
 const getSeverityFromLabels = (labels: string[]): string => {
   const labelText = labels.join(" ").toLowerCase();
@@ -61,33 +75,142 @@ const getSeverityFromLabels = (labels: string[]): string => {
   return "none";
 };
 
+const getSeverityOrder = (severity: string): number => {
+  switch (severity) {
+    case "critical": return 0;
+    case "high": return 1;
+    case "medium": return 2;
+    case "low": return 3;
+    default: return 4;
+  }
+};
+
+const getStatusOrder = (status: string): number => {
+  switch (status) {
+    case "open": return 0;
+    case "in_progress": return 1;
+    case "closed": return 2;
+    default: return 3;
+  }
+};
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case "open":
-      return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20";
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
     case "in_progress":
-      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20";
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30";
     case "closed":
-      return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+      return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30";
     default:
-      return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+      return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30";
   }
 };
 
 const getSeverityColor = (severity: string) => {
   switch (severity) {
     case "critical":
-      return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20";
+      return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30";
     case "high":
-      return "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20";
+      return "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30";
     case "medium":
-      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20";
+      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30";
     case "low":
-      return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
+      return "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30";
     default:
-      return "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20";
+      return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30";
   }
 };
+
+// Sortable Header Component
+function SortableHeader({ 
+  label, 
+  field, 
+  currentSort, 
+  currentDirection, 
+  onSort 
+}: { 
+  label: string; 
+  field: SortField; 
+  currentSort: SortField; 
+  currentDirection: SortDirection;
+  onSort: (field: SortField) => void;
+}) {
+  const isActive = currentSort === field;
+  
+  return (
+    <button
+      onClick={() => onSort(field)}
+      className="flex items-center gap-1.5 hover:text-foreground transition-colors group font-semibold"
+    >
+      {label}
+      <span className={`transition-colors ${isActive ? "text-primary" : "text-muted-foreground/50 group-hover:text-muted-foreground"}`}>
+        {isActive ? (
+          currentDirection === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5" />
+        )}
+      </span>
+    </button>
+  );
+}
+
+// Filter Button Component
+function FilterButton({
+  label,
+  value,
+  options,
+  onChange,
+  counts,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  counts?: Record<string, number>;
+}) {
+  const [open, setOpen] = useState(false);
+  const isFiltered = value !== "all";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-7 px-2 text-xs gap-1 ${isFiltered ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+        >
+          <Filter className="h-3 w-3" />
+          {isFiltered ? options.find(o => o.value === value)?.label : label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1" align="start">
+        <div className="space-y-0.5">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-2 py-1.5 text-sm rounded hover:bg-muted transition-colors ${
+                value === option.value ? "bg-muted" : ""
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                {value === option.value && <Check className="h-3.5 w-3.5 text-primary" />}
+                <span className={value === option.value ? "font-medium" : ""}>{option.label}</span>
+              </span>
+              {counts && counts[option.value] !== undefined && (
+                <span className="text-xs text-muted-foreground">{counts[option.value]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // Memoized table row component for performance
 const IssueRow = memo(function IssueRow({ 
@@ -104,47 +227,47 @@ const IssueRow = memo(function IssueRow({
       className="cursor-pointer hover:bg-muted/50 transition-colors"
       onClick={() => onIssueClick(issue)}
     >
-      <TableCell className="font-mono text-xs text-muted-foreground">
+      <TableCell className="font-mono text-xs text-muted-foreground w-[70px]">
         #{issue.number}
       </TableCell>
       <TableCell>
         <p className="font-medium text-sm line-clamp-1">{issue.title}</p>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[100px]">
         <Badge
           variant="outline"
-          className={`${getStatusColor(issue.status)} capitalize`}
+          className={`${getStatusColor(issue.status)} capitalize text-xs`}
         >
           {issue.status.replace("_", " ")}
         </Badge>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[100px]">
         {severity !== "none" && (
           <Badge
             variant="outline"
-            className={`${getSeverityColor(severity)} capitalize`}
+            className={`${getSeverityColor(severity)} capitalize text-xs`}
           >
             {severity}
           </Badge>
         )}
       </TableCell>
-      <TableCell className="text-sm">
+      <TableCell className="text-sm w-[140px]">
         {issue.assignee ? (
-          <span className="text-foreground">{issue.assignee}</span>
+          <span className="text-foreground truncate block">{issue.assignee}</span>
         ) : (
-          <span className="text-muted-foreground italic">Unassigned</span>
+          <span className="text-muted-foreground italic text-xs">Unassigned</span>
         )}
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {issue.repository}
+      <TableCell className="text-xs text-muted-foreground w-[160px]">
+        <span className="truncate block">{issue.repository.split("/").pop()}</span>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[50px]">
         <a
           href={issue.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="text-primary hover:text-primary/80"
+          className="text-muted-foreground hover:text-primary transition-colors"
         >
           <ExternalLink className="h-4 w-4" />
         </a>
@@ -153,12 +276,14 @@ const IssueRow = memo(function IssueRow({
   );
 });
 
-export function IssueTable({ issues, onIssueClick, pageSize = 100 }: IssueTableProps) {
+export function IssueTable({ issues, onIssueClick, pageSize = 50 }: IssueTableProps) {
   const [titleSearch, setTitleSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState<SortField>("number");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   // Extract unique assignees - memoized
   const uniqueAssignees = useMemo(() => {
@@ -166,9 +291,23 @@ export function IssueTable({ issues, onIssueClick, pageSize = 100 }: IssueTableP
     return Array.from(assignees).sort();
   }, [issues]);
 
-  // Apply filters - memoized
-  const filteredIssues = useMemo(() => {
-    return issues.filter(issue => {
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    const statusCounts: Record<string, number> = { all: issues.length, open: 0, in_progress: 0, closed: 0 };
+    const severityCounts: Record<string, number> = { all: issues.length, critical: 0, high: 0, medium: 0, low: 0, none: 0 };
+    
+    issues.forEach(issue => {
+      statusCounts[issue.status] = (statusCounts[issue.status] || 0) + 1;
+      const severity = getSeverityFromLabels(issue.labels);
+      severityCounts[severity] = (severityCounts[severity] || 0) + 1;
+    });
+    
+    return { statusCounts, severityCounts };
+  }, [issues]);
+
+  // Apply filters and sorting - memoized
+  const filteredAndSortedIssues = useMemo(() => {
+    const result = issues.filter(issue => {
       if (titleSearch && !issue.title.toLowerCase().includes(titleSearch.toLowerCase())) {
         return false;
       }
@@ -185,16 +324,61 @@ export function IssueTable({ issues, onIssueClick, pageSize = 100 }: IssueTableP
       }
       return true;
     });
-  }, [issues, titleSearch, statusFilter, severityFilter, assigneeFilter]);
+
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case "number":
+          comparison = a.number - b.number;
+          break;
+        case "title":
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case "status":
+          comparison = getStatusOrder(a.status) - getStatusOrder(b.status);
+          break;
+        case "severity":
+          comparison = getSeverityOrder(getSeverityFromLabels(a.labels)) - getSeverityOrder(getSeverityFromLabels(b.labels));
+          break;
+        case "assignee":
+          const assigneeA = a.assignee || "zzz";
+          const assigneeB = b.assignee || "zzz";
+          comparison = assigneeA.localeCompare(assigneeB);
+          break;
+        case "repository":
+          comparison = a.repository.localeCompare(b.repository);
+          break;
+        case "createdAt":
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+      }
+      
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return result;
+  }, [issues, titleSearch, statusFilter, severityFilter, assigneeFilter, sortField, sortDirection]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredIssues.length / pageSize);
+  const totalPages = Math.ceil(filteredAndSortedIssues.length / pageSize);
   const paginatedIssues = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredIssues.slice(start, start + pageSize);
-  }, [filteredIssues, currentPage, pageSize]);
+    return filteredAndSortedIssues.slice(start, start + pageSize);
+  }, [filteredAndSortedIssues, currentPage, pageSize]);
 
-  // Reset page when filters change
+  // Handlers
+  const handleSort = useCallback((field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+    setCurrentPage(1);
+  }, [sortField]);
+
   const handleFilterChange = useCallback((setter: (value: string) => void, value: string) => {
     setter(value);
     setCurrentPage(1);
@@ -210,112 +394,153 @@ export function IssueTable({ issues, onIssueClick, pageSize = 100 }: IssueTableP
 
   const hasActiveFilters = titleSearch || statusFilter !== "all" || severityFilter !== "all" || assigneeFilter !== "all";
 
-  // Page navigation
   const goToPage = useCallback((page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   }, [totalPages]);
 
+  // Filter options
+  const statusOptions = [
+    { value: "all", label: "All Status" },
+    { value: "open", label: "Open" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "closed", label: "Closed" },
+  ];
+
+  const severityOptions = [
+    { value: "all", label: "All Severity" },
+    { value: "critical", label: "Critical" },
+    { value: "high", label: "High" },
+    { value: "medium", label: "Medium" },
+    { value: "low", label: "Low" },
+  ];
+
+  const assigneeOptions = [
+    { value: "all", label: "All Assignees" },
+    { value: "unassigned", label: "Unassigned" },
+    ...uniqueAssignees.map(a => ({ value: a, label: a })),
+  ];
+
   return (
     <div className="space-y-3">
-      {/* Active filters indicator */}
-      {hasActiveFilters && (
-        <div className="flex items-center justify-between bg-muted/50 px-4 py-2 rounded-md">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredIssues.length} of {issues.length} issues
-          </p>
+      {/* Search and Filter Bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search issues..."
+            value={titleSearch}
+            onChange={(e) => handleFilterChange(setTitleSearch, e.target.value)}
+            className="pl-9 h-9"
+          />
+          {titleSearch && (
+            <button
+              onClick={() => handleFilterChange(setTitleSearch, "")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <FilterButton
+            label="Status"
+            value={statusFilter}
+            options={statusOptions}
+            onChange={(v) => handleFilterChange(setStatusFilter, v)}
+            counts={filterCounts.statusCounts}
+          />
+          <FilterButton
+            label="Severity"
+            value={severityFilter}
+            options={severityOptions}
+            onChange={(v) => handleFilterChange(setSeverityFilter, v)}
+            counts={filterCounts.severityCounts}
+          />
+          <FilterButton
+            label="Assignee"
+            value={assigneeFilter}
+            options={assigneeOptions}
+            onChange={(v) => handleFilterChange(setAssigneeFilter, v)}
+          />
+        </div>
+
+        {hasActiveFilters && (
           <Button
             variant="ghost"
             size="sm"
             onClick={clearAllFilters}
-            className="h-7 text-xs"
+            className="h-8 text-xs text-muted-foreground hover:text-foreground"
           >
             <X className="h-3 w-3 mr-1" />
-            Clear all filters
+            Clear filters
           </Button>
-        </div>
-      )}
+        )}
 
-      <div className="rounded-md border bg-card overflow-hidden">
+        <div className="ml-auto text-sm text-muted-foreground">
+          {filteredAndSortedIssues.length} of {issues.length} issues
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[80px]">#</TableHead>
-              <TableHead className="min-w-[300px]">
-                <div className="space-y-2">
-                  <span className="font-semibold">Title</span>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                    <Input
-                      placeholder="Search titles..."
-                      value={titleSearch}
-                      onChange={(e) => handleFilterChange(setTitleSearch, e.target.value)}
-                      className="h-8 pl-7 text-xs"
-                    />
-                    {titleSearch && (
-                      <button
-                        onClick={() => handleFilterChange(setTitleSearch, "")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+            <TableRow className="hover:bg-transparent bg-muted/30">
+              <TableHead className="w-[70px]">
+                <SortableHeader 
+                  label="#" 
+                  field="number" 
+                  currentSort={sortField} 
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </TableHead>
+              <TableHead>
+                <SortableHeader 
+                  label="Title" 
+                  field="title" 
+                  currentSort={sortField} 
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </TableHead>
+              <TableHead className="w-[100px]">
+                <SortableHeader 
+                  label="Status" 
+                  field="status" 
+                  currentSort={sortField} 
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </TableHead>
+              <TableHead className="w-[100px]">
+                <SortableHeader 
+                  label="Severity" 
+                  field="severity" 
+                  currentSort={sortField} 
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className="w-[140px]">
-                <div className="space-y-2">
-                  <span className="font-semibold">Status</span>
-                  <Select value={statusFilter} onValueChange={(v) => handleFilterChange(setStatusFilter, v)}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </TableHead>
-              <TableHead className="w-[140px]">
-                <div className="space-y-2">
-                  <span className="font-semibold">Severity</span>
-                  <Select value={severityFilter} onValueChange={(v) => handleFilterChange(setSeverityFilter, v)}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <SortableHeader 
+                  label="Assignee" 
+                  field="assignee" 
+                  currentSort={sortField} 
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className="w-[160px]">
-                <div className="space-y-2">
-                  <span className="font-semibold">Assignee</span>
-                  <Select value={assigneeFilter} onValueChange={(v) => handleFilterChange(setAssigneeFilter, v)}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {uniqueAssignees.map(assignee => (
-                        <SelectItem key={assignee} value={assignee}>
-                          {assignee}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <SortableHeader 
+                  label="Repository" 
+                  field="repository" 
+                  currentSort={sortField} 
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                />
               </TableHead>
-              <TableHead className="w-[200px]">Repository</TableHead>
-              <TableHead className="w-[80px]">Link</TableHead>
+              <TableHead className="w-[50px]">Link</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -338,11 +563,11 @@ export function IssueTable({ issues, onIssueClick, pageSize = 100 }: IssueTableP
         </Table>
       </div>
 
-      {/* Enhanced Pagination */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} ({filteredIssues.length.toLocaleString()} issues)
+            Page {currentPage} of {totalPages}
           </p>
           <div className="flex items-center gap-1">
             <Button
