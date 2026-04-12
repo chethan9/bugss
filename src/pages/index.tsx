@@ -193,7 +193,6 @@ export default function Home() {
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const [widgetsPerRow, setWidgetsPerRow] = useState(3);
   const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
-  const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -339,31 +338,11 @@ export default function Home() {
         console.error("Failed to load widget preferences:", e);
       }
     }
-
-    const savedReportConfig = localStorage.getItem("reportConfig");
-    if (savedReportConfig) {
-      try {
-        const parsed = JSON.parse(savedReportConfig);
-        // Merge with defaults to ensure pdfWidgets is always present
-        setReportConfig({
-          ...DEFAULT_REPORT_CONFIG,
-          ...parsed,
-          pdfWidgets: parsed.pdfWidgets?.length ? parsed.pdfWidgets : DEFAULT_REPORT_CONFIG.pdfWidgets,
-        });
-      } catch (e) {
-        console.error("Failed to load report config:", e);
-      }
-    }
   }, []);
 
   const handleVisibilityChange = (newVisibility: WidgetVisibility) => {
     setWidgetVisibility(newVisibility);
     localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
-  };
-
-  const handleReportConfigChange = (newConfig: ReportConfig) => {
-    setReportConfig(newConfig);
-    localStorage.setItem("reportConfig", JSON.stringify(newConfig));
   };
 
   const handleFetchIssues = async (tokenParam?: string, reposParam?: string[]) => {
