@@ -41,7 +41,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
-import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
+import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility, type WidgetKey, type WidgetSize } from "@/components/WidgetSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { DataFetchingLoader } from "@/components/LoadingSpinner";
@@ -192,7 +192,8 @@ export default function Home() {
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const [widgetsPerRow, setWidgetsPerRow] = useState(3);
-  const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
+  const [widgetOrder, setWidgetOrder] = useState<WidgetKey[]>(DEFAULT_WIDGET_ORDER);
+  const [widgetSizes, setWidgetSizes] = useState<Record<WidgetKey, WidgetSize>>(DEFAULT_WIDGET_SIZES);
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -238,7 +239,7 @@ export default function Home() {
             setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
           }
           if (settings.widget_order && Array.isArray(settings.widget_order)) {
-            setWidgetOrder(settings.widget_order as (keyof WidgetVisibility)[]);
+            setWidgetOrder(settings.widget_order as WidgetKey[]);
           }
           // Fix: Check for number type instead of truthy value (0 would fail truthy check)
           if (typeof settings.widgets_per_row === "number" && settings.widgets_per_row >= 1 && settings.widgets_per_row <= 4) {
@@ -340,9 +341,14 @@ export default function Home() {
     }
   }, []);
 
-  const handleVisibilityChange = (newVisibility: WidgetVisibility) => {
+  const handleVisibilityChange = (key: keyof WidgetVisibility, value: boolean) => {
+    const newVisibility = { ...widgetVisibility, [key]: value };
     setWidgetVisibility(newVisibility);
     localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
+  };
+
+  const handleWidgetSizeChange = (key: WidgetKey, size: WidgetSize) => {
+    setWidgetSizes(prev => ({ ...prev, [key]: size }));
   };
 
   const handleFetchIssues = async (tokenParam?: string, reposParam?: string[]) => {
@@ -975,6 +981,8 @@ export default function Home() {
                         onWidgetsPerRowChange={setWidgetsPerRow}
                         widgetOrder={widgetOrder}
                         onWidgetOrderChange={setWidgetOrder}
+                        widgetSizes={widgetSizes}
+                        onWidgetSizeChange={handleWidgetSizeChange}
                       />
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
