@@ -198,6 +198,9 @@ export default function ReportsPage() {
   const [availableRepos, setAvailableRepos] = useState<Array<{ id: string; name: string; full_name: string }>>([]);
   const [reposForReport, setReposForReport] = useState<string[]>([]);
   const [manualRepoInput, setManualRepoInput] = useState("");
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+  const [allGitHubRepos, setAllGitHubRepos] = useState<Array<{ id: string; name: string; full_name: string }>>([]);
+  const [showRepoDialog, setShowRepoDialog] = useState(false);
 
   // Calculate analytics data for widgets
   const analytics = useMemo(() => {
@@ -729,6 +732,64 @@ export default function ReportsPage() {
     }
   };
 
+  const fetchGitHubRepos = async () => {
+    setIsLoadingRepos(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: "Not authenticated", variant: "destructive" });
+        return;
+      }
+
+      const { data: connection } = await supabase
+        .from("github_connections")
+        .select("access_token")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (!connection?.access_token) {
+        toast({ title: "No GitHub token found", description: "Please connect GitHub on the dashboard.", variant: "destructive" });
+        return;
+      }
+
+      const response = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
+        headers: {
+          Authorization: `Bearer ${connection.access_token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      });
+
+      if (!response.ok) {
+        toast({ title: "Failed to fetch repos", variant: "destructive" });
+        return;
+      }
+
+      const repos = await response.json();
+      const repoList = repos.map((r: any) => ({
+        id: r.full_name,
+        name: r.name,
+        full_name: r.full_name,
+      }));
+
+      setAllGitHubRepos(repoList);
+      setShowRepoDialog(true);
+    } catch (error) {
+      console.error("Error fetching repos:", error);
+      toast({ title: "Error fetching repos", variant: "destructive" });
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
+
+  const addSelectedRepo = (repo: { id: string; name: string; full_name: string }) => {
+    if (!availableRepos.find(r => r.full_name === repo.full_name)) {
+      setAvailableRepos(prev => [...prev, repo]);
+    }
+    if (!reposForReport.includes(repo.full_name)) {
+      setReposForReport(prev => [...prev, repo.full_name]);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -890,10 +951,66 @@ export default function ReportsPage() {
                       </ScrollArea>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                        <p className="text-sm">No repositories added yet. Enter a repo name above.</p>
+                        <p className="text-sm">No repositories selected yet. Enter a repo name above.</p>
                       </div>
                     )}
                   </div>
+
+                  {/* Repo Selection Dialog */}
+                  <AlertDialog open={showRepoDialog} onOpenChange={setShowRepoDialog}>
+                    <AlertDialogContent className="max-w-2xl max-h-[80vh]">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Select Repositories</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Click on repositories to add them to your report ({allGitHubRepos.length} available)
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <ScrollArea className="h-96 pr-4">
+                        <div className="space-y-2">
+                          {allGitHubRepos.map((repo) => {
+                            const isSelected = reposForReport.includes(repo.full_name);
+                            return (
+                              <div
+                                key={repo.full_name}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setReposForReport(prev => prev.filter(id => id !== repo.full_name));
+                                  } else {
+                                    addSelectedRepo(repo);
+                                  }
+                                }}
+                                className={`
+                                  p-3 rounded-lg border cursor-pointer transition-all
+                                  ${isSelected
+                                    ? "bg-primary/10 border-primary" 
+                                    : "bg-muted/50 border-transparent hover:border-muted-foreground/20"
+                                  }
+                                `}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className={`
+                                    w-4 h-4 rounded border-2 flex items-center justify-center
+                                    ${isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"}
+                                  `}>
+                                    {isSelected && (
+                                      <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
+                                    )}
+                                  </div>
+                                  <span className="text-sm font-medium">{repo.full_name}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Close</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => setShowRepoDialog(false)}>
+                          Done ({reposForReport.length} selected)
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
 
                   <Separator />
 
