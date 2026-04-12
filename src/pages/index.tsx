@@ -1037,7 +1037,7 @@ export default function Home() {
                 {/* ===== STRUCTURED DASHBOARD GRID ===== */}
                 <div className="space-y-4" id="analytics-widgets-section">
                   
-                  {/* Row 1: Key Metrics Overview */}
+                  {/* Row 1: Key Metrics Overview - always 2 columns */}
                   {(widgetVisibility.summaryMetrics || widgetVisibility.progressBar) && (
                     <div className="dashboard-row" style={{ gridTemplateColumns: "1fr 1fr" }}>
                       {widgetVisibility.summaryMetrics && (
@@ -1065,8 +1065,8 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Row 2: Project Health, Burndown, Flow Efficiency */}
-                  <div className="dashboard-row">
+                  {/* Main Dashboard Grid - Auto-flow widgets */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {widgetVisibility.projectHealthGauge && (
                       <div data-widget-id="project-health" className="dashboard-card">
                         <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
@@ -1082,48 +1082,36 @@ export default function Home() {
                         <FlowEfficiency issues={filteredIssues} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 3: Issue Trend, Bug Category, Severity Heatmap */}
-                  <div className="dashboard-row">
-                    {widgetVisibility.trendChart && analytics.trend.length > 0 && (
+                    {widgetVisibility.trendChart && (
                       <div data-widget-id="issue-trend" className="dashboard-card">
                         <IssueTrendChart data={analytics.trend} days={30} />
                       </div>
                     )}
-                    {widgetVisibility.categoryBreakdown && Object.values(analytics.categories).some(v => v > 0) && (
+                    {widgetVisibility.categoryBreakdown && (
                       <div data-widget-id="bug-category" className="dashboard-card">
                         <BugCategoryBreakdown categories={analytics.categories} />
                       </div>
                     )}
-                    {widgetVisibility.severityHeatmap && Object.values(analytics.severities).some(v => v > 0) && (
+                    {widgetVisibility.severityHeatmap && (
                       <div data-widget-id="severity-heatmap" className="dashboard-card">
                         <BugSeverityHeatmap severities={analytics.severities} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 4: Resolution Time, Priority Scatter, Module Stability */}
-                  <div className="dashboard-row">
-                    {widgetVisibility.resolutionTime && analytics.resolutionTime.overall > 0 && (
+                    {widgetVisibility.resolutionTime && (
                       <div data-widget-id="resolution-time" className="dashboard-card">
                         <AverageResolutionTime stats={analytics.resolutionTime} />
                       </div>
                     )}
-                    {widgetVisibility.priorityScatterPlot && analytics.priorityScatter.length > 0 && (
+                    {widgetVisibility.priorityScatterPlot && (
                       <div data-widget-id="priority-scatter" className="dashboard-card">
                         <PriorityScatterPlot data={analytics.priorityScatter} />
                       </div>
                     )}
-                    {widgetVisibility.moduleStability && analytics.stability.length > 0 && (
+                    {widgetVisibility.moduleStability && (
                       <div data-widget-id="module-stability" className="dashboard-card">
                         <ModuleStabilityScore stability={analytics.stability} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 5: Aging Issues, At Risk, Backlog Growth */}
-                  <div className="dashboard-row">
                     {widgetVisibility.agingIssues && (
                       <div data-widget-id="aging-issues" className="dashboard-card">
                         <AgingIssues stats={analytics.agingIssues} />
@@ -1139,54 +1127,42 @@ export default function Home() {
                         <BacklogGrowth stats={analytics.backlogGrowth} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 6: Bug Fix Efficiency, Developer Load, Focus Recommendations */}
-                  <div className="dashboard-row">
                     {widgetVisibility.bugFixEfficiency && (
                       <div data-widget-id="bug-fix-efficiency" className="dashboard-card">
                         <BugFixEfficiency stats={analytics.bugFixEfficiency} />
                       </div>
                     )}
-                    {widgetVisibility.developerLoad && analytics.developerLoad.developers.length > 0 && (
+                    {widgetVisibility.developerLoad && (
                       <div data-widget-id="developer-load" className="dashboard-card">
                         <DeveloperLoad stats={analytics.developerLoad} />
                       </div>
                     )}
-                    {widgetVisibility.focusRecommendations && analytics.focusRecommendations.length > 0 && (
+                    {widgetVisibility.focusRecommendations && (
                       <div data-widget-id="focus-recommendations" className="dashboard-card">
                         <FocusRecommendations recommendations={analytics.focusRecommendations} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 7: Charts - Stacked Area, Funnel, Waterfall */}
-                  <div className="dashboard-row">
-                    {widgetVisibility.stackedAreaChart && analytics.stackedAreaData.length > 0 && (
+                    {widgetVisibility.stackedAreaChart && (
                       <div data-widget-id="stacked-area" className="dashboard-card">
                         <StackedAreaChart data={analytics.stackedAreaData} />
                       </div>
                     )}
-                    {widgetVisibility.issueFunnelChart && analytics.issueFunnel.length > 0 && (
+                    {widgetVisibility.issueFunnelChart && (
                       <div data-widget-id="issue-funnel" className="dashboard-card">
                         <IssueFunnelChart stages={analytics.issueFunnel} />
                       </div>
                     )}
-                    {widgetVisibility.backlogWaterfallChart && analytics.backlogWaterfall.length > 0 && (
+                    {widgetVisibility.backlogWaterfallChart && (
                       <div data-widget-id="backlog-waterfall" className="dashboard-card">
                         <BacklogWaterfallChart data={analytics.backlogWaterfall} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 8: Module Treemap, Module Radar, KPI Bullet */}
-                  <div className="dashboard-row">
-                    {widgetVisibility.moduleTreemap && analytics.moduleTreemap.length > 0 && (
+                    {widgetVisibility.moduleTreemap && (
                       <div data-widget-id="module-treemap" className="dashboard-card">
                         <ModuleTreemap data={analytics.moduleTreemap} />
                       </div>
                     )}
-                    {widgetVisibility.moduleRadarChart && analytics.moduleRadar.length > 0 && (
+                    {widgetVisibility.moduleRadarChart && (
                       <div data-widget-id="module-radar" className="dashboard-card">
                         <ModuleRadarChart data={analytics.moduleRadar} />
                       </div>
@@ -1196,16 +1172,12 @@ export default function Home() {
                         <BulletChart metrics={analytics.kpiMetrics} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 9: Secondary Widgets */}
-                  <div className="dashboard-row">
-                    {widgetVisibility.bugHeatmap && analytics.bugHeatmap.length > 0 && (
+                    {widgetVisibility.bugHeatmap && (
                       <div data-widget-id="bug-heatmap" className="dashboard-card">
                         <BugHeatmap data={analytics.bugHeatmap} />
                       </div>
                     )}
-                    {widgetVisibility.resolutionHistogram && analytics.resolutionHistogram.length > 0 && (
+                    {widgetVisibility.resolutionHistogram && (
                       <div data-widget-id="resolution-histogram" className="dashboard-card">
                         <ResolutionHistogram data={analytics.resolutionHistogram} />
                       </div>
@@ -1215,28 +1187,24 @@ export default function Home() {
                         <ReopenedIssuesTracker stats={analytics.reopened} />
                       </div>
                     )}
-                  </div>
-
-                  {/* Row 10: Remaining Widgets */}
-                  <div className="dashboard-row">
-                    {widgetVisibility.bugHotspots && analytics.hotspots.length > 0 && (
+                    {widgetVisibility.bugHotspots && (
                       <div data-widget-id="bug-hotspots" className="dashboard-card">
                         <BugHotspots hotspots={analytics.hotspots} />
                       </div>
                     )}
-                    {widgetVisibility.criticalUntouched && analytics.criticalUntouched.issues.length > 0 && (
+                    {widgetVisibility.criticalUntouched && (
                       <div data-widget-id="critical-untouched" className="dashboard-card">
                         <CriticalUntouched stats={analytics.criticalUntouched} />
                       </div>
                     )}
-                    {widgetVisibility.repeatBugDetector && analytics.repeatBugs.topRepeatingLabels.length > 0 && (
+                    {widgetVisibility.repeatBugDetector && (
                       <div data-widget-id="repeat-bugs" className="dashboard-card">
                         <RepeatBugDetector stats={analytics.repeatBugs} />
                       </div>
                     )}
                   </div>
 
-                  {/* Smart Insights & Repository Filter - Full Width */}
+                  {/* Full Width Widgets */}
                   {widgetVisibility.smartInsights && analytics.insights.length > 0 && (
                     <div data-widget-id="smart-insights" className="dashboard-card">
                       <SmartInsights insights={analytics.insights} />
