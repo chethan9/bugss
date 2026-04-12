@@ -232,24 +232,24 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           
           // Find max height for this row
           let maxHeight = 0;
-          const widgetData: Array<{ widget: typeof validWidgets[0]; pdfWidth: number; pdfHeight: number; xPos: number }> = [];
+          const widgetData: Array<{ config: typeof validWidgets[0]; pdfWidth: number; pdfHeight: number; xPos: number }> = [];
           let xPos = margin;
 
-          for (const { widget, span, capture } of validWidgets) {
-            if (!capture) continue;
+          for (const item of validWidgets) {
+            if (!item.capture) continue;
             
             // Calculate width based on span (in a 3-column grid)
-            const actualSpan = Math.min(span, 3);
+            const actualSpan = Math.min(item.span, 3);
             const pdfWidth = actualSpan * colWidth + (actualSpan - 1) * gap;
             
             // Calculate height from canvas aspect ratio
-            const aspectRatio = capture.canvas.height / capture.canvas.width;
+            const aspectRatio = item.capture.canvas.height / item.capture.canvas.width;
             let pdfHeight = pdfWidth * aspectRatio * 0.5; // Scale down
-            pdfHeight = Math.min(pdfHeight, 70); // Max height
-            pdfHeight = Math.max(pdfHeight, 25); // Min height
+            pdfHeight = Math.min(pdfHeight, 65); // Max height
+            pdfHeight = Math.max(pdfHeight, 20); // Min height
             
             maxHeight = Math.max(maxHeight, pdfHeight);
-            widgetData.push({ widget: { widget: widget.widget, span, capture }, pdfWidth, pdfHeight, xPos });
+            widgetData.push({ config: item, pdfWidth, pdfHeight, xPos });
             xPos += pdfWidth + gap;
           }
 
@@ -259,12 +259,11 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           }
 
           // Draw widgets
-          for (const { widget, pdfWidth, pdfHeight, xPos } of widgetData) {
-            const { capture } = widget;
-            if (!capture) continue;
+          for (const { config, pdfWidth, pdfHeight, xPos } of widgetData) {
+            if (!config.capture) continue;
 
-            // Label - access label directly from widget, not nested
-            const widgetLabel = widget.label || widget.id || "";
+            // Label - access from the widget property which is PDFWidgetConfig
+            const widgetLabel = config.widget.label || config.widget.id || "";
 
             // Label
             pdf.setFontSize(6);
@@ -279,7 +278,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             pdf.roundedRect(xPos, yPosition + 3, pdfWidth, pdfHeight, 1, 1, "FD");
 
             // Image
-            const imgData = capture.canvas.toDataURL("image/png");
+            const imgData = config.capture.canvas.toDataURL("image/png");
             pdf.addImage(imgData, "PNG", xPos + 1, yPosition + 4, pdfWidth - 2, pdfHeight - 2);
           }
 
