@@ -304,7 +304,9 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
     
+    // Don't save during initial load - wait for settings to be loaded first
     const saveTimeout = setTimeout(async () => {
+      console.log("Saving settings to Supabase:", { widgetsPerRow, widgetVisibility });
       await saveUserSettings(user.id, {
         widget_visibility: widgetVisibility,
         widget_order: widgetOrder,
@@ -312,7 +314,8 @@ export default function Home() {
         github_token: githubToken || null,
         selected_repos: selectedRepos,
       });
-    }, 1000);
+      console.log("Settings saved successfully");
+    }, 500); // Reduced debounce time
     
     return () => clearTimeout(saveTimeout);
   }, [user, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
