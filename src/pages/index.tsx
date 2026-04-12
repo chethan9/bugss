@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -111,7 +111,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
-import { CreateIssueDialog } from "@/components/CreateIssueDialog";
+import Link from "next/link";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
@@ -1321,16 +1321,13 @@ export default function Home() {
                         <span className="text-sm text-muted-foreground">
                           Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
                         </span>
-                        {/* Create Issue Button - Moved here */}
-                        <CreateIssueDialog
-                          repositories={selectedRepos}
-                          token={token}
-                          onIssueCreated={() => {
-                            if (token && selectedRepos.length > 0) {
-                              fetchSelectedIssues(selectedRepos, token);
-                            }
-                          }}
-                        />
+                        {/* Create Issue Button - Links to full page */}
+                        <Link href="/create-issue">
+                          <Button size="sm" className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            <span className="hidden sm:inline">Create Issue</span>
+                          </Button>
+                        </Link>
                       </div>
                       {filters.labels.length > 0 && (
                         <button
