@@ -6,17 +6,22 @@ import html2canvas from "html2canvas";
 import type { ReportConfig } from "./ReportSettings";
 
 interface Issue {
-  id: string;
+  id: string | number;
   number: number;
   title: string;
-  state: string;
+  state?: string;
   status?: "open" | "in_progress" | "closed";
-  repository: string;
-  labels: string[];
+  repository?: string;
+  labels: Array<{ name: string; color?: string } | string>;
   assignee?: string;
-  url: string;
-  createdAt: string;
+  assignees?: Array<{ login: string }>;
+  url?: string;
+  html_url?: string;
+  createdAt?: string;
+  created_at?: string;
   closedAt?: string;
+  closed_at?: string;
+  repositories?: { full_name: string; name: string };
 }
 
 interface PDFExportProps {
