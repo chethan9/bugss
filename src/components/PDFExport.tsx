@@ -30,6 +30,13 @@ interface PDFExportProps {
   issues?: Issue[];
 }
 
+interface CapturedWidget {
+  canvas: HTMLCanvasElement;
+  label: string;
+  width: number;
+  height: number;
+}
+
 export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -40,21 +47,24 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
+      const margin = 12;
       const contentWidth = pageWidth - 2 * margin;
-      const headerHeight = 25;
-      const footerHeight = 10;
+      const headerHeight = 22;
+      const footerHeight = 8;
+      const usableHeight = pageHeight - headerHeight - footerHeight - 5;
 
-      // Grid settings - 3 columns, 3 rows = 9 widgets per page
+      // Masonry settings - 3 columns
       const columns = 3;
-      const rows = 3;
-      const widgetsPerPage = columns * rows;
       const gap = 4;
       const colWidth = (contentWidth - (columns - 1) * gap) / columns;
-      const rowHeight = (pageHeight - headerHeight - footerHeight - 15 - (rows - 1) * gap) / rows;
-      const widgetHeight = Math.min(rowHeight - 6, 75); // Cap widget height
+      const maxWidgetHeight = 90; // Max height in mm for any widget
 
       let currentPage = 1;
+      let totalPages = 1;
+
+      // Track column heights for masonry layout
+      let columnHeights = [0, 0, 0];
+      let yStart = headerHeight + 8;
 
       // Helper: Add header
       const addHeader = (isFirstPage: boolean) => {
@@ -63,31 +73,31 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         
         if (reportConfig.companyLogo && isFirstPage) {
           try {
-            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 5, 18, 9);
+            pdf.addImage(reportConfig.companyLogo, "PNG", margin, 4, 16, 8);
           } catch (e) {
             console.warn("Logo error:", e);
           }
         }
 
-        const textX = reportConfig.companyLogo && isFirstPage ? margin + 22 : margin;
+        const textX = reportConfig.companyLogo && isFirstPage ? margin + 20 : margin;
         
-        pdf.setFontSize(12);
+        pdf.setFontSize(11);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(30, 41, 59);
-        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", textX, 10);
+        pdf.text(reportConfig.reportTitle || "GitHub Issue Analytics Report", textX, 9);
 
-        pdf.setFontSize(8);
+        pdf.setFontSize(7);
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(100, 116, 139);
         const subtitle = [reportConfig.projectName, reportConfig.reportingPeriod].filter(Boolean).join(" • ");
-        if (subtitle) pdf.text(subtitle, textX, 15);
+        if (subtitle) pdf.text(subtitle, textX, 14);
 
         const today = new Date().toLocaleDateString("en-US", { 
           year: "numeric", 
           month: "short", 
           day: "numeric" 
         });
-        pdf.text(today, pageWidth - margin, 10, { align: "right" });
+        pdf.text(today, pageWidth - margin, 9, { align: "right" });
 
         pdf.setDrawColor(226, 232, 240);
         pdf.setLineWidth(0.2);
@@ -95,18 +105,17 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       };
 
       // Helper: Add footer
-      const addFooter = (pageNum: number, totalPages: number) => {
-        const footerY = pageHeight - 5;
+      const addFooter = (pageNum: number, total: number) => {
+        const footerY = pageHeight - 4;
         pdf.setFontSize(7);
         pdf.setTextColor(148, 163, 184);
-
         if (reportConfig.showPageNumbers !== false) {
-          pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, footerY, { align: "center" });
+          pdf.text(`Page ${pageNum} of ${total}`, pageWidth / 2, footerY, { align: "center" });
         }
       };
 
-      // Helper: Capture widget from hidden print container
-      const captureWidget = async (widgetId: string): Promise<HTMLCanvasElement | null> => {
+      // Helper: Capture widget at natural size
+      const captureWidget = async (widgetId: string): Promise<CapturedWidget | null> => {
         const printContainer = document.getElementById("pdf-print-container");
         let element = printContainer?.querySelector(`[data-pdf-widget-id="${widgetId}"]`) as HTMLElement;
         
@@ -125,9 +134,9 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             position: fixed;
             left: -9999px;
             top: 0;
-            width: 280px;
+            width: 380px;
             background: #ffffff;
-            padding: 6px;
+            padding: 12px;
             box-sizing: border-box;
           `;
           
@@ -137,8 +146,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
             max-width: 100%;
             background: #ffffff;
             color: #1e293b;
-            overflow: hidden;
-            font-size: 10px;
+            overflow: visible;
           `;
           
           // Fix colors for print
@@ -181,129 +189,139 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           });
 
           document.body.removeChild(container);
-          return canvas;
+          
+          // Calculate dimensions in mm (assuming 96 DPI, scale 2)
+          const pxToMm = 0.264583;
+          const widthMm = (canvas.width / 2) * pxToMm;
+          const heightMm = Math.min((canvas.height / 2) * pxToMm, maxWidgetHeight);
+          
+          return {
+            canvas,
+            label: "",
+            width: widthMm,
+            height: heightMm,
+          };
         } catch (error) {
           console.error(`Widget capture error for ${widgetId}:`, error);
           return null;
         }
       };
 
+      // Find shortest column
+      const getShortestColumn = (): number => {
+        let minHeight = columnHeights[0];
+        let minIndex = 0;
+        for (let i = 1; i < columns; i++) {
+          if (columnHeights[i] < minHeight) {
+            minHeight = columnHeights[i];
+            minIndex = i;
+          }
+        }
+        return minIndex;
+      };
+
+      // Check if widget fits on current page
+      const widgetFitsOnPage = (height: number): boolean => {
+        const shortestCol = getShortestColumn();
+        return (yStart + columnHeights[shortestCol] + height + 8) <= (pageHeight - footerHeight - 5);
+      };
+
+      // Start new page
+      const startNewPage = () => {
+        currentPage++;
+        totalPages++;
+        pdf.addPage();
+        addHeader(false);
+        columnHeights = [0, 0, 0];
+        yStart = headerHeight + 8;
+        
+        // Section title for continued pages
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(71, 85, 105);
+        pdf.text("ANALYTICS WIDGETS (continued)", margin, yStart);
+        yStart += 6;
+      };
+
       // Start PDF
       addHeader(true);
-      let yPosition = headerHeight;
 
       // Capture all enabled widgets
       const enabledWidgets = reportConfig.pdfWidgets?.filter((w) => w.enabled) || [];
-      console.log(`Capturing ${enabledWidgets.length} enabled widgets...`);
+      console.log(`Capturing ${enabledWidgets.length} widgets...`);
       
-      const widgetCanvases: { canvas: HTMLCanvasElement; label: string }[] = [];
+      const capturedWidgets: Array<{ widget: CapturedWidget; label: string }> = [];
       
       for (const widget of enabledWidgets) {
-        const canvas = await captureWidget(widget.id);
-        if (canvas) {
-          widgetCanvases.push({ canvas, label: widget.label });
-          console.log(`Captured: ${widget.label}`);
+        const captured = await captureWidget(widget.id);
+        if (captured) {
+          capturedWidgets.push({ widget: captured, label: widget.label });
         }
       }
 
-      console.log(`Successfully captured ${widgetCanvases.length} widgets`);
+      console.log(`Captured ${capturedWidgets.length} widgets`);
 
-      if (widgetCanvases.length > 0) {
+      if (capturedWidgets.length > 0) {
         // Section title
-        pdf.setFontSize(9);
+        pdf.setFontSize(8);
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(71, 85, 105);
-        pdf.text("ANALYTICS WIDGETS", margin, yPosition + 4);
-        yPosition += 8;
+        pdf.text("ANALYTICS WIDGETS", margin, yStart);
+        yStart += 6;
 
-        // Render widgets in 3x3 grid (9 per page)
-        let widgetIndex = 0;
-        
-        while (widgetIndex < widgetCanvases.length) {
-          // Check if we need a new page
-          if (widgetIndex > 0 && widgetIndex % widgetsPerPage === 0) {
-            currentPage++;
-            pdf.addPage();
-            addHeader(false);
-            yPosition = headerHeight;
-            
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(71, 85, 105);
-            pdf.text("ANALYTICS WIDGETS (continued)", margin, yPosition + 4);
-            yPosition += 8;
+        // Place widgets using masonry layout
+        for (const { widget, label } of capturedWidgets) {
+          // Calculate widget height in PDF (scaled to column width)
+          const aspectRatio = widget.canvas.width / widget.canvas.height;
+          const pdfWidgetWidth = colWidth - 2;
+          const pdfWidgetHeight = Math.min(pdfWidgetWidth / aspectRatio, maxWidgetHeight);
+          const totalHeight = pdfWidgetHeight + 8; // Include label space
+
+          // Check if fits on current page
+          if (!widgetFitsOnPage(totalHeight)) {
+            startNewPage();
           }
 
-          // Calculate how many widgets to render on this page
-          const startIdx = widgetIndex;
-          const endIdx = Math.min(widgetIndex + widgetsPerPage, widgetCanvases.length);
-          const pageWidgetCount = endIdx - startIdx;
+          // Find shortest column and place widget
+          const col = getShortestColumn();
+          const xPos = margin + col * (colWidth + gap);
+          const yPos = yStart + columnHeights[col];
 
-          // Render widgets for this page
-          for (let i = 0; i < pageWidgetCount; i++) {
-            const { canvas, label } = widgetCanvases[startIdx + i];
-            const row = Math.floor(i / columns);
-            const col = i % columns;
-            
-            const xPos = margin + col * (colWidth + gap);
-            const yPos = yPosition + row * (widgetHeight + gap + 8);
-            
-            // Widget label
-            pdf.setFontSize(6);
-            pdf.setFont("helvetica", "bold");
-            pdf.setTextColor(100, 116, 139);
-            const truncatedLabel = label.length > 25 ? label.substring(0, 23) + "..." : label;
-            pdf.text(truncatedLabel, xPos, yPos + 3);
-            
-            // Widget border/background
-            pdf.setDrawColor(226, 232, 240);
-            pdf.setFillColor(255, 255, 255);
-            pdf.setLineWidth(0.3);
-            pdf.roundedRect(xPos, yPos + 4, colWidth, widgetHeight, 2, 2, "FD");
-            
-            // Widget image - fit proportionally
-            const imgWidth = colWidth - 4;
-            const imgHeight = widgetHeight - 4;
-            
-            // Calculate aspect ratio to fit image
-            const canvasRatio = canvas.width / canvas.height;
-            const cellRatio = imgWidth / imgHeight;
-            
-            let drawWidth = imgWidth;
-            let drawHeight = imgHeight;
-            let offsetX = 0;
-            let offsetY = 0;
-            
-            if (canvasRatio > cellRatio) {
-              // Image is wider - fit to width
-              drawHeight = imgWidth / canvasRatio;
-              offsetY = (imgHeight - drawHeight) / 2;
-            } else {
-              // Image is taller - fit to height
-              drawWidth = imgHeight * canvasRatio;
-              offsetX = (imgWidth - drawWidth) / 2;
-            }
-            
-            pdf.addImage(
-              canvas.toDataURL("image/png"),
-              "PNG",
-              xPos + 2 + offsetX,
-              yPos + 6 + offsetY,
-              drawWidth,
-              drawHeight
-            );
-          }
+          // Draw label
+          pdf.setFontSize(6);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(100, 116, 139);
+          const truncatedLabel = label.length > 28 ? label.substring(0, 26) + "..." : label;
+          pdf.text(truncatedLabel, xPos, yPos + 3);
 
-          widgetIndex = endIdx;
+          // Draw widget border
+          pdf.setDrawColor(226, 232, 240);
+          pdf.setFillColor(255, 255, 255);
+          pdf.setLineWidth(0.3);
+          pdf.roundedRect(xPos, yPos + 4, colWidth - 2, pdfWidgetHeight, 2, 2, "FD");
+
+          // Draw widget image
+          pdf.addImage(
+            widget.canvas.toDataURL("image/png"),
+            "PNG",
+            xPos + 1,
+            yPos + 5,
+            pdfWidgetWidth - 2,
+            pdfWidgetHeight - 2
+          );
+
+          // Update column height
+          columnHeights[col] += totalHeight + gap;
         }
       }
 
       // ALWAYS start issue table on a new page
       if (reportConfig.includeIssueTable && issues.length > 0) {
         currentPage++;
+        totalPages++;
         pdf.addPage();
         addHeader(false);
-        yPosition = headerHeight;
+        let yPosition = headerHeight;
 
         // Section title
         pdf.setFontSize(9);
@@ -345,6 +363,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           
           if (yPosition + rowHeight > pageHeight - footerHeight - 5) {
             currentPage++;
+            totalPages++;
             pdf.addPage();
             addHeader(false);
             yPosition = headerHeight;
@@ -418,7 +437,6 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
       }
 
       // Add footers to all pages
-      const totalPages = pdf.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         addFooter(i, totalPages);
