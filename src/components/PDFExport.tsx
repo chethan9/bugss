@@ -104,15 +104,24 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
         }
       };
 
-      // Helper: Capture widget with clean styling
+      // Helper: Capture widget from hidden print container
       const captureWidget = async (widgetId: string): Promise<HTMLCanvasElement | null> => {
-        const element = document.querySelector(`[data-widget-id="${widgetId}"]`) as HTMLElement;
+        // Look in the hidden print container first
+        const printContainer = document.getElementById("pdf-print-container");
+        let element = printContainer?.querySelector(`[data-pdf-widget-id="${widgetId}"]`) as HTMLElement;
+        
+        // Fallback to visible dashboard widgets if not found in print container
+        if (!element) {
+          element = document.querySelector(`[data-widget-id="${widgetId}"]`) as HTMLElement;
+        }
+        
         if (!element) {
           console.warn(`Widget not found: ${widgetId}`);
           return null;
         }
 
         try {
+          // Clone the element for capture
           const container = document.createElement("div");
           container.style.cssText = `
             position: fixed;
@@ -167,7 +176,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           container.appendChild(clone);
           document.body.appendChild(container);
 
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 150));
 
           const canvas = await html2canvas(container, {
             scale: 2,
