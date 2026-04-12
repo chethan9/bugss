@@ -1038,7 +1038,7 @@ export default function Home() {
                     switch (widgetKey) {
                       case "repositoryFilter":
                         return selectedRepos.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="repository-filter" className="mb-6">
                             <RepositoryFilter
                               repositories={selectedRepos}
                               activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
@@ -1071,13 +1071,13 @@ export default function Home() {
                         ) : null;
                       case "smartInsights":
                         return analytics.insights.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="smart-insights" className="mb-6">
                             <SmartInsights insights={analytics.insights} />
                           </div>
                         ) : null;
                       case "summaryMetrics":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="summary-metrics" id="summary-metrics-section" className="mb-6">
                             <DashboardMetrics
                               totalRepos={selectedRepos.length}
                               totalIssues={filteredIssues.length}
@@ -1089,7 +1089,7 @@ export default function Home() {
                         );
                       case "progressBar":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="progress-bar" className="mb-6">
                             <ProgressBar
                               open={metrics.statusCounts.open}
                               inProgress={metrics.statusCounts.inProgress || 0}
@@ -1101,163 +1101,163 @@ export default function Home() {
                         );
                       case "projectHealthGauge":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="project-health" className="mb-6">
                             <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
                           </div>
                         );
                       case "burndownChart":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="burndown-chart" className="mb-6">
                             <BurndownChart issues={filteredIssues} />
                           </div>
                         );
                       case "flowEfficiency":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="flow-efficiency" className="mb-6">
                             <FlowEfficiency issues={filteredIssues} />
                           </div>
                         );
                       case "severityHeatmap":
                         return Object.values(analytics.severities).some(v => v > 0) ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="severity-heatmap" className="mb-6">
                             <BugSeverityHeatmap severities={analytics.severities} />
                           </div>
                         ) : null;
                       case "resolutionTime":
                         return analytics.resolutionTime.overall > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="resolution-time" className="mb-6">
                             <AverageResolutionTime stats={analytics.resolutionTime} />
                           </div>
                         ) : null;
                       case "trendChart":
                         return analytics.trend.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="issue-trend" className="mb-6">
                             <IssueTrendChart data={analytics.trend} days={30} />
                           </div>
                         ) : null;
                       case "moduleStability":
                         return analytics.stability.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="module-stability" className="mb-6">
                             <ModuleStabilityScore stability={analytics.stability} />
                           </div>
                         ) : null;
                       case "reopenedIssues":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="reopened-issues" className="mb-6">
                             <ReopenedIssuesTracker stats={analytics.reopened} />
                           </div>
                         );
                       case "categoryBreakdown":
                         return Object.values(analytics.categories).some(v => v > 0) ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="bug-category" className="mb-6">
                             <BugCategoryBreakdown categories={analytics.categories} />
                           </div>
                         ) : null;
                       case "bugHotspots":
                         return analytics.hotspots.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="bug-hotspots" className="mb-6">
                             <BugHotspots hotspots={analytics.hotspots} />
                           </div>
                         ) : null;
                       case "atRiskRelease":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="at-risk-release" className="mb-6">
                             <AtRiskRelease stats={analytics.atRiskRelease} />
                           </div>
                         );
                       case "agingIssues":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="aging-issues" className="mb-6">
                             <AgingIssues stats={analytics.agingIssues} />
                           </div>
                         );
                       case "criticalUntouched":
                         return analytics.criticalUntouched.issues.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="critical-untouched" className="mb-6">
                             <CriticalUntouched stats={analytics.criticalUntouched} />
                           </div>
                         ) : null;
                       case "backlogGrowth":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="backlog-growth" className="mb-6">
                             <BacklogGrowth stats={analytics.backlogGrowth} />
                           </div>
                         );
                       case "bugFixEfficiency":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="bug-fix-efficiency" className="mb-6">
                             <BugFixEfficiency stats={analytics.bugFixEfficiency} />
                           </div>
                         );
                       case "repeatBugDetector":
                         return analytics.repeatBugs.topRepeatingLabels.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="repeat-bugs" className="mb-6">
                             <RepeatBugDetector stats={analytics.repeatBugs} />
                           </div>
                         ) : null;
                       case "developerLoad":
                         return analytics.developerLoad.developers.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="developer-load" className="mb-6">
                             <DeveloperLoad stats={analytics.developerLoad} />
                           </div>
                         ) : null;
                       case "focusRecommendations":
                         return analytics.focusRecommendations.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="focus-recommendations" className="mb-6">
                             <FocusRecommendations recommendations={analytics.focusRecommendations} />
                           </div>
                         ) : null;
                       case "bugHeatmap":
                         return analytics.bugHeatmap.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="bug-heatmap" className="mb-6">
                             <BugHeatmap data={analytics.bugHeatmap} />
                           </div>
                         ) : null;
                       case "resolutionHistogram":
                         return analytics.resolutionHistogram.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="resolution-histogram" className="mb-6">
                             <ResolutionHistogram data={analytics.resolutionHistogram} />
                           </div>
                         ) : null;
                       case "priorityScatterPlot":
                         return analytics.priorityScatter.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="priority-scatter" className="mb-6">
                             <PriorityScatterPlot data={analytics.priorityScatter} />
                           </div>
                         ) : null;
                       case "stackedAreaChart":
                         return analytics.stackedAreaData.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="stacked-area" className="mb-6">
                             <StackedAreaChart data={analytics.stackedAreaData} />
                           </div>
                         ) : null;
                       case "issueFunnelChart":
                         return analytics.issueFunnel.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="issue-funnel" className="mb-6">
                             <IssueFunnelChart stages={analytics.issueFunnel} />
                           </div>
                         ) : null;
                       case "backlogWaterfallChart":
                         return analytics.backlogWaterfall.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="backlog-waterfall" className="mb-6">
                             <BacklogWaterfallChart data={analytics.backlogWaterfall} />
                           </div>
                         ) : null;
                       case "moduleTreemap":
                         return analytics.moduleTreemap.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="module-treemap" className="mb-6">
                             <ModuleTreemap data={analytics.moduleTreemap} />
                           </div>
                         ) : null;
                       case "moduleRadarChart":
                         return analytics.moduleRadar.length > 0 ? (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="module-radar" className="mb-6">
                             <ModuleRadarChart data={analytics.moduleRadar} />
                           </div>
                         ) : null;
                       case "kpiBulletChart":
                         return (
-                          <div key={widgetKey} className="mb-6">
+                          <div key={widgetKey} data-widget-id="kpi-bullet" className="mb-6">
                             <BulletChart metrics={analytics.kpiMetrics} />
                           </div>
                         );
