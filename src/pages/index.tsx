@@ -345,7 +345,13 @@ export default function Home() {
     const savedReportConfig = localStorage.getItem("reportConfig");
     if (savedReportConfig) {
       try {
-        setReportConfig(JSON.parse(savedReportConfig));
+        const parsed = JSON.parse(savedReportConfig);
+        // Merge with defaults to ensure pdfWidgets is always present
+        setReportConfig({
+          ...DEFAULT_REPORT_CONFIG,
+          ...parsed,
+          pdfWidgets: parsed.pdfWidgets?.length ? parsed.pdfWidgets : DEFAULT_REPORT_CONFIG.pdfWidgets,
+        });
       } catch (e) {
         console.error("Failed to load report config:", e);
       }
