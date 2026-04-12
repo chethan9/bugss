@@ -359,7 +359,7 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           xPos += colWidths[1];
 
           // State with color
-          const state = issue.status || issue.state;
+          const state = issue.status || issue.state || "open";
           const stateColors: Record<string, [number, number, number]> = {
             open: [34, 197, 94],
             in_progress: [234, 179, 8],
@@ -367,18 +367,26 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
           };
           const stateColor = stateColors[state] || [148, 163, 184];
           pdf.setTextColor(stateColor[0], stateColor[1], stateColor[2]);
-          pdf.text(state.replace("_", " "), xPos, yPosition + 4);
+          pdf.text(String(state).replace("_", " "), xPos, yPosition + 4);
           xPos += colWidths[2];
 
-          // Labels
+          // Labels - handle both string[] and {name: string}[]
           pdf.setTextColor(100, 116, 139);
-          const labelsText = issue.labels.slice(0, 2).join(", ");
+          const labelNames = issue.labels.slice(0, 2).map((l) => 
+            typeof l === "string" ? l : l.name
+          );
+          const labelsText = labelNames.join(", ");
           pdf.text(labelsText.substring(0, 20) || "-", xPos, yPosition + 4);
           xPos += colWidths[3];
 
-          // Repository
+          // Repository - handle string or object
           pdf.setTextColor(71, 85, 105);
-          const repoName = issue.repository.split("/").pop() || issue.repository;
+          let repoName = "-";
+          if (typeof issue.repository === "string") {
+            repoName = issue.repository.split("/").pop() || issue.repository;
+          } else if (issue.repositories) {
+            repoName = issue.repositories.name || issue.repositories.full_name;
+          }
           pdf.text(repoName.substring(0, 25), xPos, yPosition + 4);
 
           yPosition += rowHeight;
