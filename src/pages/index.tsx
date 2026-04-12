@@ -41,7 +41,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
-import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility, type WidgetKey, type WidgetSize } from "@/components/WidgetSettings";
+import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, DEFAULT_WIDGET_SIZES, type WidgetVisibility, type WidgetKey, type WidgetSize } from "@/components/WidgetSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { DataFetchingLoader } from "@/components/LoadingSpinner";
