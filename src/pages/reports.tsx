@@ -350,17 +350,17 @@ export default function ReportsPage() {
         return { issues: [], repos: [] };
       }
 
-      // Get GitHub token
+      // Get GitHub token from user_settings
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return { issues: [], repos: [] };
 
-      const { data: connection } = await supabase
-        .from("github_connections")
-        .select("access_token")
+      const { data: settings } = await supabase
+        .from("user_settings")
+        .select("github_token")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
-      if (!connection?.access_token) {
+      if (!settings?.github_token) {
         console.error("No GitHub token found");
         return { issues: [], repos: [] };
       }
@@ -379,7 +379,7 @@ export default function ReportsPage() {
             `https://api.github.com/repos/${repoFullName}/issues?state=all&per_page=100`,
             {
               headers: {
-                Authorization: `Bearer ${connection.access_token}`,
+                Authorization: `Bearer ${settings.github_token}`,
                 Accept: "application/vnd.github.v3+json",
               },
             }
@@ -745,15 +745,16 @@ export default function ReportsPage() {
 
       console.log("User ID:", session.user.id);
 
-      const { data: connection, error: connError } = await supabase
-        .from("github_connections")
-        .select("access_token")
+      // Get token from user_settings table (not github_connections)
+      const { data: settings, error: settingsError } = await supabase
+        .from("user_settings")
+        .select("github_token")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
-      console.log("Connection query:", { connection, connError });
+      console.log("Settings query:", { settings, settingsError });
 
-      if (!connection?.access_token) {
+      if (!settings?.github_token) {
         toast({ title: "No GitHub token found", description: "Please connect GitHub on the dashboard.", variant: "destructive" });
         return;
       }
@@ -762,7 +763,7 @@ export default function ReportsPage() {
 
       const response = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
         headers: {
-          Authorization: `Bearer ${connection.access_token}`,
+          Authorization: `Bearer ${settings.github_token}`,
           Accept: "application/vnd.github.v3+json",
         },
       });
