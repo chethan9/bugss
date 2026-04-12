@@ -1328,7 +1328,7 @@ export default function Home() {
                           </button>
                         )}
                         {/* Create Issue Button - Right side */}
-                        <Link href="/create-issue">
+                        <Link href={`/create-issue?repos=${encodeURIComponent(selectedRepos.join(","))}&token=${encodeURIComponent(token)}`}>
                           <Button size="sm" className="gap-2">
                             <Plus className="h-4 w-4" />
                             <span className="hidden sm:inline">Create Issue</span>
