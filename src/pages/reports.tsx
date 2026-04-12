@@ -73,7 +73,34 @@ import { BurndownChart } from "@/components/analytics/BurndownChart";
 import { FlowEfficiency } from "@/components/analytics/FlowEfficiency";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ProgressBar } from "@/components/ProgressBar";
-import type { Issue } from "@/services/githubService";
+import type { GitHubIssue } from "@/components/IssueTable";
+import {
+  generateSmartInsights,
+  calculateSeverityDistribution,
+  calculateAverageResolutionTime,
+  calculateIssueTrend,
+  calculateModuleStability,
+  calculateReopenedIssues,
+  calculateCategoryBreakdown,
+  calculateBugHotspots,
+  calculateAtRiskRelease,
+  calculateAgingIssues,
+  calculateCriticalUntouched,
+  calculateBacklogGrowth,
+  calculateBugFixEfficiency,
+  detectRepeatBugs,
+  calculateDeveloperLoad,
+  generateFocusRecommendations,
+  calculateBugHeatmap,
+  calculateResolutionHistogram,
+  calculatePriorityResolutionScatter,
+  calculateStackedAreaData,
+  calculateIssueFunnel,
+  calculateBacklogWaterfall,
+  calculateModuleTreemap,
+  calculateModuleRadarData,
+  calculateKPIMetrics,
+} from "@/services/analyticsService";
 
 interface Report {
   id: string;
@@ -164,39 +191,37 @@ export default function ReportsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   // Data for widgets
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
 
   // Calculate analytics data for widgets
   const analytics = useMemo(() => {
-    // Need to cast to any internally if there's a strict type mismatch, but the functions take Issue[]
-    const issuesList = issues as any[];
     return {
-      insights: generateSmartInsights(issuesList),
-      severities: calculateSeverityDistribution(issuesList),
-      resolutionTime: calculateAverageResolutionTime(issuesList),
-      trend: calculateIssueTrend(issuesList, 30),
-      stability: calculateModuleStability(issuesList),
-      reopened: calculateReopenedIssues(issuesList),
-      categories: calculateCategoryBreakdown(issuesList),
-      hotspots: calculateBugHotspots(issuesList, 5),
-      atRiskRelease: calculateAtRiskRelease(issuesList),
-      agingIssues: calculateAgingIssues(issuesList),
-      criticalUntouched: calculateCriticalUntouched(issuesList, 3),
-      backlogGrowth: calculateBacklogGrowth(issuesList),
-      bugFixEfficiency: calculateBugFixEfficiency(issuesList, 30),
-      repeatBugs: detectRepeatBugs(issuesList, 7),
-      developerLoad: calculateDeveloperLoad(issuesList),
-      focusRecommendations: generateFocusRecommendations(issuesList),
-      bugHeatmap: calculateBugHeatmap(issuesList, 30),
-      resolutionHistogram: calculateResolutionHistogram(issuesList),
-      priorityScatter: calculatePriorityResolutionScatter(issuesList),
-      stackedAreaData: calculateStackedAreaData(issuesList, 30),
-      issueFunnel: calculateIssueFunnel(issuesList),
-      backlogWaterfall: calculateBacklogWaterfall(issuesList, 4),
-      moduleTreemap: calculateModuleTreemap(issuesList),
-      moduleRadar: calculateModuleRadarData(issuesList, 5),
-      kpiMetrics: calculateKPIMetrics(issuesList),
+      insights: generateSmartInsights(issues),
+      severities: calculateSeverityDistribution(issues),
+      resolutionTime: calculateAverageResolutionTime(issues),
+      trend: calculateIssueTrend(issues, 30),
+      stability: calculateModuleStability(issues),
+      reopened: calculateReopenedIssues(issues),
+      categories: calculateCategoryBreakdown(issues),
+      hotspots: calculateBugHotspots(issues, 5),
+      atRiskRelease: calculateAtRiskRelease(issues),
+      agingIssues: calculateAgingIssues(issues),
+      criticalUntouched: calculateCriticalUntouched(issues, 3),
+      backlogGrowth: calculateBacklogGrowth(issues),
+      bugFixEfficiency: calculateBugFixEfficiency(issues, 30),
+      repeatBugs: detectRepeatBugs(issues, 7),
+      developerLoad: calculateDeveloperLoad(issues),
+      focusRecommendations: generateFocusRecommendations(issues),
+      bugHeatmap: calculateBugHeatmap(issues, 30),
+      resolutionHistogram: calculateResolutionHistogram(issues),
+      priorityScatter: calculatePriorityResolutionScatter(issues),
+      stackedAreaData: calculateStackedAreaData(issues, 30),
+      issueFunnel: calculateIssueFunnel(issues),
+      backlogWaterfall: calculateBacklogWaterfall(issues, 4),
+      moduleTreemap: calculateModuleTreemap(issues),
+      moduleRadar: calculateModuleRadarData(issues, 5),
+      kpiMetrics: calculateKPIMetrics(issues),
     };
   }, [issues]);
 
@@ -897,19 +922,19 @@ export default function ReportsPage() {
               
               {widgets.find(w => w.id === "projectHealth" && w.enabled) && (
                 <div data-widget-id="projectHealth">
-                  <ProjectHealthGauge issues={issues as any} isLoading={false} />
+                  <ProjectHealthGauge issues={issues} isLoading={false} />
                 </div>
               )}
               
               {widgets.find(w => w.id === "burndownChart" && w.enabled) && (
                 <div data-widget-id="burndownChart">
-                  <BurndownChart issues={issues as any} />
+                  <BurndownChart issues={issues} />
                 </div>
               )}
               
               {widgets.find(w => w.id === "flowEfficiency" && w.enabled) && (
                 <div data-widget-id="flowEfficiency">
-                  <FlowEfficiency issues={issues as any} />
+                  <FlowEfficiency issues={issues} />
                 </div>
               )}
               
