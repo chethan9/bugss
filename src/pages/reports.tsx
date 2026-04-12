@@ -467,14 +467,13 @@ export default function ReportsPage() {
         return;
       }
 
-      // Update state for widget rendering
       setIssues(fetchedIssues);
       setSelectedRepos(fetchedRepos);
 
       const currentEnabledWidgets = widgets.filter(w => w.enabled);
 
       setGenerationProgress(15);
-      setGenerationStatus("Creating report record...");
+      setGenerationStatus("Creating report...");
 
       const { data: reportData, error: reportError } = await supabase
         .from("reports")
@@ -495,121 +494,347 @@ export default function ReportsPage() {
 
       if (reportError) throw reportError;
 
-      // Wait for widgets to render
-      await new Promise(r => setTimeout(r, 1500));
+      setGenerationProgress(25);
+      setGenerationStatus("Building PDF...");
 
-      setGenerationProgress(20);
-      setGenerationStatus("Creating PDF...");
+      // Calculate metrics
+      const openIssues = fetchedIssues.filter(i => i.status === "open").length;
+      const closedIssues = fetchedIssues.filter(i => i.status === "closed").length;
+      const inProgressIssues = fetchedIssues.filter(i => i.status === "in_progress").length;
 
+      // Create PDF
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 12;
+      const margin = 20;
       const contentWidth = pageWidth - margin * 2;
 
-      // Header
-      if (includeHeader) {
-        pdf.setFontSize(18);
-        pdf.setFont("helvetica", "bold");
-        pdf.text(reportName || "Analytics Report", margin, margin + 6);
-        pdf.setFontSize(9);
-        pdf.setFont("helvetica", "normal");
-        pdf.setTextColor(100);
-        pdf.text(new Date().toLocaleDateString(), pageWidth - margin - 25, margin + 6);
-        pdf.text(`${fetchedIssues.length} issues • ${fetchedRepos.length} repos`, margin, margin + 12);
-        pdf.setTextColor(0);
-        pdf.setDrawColor(200);
-        pdf.line(margin, margin + 16, pageWidth - margin, margin + 16);
+      // Colors
+      const primaryColor = [34, 97, 158]; // Blue
+      const textColor = [51, 51, 51];
+      const mutedColor = [128, 128, 128];
+      const greenColor = [34, 197, 94];
+      const redColor = [220, 53, 69];
+
+      let yPos = margin;
+
+      // ===== COVER PAGE =====
+      // Logo/Brand area
+      pdf.setFillColor(34, 97, 158);
+      pdf.rect(0, 0, pageWidth, 60, "F");
+
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(32);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(reportName || "GitHub Analytics Report", margin, 35);
+
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Generated on ${new Date().toLocaleDateString("en-US", { 
+        weekday: "long", year: "numeric", month: "long", day: "numeric" 
+      })}`, margin, 48);
+
+      yPos = 80;
+
+      // Executive Summary Box
+      pdf.setTextColor(...textColor);
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Executive Summary", margin, yPos);
+      yPos += 12;
+
+      pdf.setDrawColor(220, 220, 220);
+      pdf.setFillColor(250, 250, 250);
+      pdf.roundedRect(margin, yPos, contentWidth, 50, 3, 3, "FD");
+
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...textColor);
+      
+      const summaryText = `This report analyzes ${fetchedIssues.length} issues across ${fetchedRepos.length} repositor${fetchedRepos.length === 1 ? "y" : "ies"}. Currently, ${openIssues} issues are open (${((openIssues/fetchedIssues.length)*100).toFixed(1)}%), ${closedIssues} are closed (${((closedIssues/fetchedIssues.length)*100).toFixed(1)}%), and ${inProgressIssues} are in progress.`;
+      
+      const splitSummary = pdf.splitTextToSize(summaryText, contentWidth - 10);
+      pdf.text(splitSummary, margin + 5, yPos + 10);
+
+      yPos += 60;
+
+      // Key Metrics Cards
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...textColor);
+      pdf.text("Key Metrics", margin, yPos);
+      yPos += 10;
+
+      const cardWidth = (contentWidth - 15) / 4;
+      const cardHeight = 35;
+
+      // Repositories card
+      pdf.setFillColor(240, 249, 255);
+      pdf.setDrawColor(59, 130, 246);
+      pdf.roundedRect(margin, yPos, cardWidth, cardHeight, 2, 2, "FD");
+      pdf.setFontSize(10);
+      pdf.setTextColor(...mutedColor);
+      pdf.text("Repositories", margin + 5, yPos + 10);
+      pdf.setFontSize(24);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(59, 130, 246);
+      pdf.text(String(fetchedRepos.length), margin + 5, yPos + 26);
+
+      // Total Issues card
+      pdf.setFillColor(240, 253, 244);
+      pdf.setDrawColor(34, 197, 94);
+      pdf.roundedRect(margin + cardWidth + 5, yPos, cardWidth, cardHeight, 2, 2, "FD");
+      pdf.setFontSize(10);
+      pdf.setTextColor(...mutedColor);
+      pdf.text("Total Issues", margin + cardWidth + 10, yPos + 10);
+      pdf.setFontSize(24);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(34, 197, 94);
+      pdf.text(String(fetchedIssues.length), margin + cardWidth + 10, yPos + 26);
+
+      // Open Issues card
+      pdf.setFillColor(254, 243, 199);
+      pdf.setDrawColor(245, 158, 11);
+      pdf.roundedRect(margin + (cardWidth + 5) * 2, yPos, cardWidth, cardHeight, 2, 2, "FD");
+      pdf.setFontSize(10);
+      pdf.setTextColor(...mutedColor);
+      pdf.text("Open", margin + (cardWidth + 5) * 2 + 5, yPos + 10);
+      pdf.setFontSize(24);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(245, 158, 11);
+      pdf.text(String(openIssues), margin + (cardWidth + 5) * 2 + 5, yPos + 26);
+
+      // Closed Issues card
+      pdf.setFillColor(243, 244, 246);
+      pdf.setDrawColor(107, 114, 128);
+      pdf.roundedRect(margin + (cardWidth + 5) * 3, yPos, cardWidth, cardHeight, 2, 2, "FD");
+      pdf.setFontSize(10);
+      pdf.setTextColor(...mutedColor);
+      pdf.text("Closed", margin + (cardWidth + 5) * 3 + 5, yPos + 10);
+      pdf.setFontSize(24);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(107, 114, 128);
+      pdf.text(String(closedIssues), margin + (cardWidth + 5) * 3 + 5, yPos + 26);
+
+      yPos += cardHeight + 20;
+
+      // Progress Bar
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...textColor);
+      pdf.text("Issue Resolution Progress", margin, yPos);
+      yPos += 8;
+
+      const barHeight = 12;
+      const closedWidth = (closedIssues / fetchedIssues.length) * contentWidth;
+      const inProgressWidth = (inProgressIssues / fetchedIssues.length) * contentWidth;
+
+      // Background
+      pdf.setFillColor(229, 231, 235);
+      pdf.roundedRect(margin, yPos, contentWidth, barHeight, 2, 2, "F");
+
+      // Closed (green)
+      if (closedWidth > 0) {
+        pdf.setFillColor(34, 197, 94);
+        pdf.roundedRect(margin, yPos, closedWidth, barHeight, 2, 2, "F");
       }
 
-      setGenerationProgress(25);
-      setGenerationStatus("Capturing widgets...");
+      // In Progress (purple)
+      if (inProgressWidth > 0) {
+        pdf.setFillColor(139, 92, 246);
+        pdf.rect(margin + closedWidth, yPos, inProgressWidth, barHeight, "F");
+      }
 
-      // Capture widgets
-      const widgetElements = document.querySelectorAll("[data-widget-id]");
-      const captures: { canvas: HTMLCanvasElement; width: number; height: number }[] = [];
+      yPos += barHeight + 8;
+      
+      // Legend
+      pdf.setFontSize(9);
+      pdf.setFillColor(34, 197, 94);
+      pdf.circle(margin + 3, yPos, 2, "F");
+      pdf.setTextColor(...textColor);
+      pdf.text(`Closed ${((closedIssues/fetchedIssues.length)*100).toFixed(0)}%`, margin + 8, yPos + 1);
+      
+      pdf.setFillColor(139, 92, 246);
+      pdf.circle(margin + 50, yPos, 2, "F");
+      pdf.text(`In Progress ${((inProgressIssues/fetchedIssues.length)*100).toFixed(0)}%`, margin + 55, yPos + 1);
+      
+      pdf.setFillColor(229, 231, 235);
+      pdf.circle(margin + 110, yPos, 2, "F");
+      pdf.text(`Open ${((openIssues/fetchedIssues.length)*100).toFixed(0)}%`, margin + 115, yPos + 1);
 
-      let idx = 0;
-      for (const el of Array.from(widgetElements)) {
-        const widgetId = el.getAttribute("data-widget-id");
-        if (!widgetId || !currentEnabledWidgets.find(w => w.id === widgetId)) continue;
+      setGenerationProgress(50);
+      setGenerationStatus("Adding issues table...");
+
+      // ===== ISSUES TABLE PAGE =====
+      pdf.addPage();
+      yPos = margin;
+
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...textColor);
+      pdf.text("Issues Overview", margin, yPos);
+      yPos += 12;
+
+      // Table header
+      const colWidths = [15, 85, 25, 45];
+      const rowHeight = 8;
+
+      pdf.setFillColor(249, 250, 251);
+      pdf.setDrawColor(229, 231, 235);
+      pdf.rect(margin, yPos, contentWidth, rowHeight, "FD");
+
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...textColor);
+      
+      let xPos = margin + 3;
+      pdf.text("#", xPos, yPos + 5.5);
+      xPos += colWidths[0];
+      pdf.text("Title", xPos, yPos + 5.5);
+      xPos += colWidths[1];
+      pdf.text("Status", xPos, yPos + 5.5);
+      xPos += colWidths[2];
+      pdf.text("Repository", xPos, yPos + 5.5);
+
+      yPos += rowHeight;
+
+      // Table rows
+      pdf.setFont("helvetica", "normal");
+      const maxRows = Math.min(fetchedIssues.length, 100);
+
+      for (let i = 0; i < maxRows; i++) {
+        const issue = fetchedIssues[i];
+        
+        // Check for page break
+        if (yPos + rowHeight > pageHeight - margin) {
+          pdf.addPage();
+          yPos = margin;
+          
+          // Repeat header
+          pdf.setFillColor(249, 250, 251);
+          pdf.rect(margin, yPos, contentWidth, rowHeight, "FD");
+          pdf.setFont("helvetica", "bold");
+          xPos = margin + 3;
+          pdf.text("#", xPos, yPos + 5.5);
+          xPos += colWidths[0];
+          pdf.text("Title", xPos, yPos + 5.5);
+          xPos += colWidths[1];
+          pdf.text("Status", xPos, yPos + 5.5);
+          xPos += colWidths[2];
+          pdf.text("Repository", xPos, yPos + 5.5);
+          yPos += rowHeight;
+          pdf.setFont("helvetica", "normal");
+        }
+
+        // Alternate row background
+        if (i % 2 === 0) {
+          pdf.setFillColor(255, 255, 255);
+        } else {
+          pdf.setFillColor(249, 250, 251);
+        }
+        pdf.setDrawColor(229, 231, 235);
+        pdf.rect(margin, yPos, contentWidth, rowHeight, "FD");
+
+        pdf.setTextColor(...textColor);
+        xPos = margin + 3;
+        
+        // Issue number
+        pdf.text(String(issue.number), xPos, yPos + 5.5);
+        xPos += colWidths[0];
+
+        // Title (truncated)
+        const title = issue.title.length > 45 ? issue.title.substring(0, 42) + "..." : issue.title;
+        pdf.text(title, xPos, yPos + 5.5);
+        xPos += colWidths[1];
+
+        // Status badge
+        if (issue.status === "open") {
+          pdf.setFillColor(220, 252, 231);
+          pdf.setTextColor(22, 163, 74);
+        } else if (issue.status === "closed") {
+          pdf.setFillColor(243, 244, 246);
+          pdf.setTextColor(107, 114, 128);
+        } else {
+          pdf.setFillColor(243, 232, 255);
+          pdf.setTextColor(139, 92, 246);
+        }
+        pdf.roundedRect(xPos, yPos + 1.5, 18, 5, 1, 1, "F");
+        pdf.setFontSize(7);
+        pdf.text(issue.status, xPos + 2, yPos + 5);
+        pdf.setFontSize(9);
+        xPos += colWidths[2];
+
+        // Repository
+        pdf.setTextColor(...mutedColor);
+        const repoName = issue.repository?.split("/")[1] || issue.repository || "";
+        pdf.text(repoName.substring(0, 20), xPos, yPos + 5.5);
+
+        yPos += rowHeight;
+      }
+
+      if (fetchedIssues.length > 100) {
+        yPos += 5;
+        pdf.setFontSize(9);
+        pdf.setTextColor(...mutedColor);
+        pdf.text(`Showing 100 of ${fetchedIssues.length} issues`, margin, yPos);
+      }
+
+      setGenerationProgress(75);
+      setGenerationStatus("Capturing charts...");
+
+      // ===== CHARTS PAGES =====
+      // Wait for widgets to render
+      await new Promise(r => setTimeout(r, 1000));
+
+      const chartWidgets = ["projectHealth", "burndownChart", "flowEfficiency", "issueTrend", "bugCategory", "backlogWaterfall"];
+      
+      for (const widgetId of chartWidgets) {
+        if (!currentEnabledWidgets.find(w => w.id === widgetId)) continue;
+
+        const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
+        if (!el) continue;
 
         try {
           const canvas = await html2canvas(el as HTMLElement, {
-            scale: 1.2,
+            scale: 2,
             useCORS: true,
             backgroundColor: "#ffffff",
             logging: false,
           });
-          captures.push({ canvas, width: canvas.width, height: canvas.height });
-        } catch (e) {
-          console.error(`Failed: ${widgetId}`, e);
-        }
 
-        idx++;
-        setGenerationProgress(25 + Math.floor((idx / currentEnabledWidgets.length) * 50));
-        setGenerationStatus(`Capturing ${idx}/${currentEnabledWidgets.length}...`);
-      }
-
-      if (captures.length === 0) throw new Error("No widgets captured");
-
-      setGenerationProgress(80);
-      setGenerationStatus("Building PDF layout...");
-
-      // 2-column grid layout with larger widgets
-      const cols = 2;
-      const gap = 6;
-      const cellWidth = (contentWidth - gap * (cols - 1)) / cols;
-      const maxCellHeight = 70;
-      const startY = includeHeader ? margin + 22 : margin;
-
-      let x = margin;
-      let y = startY;
-      let rowHeight = 0;
-
-      for (const cap of captures) {
-        const aspect = cap.width / cap.height;
-        let w = cellWidth;
-        let h = w / aspect;
-        if (h > maxCellHeight) {
-          h = maxCellHeight;
-          w = h * aspect;
-          if (w > cellWidth) w = cellWidth;
-        }
-
-        // New row check
-        if (x + w > pageWidth - margin + 1) {
-          x = margin;
-          y += rowHeight + gap;
-          rowHeight = 0;
-        }
-
-        // New page check
-        if (y + h > pageHeight - margin) {
           pdf.addPage();
-          x = margin;
-          y = margin;
-          rowHeight = 0;
+          
+          // Add widget as full-width image
+          const imgData = canvas.toDataURL("image/jpeg", 0.85);
+          const imgWidth = contentWidth;
+          const imgHeight = (canvas.height / canvas.width) * imgWidth;
+          
+          pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, Math.min(imgHeight, pageHeight - margin * 2));
+        } catch (e) {
+          console.error(`Failed to capture ${widgetId}:`, e);
         }
-
-        // Add as compressed JPEG (slightly higher quality)
-        const imgData = cap.canvas.toDataURL("image/jpeg", 0.75);
-        pdf.addImage(imgData, "JPEG", x, y, w, h);
-
-        rowHeight = Math.max(rowHeight, h);
-        x += w + gap;
       }
 
       setGenerationProgress(90);
       setGenerationStatus("Saving...");
 
+      // Footer on all pages
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(...mutedColor);
+        pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+        pdf.text("Generated by FixFlix", margin, pageHeight - 10);
+        pdf.text(new Date().toLocaleDateString(), pageWidth - margin, pageHeight - 10, { align: "right" });
+      }
+
       const pdfBlob = pdf.output("blob");
       const fileName = `${reportName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}.pdf`;
 
-      // Download
       pdf.save(fileName);
 
-      // Try cloud save (non-blocking)
+      // Cloud save (non-blocking)
       supabase.storage.from("reports").upload(`${user.id}/${fileName}`, pdfBlob, { contentType: "application/pdf" }).catch(() => {});
 
       await supabase.from("reports").update({
