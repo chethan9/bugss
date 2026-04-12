@@ -509,10 +509,10 @@ export default function ReportsPage() {
       const margin = 20;
       const contentWidth = pageWidth - margin * 2;
 
-      // Colors
-      const primaryColor = [34, 97, 158]; // Blue
-      const textColor = [51, 51, 51];
-      const mutedColor = [128, 128, 128];
+      // Colors (as tuples for jsPDF)
+      const primaryColor: [number, number, number] = [34, 97, 158];
+      const textColor: [number, number, number] = [51, 51, 51];
+      const mutedColor: [number, number, number] = [128, 128, 128];
       const greenColor = [34, 197, 94];
       const redColor = [220, 53, 69];
 
@@ -537,7 +537,7 @@ export default function ReportsPage() {
       yPos = 80;
 
       // Executive Summary Box
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.setFontSize(18);
       pdf.setFont("helvetica", "bold");
       pdf.text("Executive Summary", margin, yPos);
@@ -549,7 +549,7 @@ export default function ReportsPage() {
 
       pdf.setFontSize(11);
       pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       
       const summaryText = `This report analyzes ${fetchedIssues.length} issues across ${fetchedRepos.length} repositor${fetchedRepos.length === 1 ? "y" : "ies"}. Currently, ${openIssues} issues are open (${((openIssues/fetchedIssues.length)*100).toFixed(1)}%), ${closedIssues} are closed (${((closedIssues/fetchedIssues.length)*100).toFixed(1)}%), and ${inProgressIssues} are in progress.`;
       
@@ -561,7 +561,7 @@ export default function ReportsPage() {
       // Key Metrics Cards
       pdf.setFontSize(18);
       pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.text("Key Metrics", margin, yPos);
       yPos += 10;
 
@@ -573,7 +573,7 @@ export default function ReportsPage() {
       pdf.setDrawColor(59, 130, 246);
       pdf.roundedRect(margin, yPos, cardWidth, cardHeight, 2, 2, "FD");
       pdf.setFontSize(10);
-      pdf.setTextColor(...mutedColor);
+      pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
       pdf.text("Repositories", margin + 5, yPos + 10);
       pdf.setFontSize(24);
       pdf.setFont("helvetica", "bold");
@@ -585,7 +585,7 @@ export default function ReportsPage() {
       pdf.setDrawColor(34, 197, 94);
       pdf.roundedRect(margin + cardWidth + 5, yPos, cardWidth, cardHeight, 2, 2, "FD");
       pdf.setFontSize(10);
-      pdf.setTextColor(...mutedColor);
+      pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
       pdf.text("Total Issues", margin + cardWidth + 10, yPos + 10);
       pdf.setFontSize(24);
       pdf.setFont("helvetica", "bold");
@@ -597,7 +597,7 @@ export default function ReportsPage() {
       pdf.setDrawColor(245, 158, 11);
       pdf.roundedRect(margin + (cardWidth + 5) * 2, yPos, cardWidth, cardHeight, 2, 2, "FD");
       pdf.setFontSize(10);
-      pdf.setTextColor(...mutedColor);
+      pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
       pdf.text("Open", margin + (cardWidth + 5) * 2 + 5, yPos + 10);
       pdf.setFontSize(24);
       pdf.setFont("helvetica", "bold");
@@ -609,7 +609,7 @@ export default function ReportsPage() {
       pdf.setDrawColor(107, 114, 128);
       pdf.roundedRect(margin + (cardWidth + 5) * 3, yPos, cardWidth, cardHeight, 2, 2, "FD");
       pdf.setFontSize(10);
-      pdf.setTextColor(...mutedColor);
+      pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
       pdf.text("Closed", margin + (cardWidth + 5) * 3 + 5, yPos + 10);
       pdf.setFontSize(24);
       pdf.setFont("helvetica", "bold");
@@ -621,7 +621,7 @@ export default function ReportsPage() {
       // Progress Bar
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.text("Issue Resolution Progress", margin, yPos);
       yPos += 8;
 
@@ -651,7 +651,7 @@ export default function ReportsPage() {
       pdf.setFontSize(9);
       pdf.setFillColor(34, 197, 94);
       pdf.circle(margin + 3, yPos, 2, "F");
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.text(`Closed ${((closedIssues/fetchedIssues.length)*100).toFixed(0)}%`, margin + 8, yPos + 1);
       
       pdf.setFillColor(139, 92, 246);
@@ -671,7 +671,7 @@ export default function ReportsPage() {
 
       pdf.setFontSize(18);
       pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.text("Issues Overview", margin, yPos);
       yPos += 12;
 
@@ -685,7 +685,7 @@ export default function ReportsPage() {
 
       pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       
       let xPos = margin + 3;
       pdf.text("#", xPos, yPos + 5.5);
@@ -735,7 +735,7 @@ export default function ReportsPage() {
         pdf.setDrawColor(229, 231, 235);
         pdf.rect(margin, yPos, contentWidth, rowHeight, "FD");
 
-        pdf.setTextColor(...textColor);
+        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
         xPos = margin + 3;
         
         // Issue number
@@ -765,7 +765,7 @@ export default function ReportsPage() {
         xPos += colWidths[2];
 
         // Repository
-        pdf.setTextColor(...mutedColor);
+        pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
         const repoName = issue.repository?.split("/")[1] || issue.repository || "";
         pdf.text(repoName.substring(0, 20), xPos, yPos + 5.5);
 
@@ -775,7 +775,7 @@ export default function ReportsPage() {
       if (fetchedIssues.length > 100) {
         yPos += 5;
         pdf.setFontSize(9);
-        pdf.setTextColor(...mutedColor);
+        pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
         pdf.text(`Showing 100 of ${fetchedIssues.length} issues`, margin, yPos);
       }
 
@@ -823,7 +823,7 @@ export default function ReportsPage() {
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         pdf.setFontSize(8);
-        pdf.setTextColor(...mutedColor);
+        pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
         pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
         pdf.text("Generated by FixFlix", margin, pageHeight - 10);
         pdf.text(new Date().toLocaleDateString(), pageWidth - margin, pageHeight - 10, { align: "right" });
@@ -1162,7 +1162,10 @@ export default function ReportsPage() {
                       </ScrollArea>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Close</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => setShowRepoDialog(false)}>
+                        <AlertDialogAction
+                          onClick={() => setShowRepoDialog(false)}
+                          className="bg-primary hover:bg-primary/90"
+                        >
                           Done ({reposForReport.length} selected)
                         </AlertDialogAction>
                       </AlertDialogFooter>
