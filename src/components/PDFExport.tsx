@@ -260,14 +260,18 @@ export function PDFExport({ disabled, reportConfig, issues = [] }: PDFExportProp
 
           // Draw widgets
           for (const { widget, pdfWidth, pdfHeight, xPos } of widgetData) {
-            const { widget: w, capture } = widget;
+            const { capture } = widget;
             if (!capture) continue;
+
+            // Get label from the original widget config
+            const widgetConfig = validWidgets.find(v => v.capture === capture);
+            const widgetLabel = widgetConfig?.widget?.label || "";
 
             // Label
             pdf.setFontSize(6);
             pdf.setFont("helvetica", "bold");
             pdf.setTextColor(100, 116, 139);
-            const label = w.widget.label.length > 30 ? w.widget.label.substring(0, 30) + "..." : w.widget.label;
+            const label = widgetLabel.length > 30 ? widgetLabel.substring(0, 30) + "..." : widgetLabel;
             pdf.text(label, xPos, yPosition + 2);
 
             // Card background
