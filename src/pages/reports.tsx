@@ -782,36 +782,82 @@ export default function ReportsPage() {
       setGenerationProgress(75);
       setGenerationStatus("Capturing charts...");
 
-      // ===== CHARTS PAGES =====
-      // Wait for widgets to render
+      // ===== CHARTS PAGE - 3 COLUMN GRID =====
       await new Promise(r => setTimeout(r, 1000));
 
-      const chartWidgets = ["projectHealth", "burndownChart", "flowEfficiency", "issueTrend", "bugCategory", "backlogWaterfall"];
-      
-      for (const widgetId of chartWidgets) {
-        if (!currentEnabledWidgets.find(w => w.id === widgetId)) continue;
+      const allWidgetIds = currentEnabledWidgets
+        .filter(w => !["summaryMetrics", "progressBar", "issuesTable", "repositoryFilter", "smartInsights"].includes(w.id))
+        .map(w => w.id);
 
+      const captures: { canvas: HTMLCanvasElement; width: number; height: number }[] = [];
+
+      for (const widgetId of allWidgetIds) {
         const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
         if (!el) continue;
 
         try {
           const canvas = await html2canvas(el as HTMLElement, {
-            scale: 2,
+            scale: 1.5,
             useCORS: true,
             backgroundColor: "#ffffff",
             logging: false,
           });
-
-          pdf.addPage();
-          
-          // Add widget as full-width image
-          const imgData = canvas.toDataURL("image/jpeg", 0.85);
-          const imgWidth = contentWidth;
-          const imgHeight = (canvas.height / canvas.width) * imgWidth;
-          
-          pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, Math.min(imgHeight, pageHeight - margin * 2));
+          captures.push({ canvas, width: canvas.width, height: canvas.height });
         } catch (e) {
-          console.error(`Failed to capture ${widgetId}:`, e);
+          console.error(`Failed: ${widgetId}`, e);
+        }
+      }
+
+      if (captures.length > 0) {
+        pdf.addPage();
+        yPos = margin;
+
+        pdf.setFontSize(18);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+        pdf.text("Analytics Dashboard", margin, yPos);
+        yPos += 10;
+
+        // 3-column grid
+        const cols = 3;
+        const gap = 4;
+        const cellWidth = (contentWidth - gap * (cols - 1)) / cols;
+        const maxCellHeight = 55;
+
+        let xPos = margin;
+        let rowHeight = 0;
+
+        for (const cap of captures) {
+          const aspect = cap.width / cap.height;
+          let w = cellWidth;
+          let h = w / aspect;
+          
+          if (h > maxCellHeight) {
+            h = maxCellHeight;
+            w = h * aspect;
+            if (w > cellWidth) w = cellWidth;
+          }
+
+          // New row
+          if (xPos + cellWidth > pageWidth - margin + 1) {
+            xPos = margin;
+            yPos += rowHeight + gap;
+            rowHeight = 0;
+          }
+
+          // New page
+          if (yPos + h > pageHeight - margin - 10) {
+            pdf.addPage();
+            xPos = margin;
+            yPos = margin;
+            rowHeight = 0;
+          }
+
+          const imgData = cap.canvas.toDataURL("image/jpeg", 0.8);
+          pdf.addImage(imgData, "JPEG", xPos, yPos, w, h);
+
+          rowHeight = Math.max(rowHeight, h);
+          xPos += cellWidth + gap;
         }
       }
 
