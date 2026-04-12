@@ -193,7 +193,7 @@ export default function Home() {
   });
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
-  const [widgetsPerRow, setWidgetsPerRow] = useState(2);
+  const [widgetsPerRow, setWidgetsPerRow] = useState(3);
   const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
@@ -1317,10 +1317,17 @@ export default function Home() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <h3 className="text-lg font-semibold">Issues</h3>
-                        <span className="text-sm text-muted-foreground">
-                          Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
-                        </span>
-                        {/* Create Issue Button - Links to full page */}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {filters.labels.length > 0 && (
+                          <button
+                            onClick={() => setFilters({ ...filters, labels: [] })}
+                            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            Clear labels
+                          </button>
+                        )}
+                        {/* Create Issue Button - Right side */}
                         <Link href="/create-issue">
                           <Button size="sm" className="gap-2">
                             <Plus className="h-4 w-4" />
@@ -1328,14 +1335,6 @@ export default function Home() {
                           </Button>
                         </Link>
                       </div>
-                      {filters.labels.length > 0 && (
-                        <button
-                          onClick={() => setFilters({ ...filters, labels: [] })}
-                          className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Clear labels
-                        </button>
-                      )}
                     </div>
                     {(() => {
                       // Calculate label counts
