@@ -234,6 +234,7 @@ export default function Home() {
         
         // Load user settings from database
         const settings = await getUserSettings(session.user.id);
+        console.log("Loaded settings from Supabase:", settings);
         if (settings) {
           if (settings.widget_visibility) {
             setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
@@ -243,7 +244,10 @@ export default function Home() {
           }
           // Fix: Check for number type instead of truthy value (0 would fail truthy check)
           if (typeof settings.widgets_per_row === "number" && settings.widgets_per_row >= 1 && settings.widgets_per_row <= 4) {
+            console.log("Setting widgetsPerRow to:", settings.widgets_per_row);
             setWidgetsPerRow(settings.widgets_per_row);
+          } else {
+            console.log("widgets_per_row not valid, keeping default. Value:", settings.widgets_per_row, "Type:", typeof settings.widgets_per_row);
           }
           if (settings.app_name) {
             setAppName(settings.app_name);
