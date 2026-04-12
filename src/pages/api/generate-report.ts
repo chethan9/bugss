@@ -50,7 +50,7 @@ export default async function handler(
       args: chromium.args,
       defaultViewport: { width: 1400, height: 900 },
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
     });
 
     const page = await browser.newPage();

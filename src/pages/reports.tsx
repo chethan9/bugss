@@ -472,15 +472,19 @@ export default function ReportsPage() {
       setGenerationProgress(30);
       setGenerationStatus("Creating report record...");
 
+      // Get current enabled widgets from state
+      const currentEnabledWidgets = enabledWidgets;
+
       // Create report record
       const { data: reportData, error: reportError } = await supabase
         .from("reports")
         .insert({
           user_id: user.id,
           name: reportName,
-          config: {
+          file_path: "",
+          settings: {
             repos: reposForReport,
-            widgets: enabledWidgets.map(w => w.id),
+            widgets: currentEnabledWidgets.map(w => w.id),
             includeHeader,
             includeSummary,
           },
@@ -501,7 +505,7 @@ export default function ReportsPage() {
         body: JSON.stringify({
           reportName,
           reposForReport,
-          enabledWidgets: enabledWidgets.map(w => w.id),
+          enabledWidgets: currentEnabledWidgets.map(w => w.id),
           includeHeader,
           includeSummary,
           issues: fetchedIssues,
