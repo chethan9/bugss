@@ -780,89 +780,136 @@ export default function ReportsPage() {
       }
 
       setGenerationProgress(75);
-      setGenerationStatus("Capturing charts...");
+      setGenerationStatus("Capturing widgets...");
 
-      // ===== CHARTS PAGE - 3 COLUMN GRID =====
-      await new Promise(r => setTimeout(r, 1000));
+      // ===== ANALYTICS DASHBOARD PAGES =====
+      await new Promise(r => setTimeout(r, 1200));
 
-      const allWidgetIds = currentEnabledWidgets
-        .filter(w => !["summaryMetrics", "progressBar", "issuesTable", "repositoryFilter", "smartInsights"].includes(w.id))
-        .map(w => w.id);
+      // Define widget rows for structured PDF layout
+      const widgetRows = [
+        // Row 1: Health, Burndown, Flow
+        ["projectHealth", "burndownChart", "flowEfficiency"],
+        // Row 2: Trend, Category, Severity
+        ["issueTrend", "bugCategory", "severityHeatmap"],
+        // Row 3: Resolution, Priority, Module
+        ["resolutionTime", "priorityScatter", "moduleStability"],
+        // Row 4: Aging, Risk, Backlog
+        ["agingIssues", "atRiskRelease", "backlogGrowth"],
+        // Row 5: Fix Efficiency, Developer, Focus
+        ["bugFixEfficiency", "developerLoad", "focusRecommendations"],
+        // Row 6: Stacked, Funnel, Waterfall
+        ["stackedArea", "issueFunnel", "backlogWaterfall"],
+        // Row 7: Treemap, Radar, Bullet
+        ["moduleTreemap", "moduleRadar", "kpiBullet"],
+        // Row 8: Heatmap, Histogram, Reopened
+        ["bugHeatmap", "resolutionHistogram", "reopenedIssues"],
+        // Row 9: Hotspots, Critical, Repeat
+        ["bugHotspots", "criticalUntouched", "repeatBugs"],
+      ];
 
-      const captures: { canvas: HTMLCanvasElement; width: number; height: number }[] = [];
+      // Capture all enabled widgets
+      const widgetCaptures: Record<string, HTMLCanvasElement> = {};
+      
+      for (const row of widgetRows) {
+        for (const widgetId of row) {
+          if (!currentEnabledWidgets.find(w => w.id === widgetId)) continue;
+          
+          const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
+          if (!el) continue;
 
-      for (const widgetId of allWidgetIds) {
-        const el = document.querySelector(`[data-widget-id="${widgetId}"]`);
-        if (!el) continue;
-
-        try {
-          const canvas = await html2canvas(el as HTMLElement, {
-            scale: 1.5,
-            useCORS: true,
-            backgroundColor: "#ffffff",
-            logging: false,
-          });
-          captures.push({ canvas, width: canvas.width, height: canvas.height });
-        } catch (e) {
-          console.error(`Failed: ${widgetId}`, e);
+          try {
+            const canvas = await html2canvas(el as HTMLElement, {
+              scale: 1.8,
+              useCORS: true,
+              backgroundColor: "#ffffff",
+              logging: false,
+            });
+            widgetCaptures[widgetId] = canvas;
+          } catch (e) {
+            console.error(`Failed: ${widgetId}`, e);
+          }
         }
       }
 
-      if (captures.length > 0) {
+      // Add Analytics Dashboard page
+      if (Object.keys(widgetCaptures).length > 0) {
         pdf.addPage();
         yPos = margin;
 
-        pdf.setFontSize(18);
+        // Section header
+        pdf.setFillColor(34, 97, 158);
+        pdf.rect(0, 0, pageWidth, 25, "F");
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(16);
         pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-        pdf.text("Analytics Dashboard", margin, yPos);
-        yPos += 10;
+        pdf.text("Analytics Dashboard", margin, 16);
+        
+        yPos = 35;
 
-        // 3-column grid
+        // Grid settings
         const cols = 3;
-        const gap = 4;
+        const gap = 6;
         const cellWidth = (contentWidth - gap * (cols - 1)) / cols;
-        const maxCellHeight = 55;
+        const rowHeight = 58; // Fixed row height for consistency
 
-        let xPos = margin;
-        let rowHeight = 0;
+        // Render rows
+        for (const row of widgetRows) {
+          const rowWidgets = row.filter(id => widgetCaptures[id]);
+          if (rowWidgets.length === 0) continue;
 
-        for (const cap of captures) {
-          const aspect = cap.width / cap.height;
-          let w = cellWidth;
-          let h = w / aspect;
-          
-          if (h > maxCellHeight) {
-            h = maxCellHeight;
-            w = h * aspect;
-            if (w > cellWidth) w = cellWidth;
-          }
-
-          // New row
-          if (xPos + cellWidth > pageWidth - margin + 1) {
-            xPos = margin;
-            yPos += rowHeight + gap;
-            rowHeight = 0;
-          }
-
-          // New page
-          if (yPos + h > pageHeight - margin - 10) {
+          // Check for page break
+          if (yPos + rowHeight > pageHeight - margin - 15) {
+            // Add footer to current page
+            pdf.setFontSize(8);
+            pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
+            pdf.text("Page ${i} of ${totalPages}", pageWidth / 2, pageHeight - 10, { align: "center" });
+            pdf.text("Generated by FixFlix", margin, pageHeight - 8);
+            
             pdf.addPage();
-            xPos = margin;
             yPos = margin;
-            rowHeight = 0;
           }
 
-          const imgData = cap.canvas.toDataURL("image/jpeg", 0.8);
-          pdf.addImage(imgData, "JPEG", xPos, yPos, w, h);
+          // Draw row background
+          pdf.setFillColor(252, 252, 253);
+          pdf.setDrawColor(240, 240, 240);
+          pdf.roundedRect(margin - 2, yPos - 2, contentWidth + 4, rowHeight + 4, 4, 4, "FD");
 
-          rowHeight = Math.max(rowHeight, h);
-          xPos += cellWidth + gap;
+          // Render widgets in row
+          for (let i = 0; i < rowWidgets.length; i++) {
+            const widgetId = rowWidgets[i];
+            const canvas = widgetCaptures[widgetId];
+            if (!canvas) continue;
+
+            const xPos = margin + i * (cellWidth + gap);
+            
+            // Card background
+            pdf.setFillColor(255, 255, 255);
+            pdf.setDrawColor(230, 230, 230);
+            pdf.roundedRect(xPos, yPos, cellWidth, rowHeight, 3, 3, "FD");
+
+            // Widget image
+            const imgData = canvas.toDataURL("image/jpeg", 0.85);
+            const aspect = canvas.width / canvas.height;
+            let imgW = cellWidth - 4;
+            let imgH = imgW / aspect;
+            
+            if (imgH > rowHeight - 4) {
+              imgH = rowHeight - 4;
+              imgW = imgH * aspect;
+            }
+
+            const imgX = xPos + (cellWidth - imgW) / 2;
+            const imgY = yPos + (rowHeight - imgH) / 2;
+            
+            pdf.addImage(imgData, "JPEG", imgX, imgY, imgW, imgH);
+          }
+
+          yPos += rowHeight + gap;
         }
       }
 
       setGenerationProgress(90);
-      setGenerationStatus("Saving...");
+      setGenerationStatus("Finalizing...");
 
       // Footer on all pages
       const totalPages = pdf.getNumberOfPages();
@@ -871,8 +918,8 @@ export default function ReportsPage() {
         pdf.setFontSize(8);
         pdf.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
         pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
-        pdf.text("Generated by FixFlix", margin, pageHeight - 10);
-        pdf.text(new Date().toLocaleDateString(), pageWidth - margin, pageHeight - 10, { align: "right" });
+        pdf.text("Generated by FixFlix", margin, pageHeight - 8);
+        pdf.text(new Date().toLocaleDateString(), pageWidth - margin, pageHeight - 8, { align: "right" });
       }
 
       const pdfBlob = pdf.output("blob");
