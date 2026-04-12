@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
+import puppeteer from "puppeteer";
 
 export const config = {
   api: {
@@ -45,12 +44,16 @@ export default async function handler(
     console.log("🚀 Starting Puppeteer PDF generation...");
     console.log(`📊 Issues: ${issues?.length}, Repos: ${selectedRepos?.length}, Widgets: ${enabledWidgets?.length}`);
 
-    // Launch browser
+    // Launch browser with bundled Chromium
     browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: { width: 1400, height: 900 },
-      executablePath: await chromium.executablePath(),
       headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--single-process",
+      ],
     });
 
     const page = await browser.newPage();
