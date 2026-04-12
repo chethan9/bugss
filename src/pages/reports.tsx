@@ -737,6 +737,34 @@ export default function ReportsPage() {
             </div>
           </div>
         </main>
+
+        {/* Hidden container for PDF widget capture - only render when generating */}
+        {isGenerating && (
+          <div 
+            id="pdf-widget-container" 
+            style={{ 
+              position: 'fixed', 
+              left: '-9999px', 
+              top: 0, 
+              width: '1200px',
+              backgroundColor: '#fff',
+              padding: '20px'
+            }}
+          >
+            {/* Render all enabled widgets here for capture */}
+            {/* This container is only visible during PDF generation */}
+            <div className="space-y-6">
+              {widgets.filter(w => w.enabled).map(widget => (
+                <div key={widget.id} data-widget-id={widget.id} className="bg-white p-4 rounded-lg">
+                  <h3 className="text-sm font-semibold mb-2">{widget.name}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Widget placeholder - actual widget components should be imported and rendered here
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
