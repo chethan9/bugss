@@ -41,9 +41,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
-import { PDFExport } from "@/components/PDFExport";
 import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
-import { ReportSettings, type ReportConfig, DEFAULT_REPORT_CONFIG } from "@/components/ReportSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { DataFetchingLoader } from "@/components/LoadingSpinner";
@@ -998,19 +996,6 @@ export default function Home() {
                         onWidgetsPerRowChange={setWidgetsPerRow}
                         widgetOrder={widgetOrder}
                         onWidgetOrderChange={setWidgetOrder}
-                      />
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <ReportSettings 
-                        config={reportConfig}
-                        onConfigChange={handleReportConfigChange}
-                      />
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <PDFExport 
-                        disabled={filteredIssues.length === 0} 
-                        reportConfig={reportConfig}
-                        issues={filteredIssues}
                       />
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
