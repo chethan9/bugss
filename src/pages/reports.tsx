@@ -456,26 +456,25 @@ export default function ReportsPage() {
       if (!user) throw new Error("Not authenticated");
 
       setGenerationProgress(10);
-      setGenerationStatus("Fetching issues from GitHub...");
+      setGenerationStatus("Fetching issues...");
 
-      // Fetch issues
       const { issues: fetchedIssues, repos: fetchedRepos } = await fetchIssuesFromSupabase();
       
       if (fetchedIssues.length === 0) {
-        toast({ title: "No issues found", description: "Selected repositories have no issues.", variant: "destructive" });
+        toast({ title: "No issues found", variant: "destructive" });
         setIsGenerating(false);
         return;
       }
 
-      console.log(`📊 Fetched ${fetchedIssues.length} issues from ${fetchedRepos.length} repos`);
+      // Update state for widget rendering
+      setIssues(fetchedIssues);
+      setSelectedRepos(fetchedRepos);
 
-      setGenerationProgress(30);
-      setGenerationStatus("Creating report record...");
-
-      // Get current enabled widgets from state
       const currentEnabledWidgets = widgets.filter(w => w.enabled);
 
-      // Create report record
+      setGenerationProgress(15);
+      setGenerationStatus("Creating report record...");
+
       const { data: reportData, error: reportError } = await supabase
         .from("reports")
         .insert({
@@ -495,85 +494,142 @@ export default function ReportsPage() {
 
       if (reportError) throw reportError;
 
-      setGenerationProgress(40);
-      setGenerationStatus("Generating PDF with Puppeteer...");
+      // Wait for widgets to render
+      await new Promise(r => setTimeout(r, 1500));
 
-      // Call Puppeteer API to generate PDF
-      const response = await fetch("/api/generate-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportName,
-          reposForReport,
-          enabledWidgets: currentEnabledWidgets.map(w => w.id),
-          includeHeader,
-          includeSummary,
-          issues: fetchedIssues,
-          selectedRepos: fetchedRepos,
-        }),
-      });
+      setGenerationProgress(20);
+      setGenerationStatus("Creating PDF...");
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || "PDF generation failed");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 12;
+      const contentWidth = pageWidth - margin * 2;
+
+      // Header
+      if (includeHeader) {
+        pdf.setFontSize(18);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(reportName || "Analytics Report", margin, margin + 6);
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(100);
+        pdf.text(new Date().toLocaleDateString(), pageWidth - margin - 25, margin + 6);
+        pdf.text(`${fetchedIssues.length} issues • ${fetchedRepos.length} repos`, margin, margin + 12);
+        pdf.setTextColor(0);
+        pdf.setDrawColor(200);
+        pdf.line(margin, margin + 16, pageWidth - margin, margin + 16);
       }
+
+      setGenerationProgress(25);
+      setGenerationStatus("Capturing widgets...");
+
+      // Capture widgets
+      const widgetElements = document.querySelectorAll("[data-widget-id]");
+      const captures: { canvas: HTMLCanvasElement; width: number; height: number }[] = [];
+
+      let idx = 0;
+      for (const el of Array.from(widgetElements)) {
+        const widgetId = el.getAttribute("data-widget-id");
+        if (!widgetId || !currentEnabledWidgets.find(w => w.id === widgetId)) continue;
+
+        try {
+          const canvas = await html2canvas(el as HTMLElement, {
+            scale: 1.2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+            logging: false,
+          });
+          captures.push({ canvas, width: canvas.width, height: canvas.height });
+        } catch (e) {
+          console.error(`Failed: ${widgetId}`, e);
+        }
+
+        idx++;
+        setGenerationProgress(25 + Math.floor((idx / currentEnabledWidgets.length) * 50));
+        setGenerationStatus(`Capturing ${idx}/${currentEnabledWidgets.length}...`);
+      }
+
+      if (captures.length === 0) throw new Error("No widgets captured");
 
       setGenerationProgress(80);
-      setGenerationStatus("Downloading PDF...");
+      setGenerationStatus("Building PDF layout...");
 
-      // Get PDF blob and download
-      const pdfBlob = await response.blob();
-      const fileName = `${reportName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}.pdf`;
+      // 3-column grid layout
+      const cols = 3;
+      const gap = 4;
+      const cellWidth = (contentWidth - gap * (cols - 1)) / cols;
+      const maxCellHeight = 45;
+      const startY = includeHeader ? margin + 22 : margin;
 
-      // Download file
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      let x = margin;
+      let y = startY;
+      let rowHeight = 0;
 
-      setGenerationProgress(90);
-      setGenerationStatus("Saving to cloud...");
+      for (const cap of captures) {
+        const aspect = cap.width / cap.height;
+        let w = cellWidth;
+        let h = w / aspect;
+        if (h > maxCellHeight) {
+          h = maxCellHeight;
+          w = h * aspect;
+          if (w > cellWidth) w = cellWidth;
+        }
 
-      // Try to upload to storage
-      try {
-        await supabase.storage
-          .from("reports")
-          .upload(`${user.id}/${fileName}`, pdfBlob, { contentType: "application/pdf" });
-      } catch (uploadErr) {
-        console.warn("Cloud upload skipped:", uploadErr);
+        // New row check
+        if (x + w > pageWidth - margin + 1) {
+          x = margin;
+          y += rowHeight + gap;
+          rowHeight = 0;
+        }
+
+        // New page check
+        if (y + h > pageHeight - margin) {
+          pdf.addPage();
+          x = margin;
+          y = margin;
+          rowHeight = 0;
+        }
+
+        // Add as compressed JPEG
+        const imgData = cap.canvas.toDataURL("image/jpeg", 0.65);
+        pdf.addImage(imgData, "JPEG", x, y, w, h);
+
+        rowHeight = Math.max(rowHeight, h);
+        x += w + gap;
       }
 
-      // Update report record
-      await supabase
-        .from("reports")
-        .update({
-          file_path: `${user.id}/${fileName}`,
-          file_size: pdfBlob.size,
-          status: "completed",
-        })
-        .eq("id", reportData.id);
+      setGenerationProgress(90);
+      setGenerationStatus("Saving...");
+
+      const pdfBlob = pdf.output("blob");
+      const fileName = `${reportName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}.pdf`;
+
+      // Download
+      pdf.save(fileName);
+
+      // Try cloud save (non-blocking)
+      supabase.storage.from("reports").upload(`${user.id}/${fileName}`, pdfBlob, { contentType: "application/pdf" }).catch(() => {});
+
+      await supabase.from("reports").update({
+        file_path: `${user.id}/${fileName}`,
+        file_size: pdfBlob.size,
+        status: "completed",
+      }).eq("id", reportData.id);
 
       setGenerationProgress(100);
-      setGenerationStatus("Complete!");
+      setGenerationStatus("Done!");
 
       toast({
         title: "Report generated!",
-        description: `${reportName} (${(pdfBlob.size / 1024 / 1024).toFixed(2)} MB) downloaded.`,
+        description: `${(pdfBlob.size / 1024 / 1024).toFixed(1)} MB downloaded`,
       });
 
       loadReports(user.id);
 
     } catch (error) {
-      console.error("Report generation error:", error);
-      toast({
-        title: "Generation failed",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
+      console.error("Report error:", error);
+      toast({ title: "Failed", description: error instanceof Error ? error.message : "Try again", variant: "destructive" });
     } finally {
       setTimeout(() => {
         setIsGenerating(false);
