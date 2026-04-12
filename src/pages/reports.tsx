@@ -1236,6 +1236,49 @@ export default function ReportsPage() {
                 </div>
               )}
               
+              {widgets.find(w => w.id === "issuesTable" && w.enabled) && (
+                <div data-widget-id="issuesTable" style={{ width: "1100px" }}>
+                  <Card className="p-4">
+                    <h3 className="text-lg font-semibold mb-4">Issues Overview</h3>
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2 font-medium">#</th>
+                          <th className="text-left p-2 font-medium">Title</th>
+                          <th className="text-left p-2 font-medium">Status</th>
+                          <th className="text-left p-2 font-medium">Repository</th>
+                          <th className="text-left p-2 font-medium">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {issues.slice(0, 50).map((issue, idx) => (
+                          <tr key={issue.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
+                            <td className="p-2">#{issue.number}</td>
+                            <td className="p-2 max-w-[400px] truncate">{issue.title}</td>
+                            <td className="p-2">
+                              <span className={`px-2 py-0.5 rounded text-xs ${
+                                issue.status === "open" ? "bg-green-100 text-green-700" :
+                                issue.status === "closed" ? "bg-gray-100 text-gray-700" :
+                                "bg-purple-100 text-purple-700"
+                              }`}>
+                                {issue.status}
+                              </span>
+                            </td>
+                            <td className="p-2 text-muted-foreground">{issue.repository?.split("/")[1] || issue.repository}</td>
+                            <td className="p-2 text-muted-foreground">{new Date(issue.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {issues.length > 50 && (
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Showing 50 of {issues.length} issues
+                      </p>
+                    )}
+                  </Card>
+                </div>
+              )}
+              
               {widgets.find(w => w.id === "projectHealth" && w.enabled) && (
                 <div data-widget-id="projectHealth">
                   <ProjectHealthGauge issues={issues} isLoading={false} />
