@@ -1265,7 +1265,7 @@ export default function ReportsPage() {
                               </span>
                             </td>
                             <td className="p-2 text-muted-foreground">{issue.repository?.split("/")[1] || issue.repository}</td>
-                            <td className="p-2 text-muted-foreground">{new Date(issue.created_at).toLocaleDateString()}</td>
+                            <td className="p-2 text-muted-foreground">{new Date(issue.createdAt).toLocaleDateString()}</td>
                           </tr>
                         ))}
                       </tbody>
