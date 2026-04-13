@@ -1,37 +1,20 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { 
-  GitBranch, 
-  Search, 
-  Filter, 
-  RefreshCw, 
-  Calendar, 
-  Settings, 
-  User, 
-  LogOut, 
-  FileText, 
-  Eye, 
-  EyeOff, 
-  LayoutGrid, 
-  ChevronDown,
-  Loader2,
-  Plus,
-  ExternalLink,
-  Pencil,
-  GripVertical,
-  Maximize2,
-  Minimize2,
-  AlertCircle,
-  Github,
-  Key,
-  X,
-} from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff, Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
@@ -57,7 +41,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
-import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, DEFAULT_WIDGET_SIZES, type WidgetVisibility, type WidgetKey, type WidgetSize } from "@/components/WidgetSettings";
+import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { DataFetchingLoader } from "@/components/LoadingSpinner";
@@ -126,8 +110,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
@@ -209,10 +191,8 @@ export default function Home() {
   });
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
-  const [widgetOrder, setWidgetOrder] = useState<WidgetKey[]>(DEFAULT_WIDGET_ORDER);
-  const [widgetSizes, setWidgetSizes] = useState<Record<WidgetKey, WidgetSize>>(DEFAULT_WIDGET_SIZES);
-  const [showWidgetSettings, setShowWidgetSettings] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [widgetsPerRow, setWidgetsPerRow] = useState(3);
+  const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -258,7 +238,14 @@ export default function Home() {
             setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
           }
           if (settings.widget_order && Array.isArray(settings.widget_order)) {
-            setWidgetOrder(settings.widget_order as WidgetKey[]);
+            setWidgetOrder(settings.widget_order as (keyof WidgetVisibility)[]);
+          }
+          // Fix: Check for number type instead of truthy value (0 would fail truthy check)
+          if (typeof settings.widgets_per_row === "number" && settings.widgets_per_row >= 1 && settings.widgets_per_row <= 4) {
+            console.log("Setting widgetsPerRow to:", settings.widgets_per_row);
+            setWidgetsPerRow(settings.widgets_per_row);
+          } else {
+            console.log("widgets_per_row not valid, keeping default. Value:", settings.widgets_per_row, "Type:", typeof settings.widgets_per_row);
           }
           if (settings.app_name) {
             setAppName(settings.app_name);
@@ -307,10 +294,11 @@ export default function Home() {
     if (!user || !settingsLoaded) return;
     
     const saveTimeout = setTimeout(async () => {
-      console.log("Saving settings to Supabase:", { widgetVisibility });
+      console.log("Saving settings to Supabase:", { widgetsPerRow, widgetVisibility });
       await saveUserSettings(user.id, {
         widget_visibility: widgetVisibility,
         widget_order: widgetOrder,
+        widgets_per_row: widgetsPerRow,
         github_token: githubToken || null,
         selected_repos: selectedRepos,
       });
@@ -318,7 +306,7 @@ export default function Home() {
     }, 500);
     
     return () => clearTimeout(saveTimeout);
-  }, [user, settingsLoaded, widgetVisibility, widgetOrder, githubToken, selectedRepos]);
+  }, [user, settingsLoaded, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
 
   useEffect(() => {
     console.log("🟢 Auto-load useEffect running...");
@@ -341,18 +329,6 @@ export default function Home() {
     }
   }, []);
 
-  // Load widget sizes from localStorage
-  useEffect(() => {
-    const savedSizes = localStorage.getItem("widgetSizes");
-    if (savedSizes) {
-      try {
-        setWidgetSizes(JSON.parse(savedSizes));
-      } catch (e) {
-        console.error("Failed to parse widget sizes:", e);
-      }
-    }
-  }, []);
-
   useEffect(() => {
     const saved = localStorage.getItem("widgetVisibility");
     if (saved) {
@@ -364,20 +340,10 @@ export default function Home() {
     }
   }, []);
 
-  const handleVisibilityChange = (key: keyof WidgetVisibility, value: boolean) => {
-    const newVisibility = { ...widgetVisibility, [key]: value };
+  const handleVisibilityChange = (newVisibility: WidgetVisibility) => {
     setWidgetVisibility(newVisibility);
     localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
   };
-
-  const handleWidgetSizeChange = useCallback((key: WidgetKey, size: WidgetSize) => {
-    setWidgetSizes(prev => {
-      const newSizes = { ...prev, [key]: size };
-      // Save to localStorage
-      localStorage.setItem("widgetSizes", JSON.stringify(newSizes));
-      return newSizes;
-    });
-  }, []);
 
   const handleFetchIssues = async (tokenParam?: string, reposParam?: string[]) => {
     const tokenToUse = tokenParam || githubToken;
@@ -816,6 +782,64 @@ export default function Home() {
                   <span className="hidden sm:inline">Repos ({selectedRepos.length})</span>
                 </Button>
                 
+                {/* Column Selector */}
+                <div className="hidden md:flex items-center border rounded-md">
+                  {[1, 2, 3, 4].map((cols) => (
+                    <button
+                      key={cols}
+                      onClick={() => setWidgetsPerRow(cols)}
+                      className={`p-1.5 transition-colors ${
+                        widgetsPerRow === cols 
+                          ? "bg-primary text-primary-foreground" 
+                          : "hover:bg-muted text-muted-foreground"
+                      }`}
+                      title={`${cols} column${cols > 1 ? "s" : ""}`}
+                    >
+                      {cols === 1 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="2" y="2" width="12" height="2" rx="0.5" fill="currentColor"/>
+                          <rect x="2" y="6" width="12" height="2" rx="0.5" fill="currentColor"/>
+                          <rect x="2" y="10" width="12" height="2" rx="0.5" fill="currentColor"/>
+                        </svg>
+                      )}
+                      {cols === 2 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor"/>
+                          <rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor"/>
+                          <rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor"/>
+                          <rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor"/>
+                        </svg>
+                      )}
+                      {cols === 3 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="1" y="2" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="6" y="2" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="11" y="2" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="1" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="6" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                          <rect x="11" y="7" width="4" height="4" rx="0.5" fill="currentColor"/>
+                        </svg>
+                      )}
+                      {cols === 4 && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
+                          <rect x="1" y="1" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="5" y="1" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="9" y="1" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="13" y="1" width="2" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="1" y="5" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="5" y="5" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="9" y="5" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="13" y="5" width="2" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="1" y="9" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="5" y="9" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="9" y="9" width="3" height="3" rx="0.5" fill="currentColor"/>
+                          <rect x="13" y="9" width="2" height="3" rx="0.5" fill="currentColor"/>
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                
                 {/* Refresh Controls */}
                 <Button
                   variant="ghost"
@@ -904,20 +928,6 @@ export default function Home() {
                     {allWidgetsVisible ? "Hide" : "Show"}
                   </span>
                 </Button>
-                
-                {/* Edit Mode Toggle */}
-                <Button
-                  variant={editMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setEditMode(!editMode)}
-                  className={cn(
-                    "gap-2",
-                    editMode && "bg-primary text-primary-foreground"
-                  )}
-                >
-                  <Pencil className="h-4 w-4" />
-                  {editMode ? "Done" : "Edit"}
-                </Button>
               </>
             )}
             
@@ -957,9 +967,15 @@ export default function Home() {
                       Manage Repositories
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setShowWidgetSettings(true)}>
-                      <LayoutGrid className="mr-2 h-4 w-4" />
-                      Widget Settings
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <WidgetSettings 
+                        visibility={widgetVisibility}
+                        onVisibilityChange={handleVisibilityChange}
+                        widgetsPerRow={widgetsPerRow}
+                        onWidgetsPerRowChange={setWidgetsPerRow}
+                        widgetOrder={widgetOrder}
+                        onWidgetOrderChange={setWidgetOrder}
+                      />
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
@@ -1018,201 +1034,251 @@ export default function Home() {
               />
             ) : (
               <>
-                {/* ===== STRUCTURED DASHBOARD GRID ===== */}
-                <div className="space-y-4" id="analytics-widgets-section">
-                  
-                  {/* Row 1: Key Metrics Overview - always 2 columns */}
-                  {(widgetVisibility.summaryMetrics || widgetVisibility.progressBar) && (
-                    <div className="dashboard-row" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                      {widgetVisibility.summaryMetrics && (
-                        <div data-widget-id="summary-metrics" id="summary-metrics-section" className="dashboard-card">
-                          <DashboardMetrics
-                            totalRepos={selectedRepos.length}
-                            totalIssues={filteredIssues.length}
-                            openIssues={metrics.statusCounts.open}
-                            closedIssues={metrics.statusCounts.closed}
-                            isLoading={isLoadingIssues}
-                          />
-                        </div>
-                      )}
-                      {widgetVisibility.progressBar && (
-                        <div data-widget-id="progress-bar" className="dashboard-card">
-                          <ProgressBar
-                            open={metrics.statusCounts.open}
-                            inProgress={metrics.statusCounts.inProgress || 0}
-                            closed={metrics.statusCounts.closed}
-                            total={filteredIssues.length}
-                            isLoading={isLoadingIssues}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Main Dashboard Grid - Auto-flow widgets */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {widgetOrder
-                      .filter(key => widgetVisibility[key])
-                      .map((widgetKey) => {
-                        const size = widgetSizes[widgetKey] || { cols: 1, rows: 1 };
-                        const colSpan = size.cols === 3 ? "lg:col-span-3" : size.cols === 2 ? "lg:col-span-2" : "";
-                        const rowSpan = size.rows === 2 ? "row-span-2" : "";
-                        
-                        const renderWidget = () => {
-                          switch (widgetKey) {
-                            case "projectHealthGauge":
-                              return <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />;
-                            case "burndownChart":
-                              return <BurndownChart issues={filteredIssues} />;
-                            case "flowEfficiency":
-                              return <FlowEfficiency issues={filteredIssues} />;
-                            case "trendChart":
-                              return <IssueTrendChart data={analytics.trend} days={30} />;
-                            case "categoryBreakdown":
-                              return <BugCategoryBreakdown categories={analytics.categories} />;
-                            case "severityHeatmap":
-                              return <BugSeverityHeatmap severities={analytics.severities} />;
-                            case "resolutionTime":
-                              return <AverageResolutionTime stats={analytics.resolutionTime} />;
-                            case "priorityScatterPlot":
-                              return <PriorityScatterPlot data={analytics.priorityScatter} />;
-                            case "moduleStability":
-                              return <ModuleStabilityScore stability={analytics.stability} />;
-                            case "agingIssues":
-                              return <AgingIssues stats={analytics.agingIssues} />;
-                            case "atRiskRelease":
-                              return <AtRiskRelease stats={analytics.atRiskRelease} />;
-                            case "backlogGrowth":
-                              return <BacklogGrowth stats={analytics.backlogGrowth} />;
-                            case "bugFixEfficiency":
-                              return <BugFixEfficiency stats={analytics.bugFixEfficiency} />;
-                            case "developerLoad":
-                              return <DeveloperLoad stats={analytics.developerLoad} />;
-                            case "focusRecommendations":
-                              return <FocusRecommendations recommendations={analytics.focusRecommendations} />;
-                            case "stackedAreaChart":
-                              return <StackedAreaChart data={analytics.stackedAreaData} />;
-                            case "issueFunnelChart":
-                              return <IssueFunnelChart stages={analytics.issueFunnel} />;
-                            case "backlogWaterfallChart":
-                              return <BacklogWaterfallChart data={analytics.backlogWaterfall} />;
-                            case "moduleTreemap":
-                              return <ModuleTreemap data={analytics.moduleTreemap} />;
-                            case "moduleRadarChart":
-                              return <ModuleRadarChart data={analytics.moduleRadar} />;
-                            case "kpiBulletChart":
-                              return <BulletChart metrics={analytics.kpiMetrics} />;
-                            case "bugHeatmap":
-                              return <BugHeatmap data={analytics.bugHeatmap} />;
-                            case "resolutionHistogram":
-                              return <ResolutionHistogram data={analytics.resolutionHistogram} />;
-                            case "reopenedIssues":
-                              return <ReopenedIssuesTracker stats={analytics.reopened} />;
-                            case "bugHotspots":
-                              return <BugHotspots hotspots={analytics.hotspots} />;
-                            case "criticalUntouched":
-                              return <CriticalUntouched stats={analytics.criticalUntouched} />;
-                            case "repeatBugDetector":
-                              return <RepeatBugDetector stats={analytics.repeatBugs} />;
-                            default:
-                              return null;
-                          }
-                        };
-
-                        // Skip summary and progress widgets here (handled separately)
-                        if (widgetKey === "summaryMetrics" || widgetKey === "progressBar" || 
-                            widgetKey === "smartInsights" || widgetKey === "repositoryFilter") {
-                          return null;
-                        }
-
+                <Masonry
+                  breakpointCols={{
+                    default: widgetsPerRow,
+                    1280: Math.min(widgetsPerRow, 3),
+                    1024: Math.min(widgetsPerRow, 2),
+                    768: 1
+                  }}
+                  className="flex -ml-6 w-auto"
+                  columnClassName="pl-6 bg-clip-padding"
+                  id="analytics-widgets-section"
+                >
+                  {widgetOrder.map((widgetKey) => {
+                    if (!widgetVisibility[widgetKey]) return null;
+                    
+                    switch (widgetKey) {
+                      case "repositoryFilter":
+                        return selectedRepos.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="repository-filter" className="mb-6">
+                            <RepositoryFilter
+                              repositories={selectedRepos}
+                              activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
+                              onToggle={(repo) => {
+                                setFilters(prev => {
+                                  const currentActive = prev.repositories.length > 0 ? prev.repositories : selectedRepos;
+                                  const isActive = currentActive.includes(repo);
+                                  let newRepos: string[];
+                                  
+                                  if (isActive) {
+                                    newRepos = currentActive.filter(r => r !== repo);
+                                  } else {
+                                    newRepos = [...currentActive, repo];
+                                  }
+                                  
+                                  // If all repos are selected, clear the filter
+                                  if (newRepos.length === selectedRepos.length) {
+                                    newRepos = [];
+                                  }
+                                  
+                                  return { ...prev, repositories: newRepos };
+                                });
+                              }}
+                              issueCounts={issues.reduce((acc, issue) => {
+                                acc[issue.repository] = (acc[issue.repository] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>)}
+                            />
+                          </div>
+                        ) : null;
+                      case "smartInsights":
+                        return analytics.insights.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="smart-insights" className="mb-6">
+                            <SmartInsights insights={analytics.insights} />
+                          </div>
+                        ) : null;
+                      case "summaryMetrics":
                         return (
-                          <div 
-                            key={widgetKey}
-                            data-widget-id={widgetKey}
-                            className={cn(
-                              "dashboard-card relative group",
-                              colSpan,
-                              rowSpan,
-                              editMode && "ring-2 ring-primary/20 ring-offset-2"
-                            )}
-                          >
-                            {/* Edit Mode Controls */}
-                            {editMode && (
-                              <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-background/95 backdrop-blur rounded-lg p-1 shadow-lg border">
-                                <span className="text-xs font-medium px-2 text-muted-foreground">
-                                  {size.cols}×{size.rows}
-                                </span>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={() => {
-                                    const newCols = size.cols >= 3 ? 1 : size.cols + 1;
-                                    handleWidgetSizeChange(widgetKey, { ...size, cols: newCols });
-                                  }}
-                                  title="Change width"
-                                >
-                                  <Maximize2 className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={() => {
-                                    const newRows = size.rows >= 2 ? 1 : size.rows + 1;
-                                    handleWidgetSizeChange(widgetKey, { ...size, rows: newRows });
-                                  }}
-                                  title="Change height"
-                                >
-                                  <GripVertical className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
-                            {renderWidget()}
+                          <div key={widgetKey} data-widget-id="summary-metrics" id="summary-metrics-section" className="mb-6">
+                            <DashboardMetrics
+                              totalRepos={selectedRepos.length}
+                              totalIssues={filteredIssues.length}
+                              openIssues={metrics.statusCounts.open}
+                              closedIssues={metrics.statusCounts.closed}
+                              isLoading={isLoadingIssues}
+                            />
                           </div>
                         );
-                      })}
-                  </div>
-
-                  {/* Full Width Widgets */}
-                  {widgetVisibility.smartInsights && analytics.insights.length > 0 && (
-                    <div data-widget-id="smart-insights" className="dashboard-card">
-                      <SmartInsights insights={analytics.insights} />
-                    </div>
-                  )}
-
-                  {widgetVisibility.repositoryFilter && selectedRepos.length > 0 && (
-                    <div data-widget-id="repository-filter" className="dashboard-card">
-                      <RepositoryFilter
-                        repositories={selectedRepos}
-                        activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
-                        onToggle={(repo) => {
-                          setFilters(prev => {
-                            const currentActive = prev.repositories.length > 0 ? prev.repositories : selectedRepos;
-                            const isActive = currentActive.includes(repo);
-                            let newRepos: string[];
-                            
-                            if (isActive) {
-                              newRepos = currentActive.filter(r => r !== repo);
-                            } else {
-                              newRepos = [...currentActive, repo];
-                            }
-                            
-                            if (newRepos.length === selectedRepos.length) {
-                              newRepos = [];
-                            }
-                            
-                            return { ...prev, repositories: newRepos };
-                          });
-                        }}
-                        issueCounts={issues.reduce((acc, issue) => {
-                          acc[issue.repository] = (acc[issue.repository] || 0) + 1;
-                          return acc;
-                        }, {} as Record<string, number>)}
-                      />
-                    </div>
-                  )}
-                </div>
+                      case "progressBar":
+                        return (
+                          <div key={widgetKey} data-widget-id="progress-bar" className="mb-6">
+                            <ProgressBar
+                              open={metrics.statusCounts.open}
+                              inProgress={metrics.statusCounts.inProgress || 0}
+                              closed={metrics.statusCounts.closed}
+                              total={filteredIssues.length}
+                              isLoading={isLoadingIssues}
+                            />
+                          </div>
+                        );
+                      case "projectHealthGauge":
+                        return (
+                          <div key={widgetKey} data-widget-id="project-health" className="mb-6">
+                            <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
+                          </div>
+                        );
+                      case "burndownChart":
+                        return (
+                          <div key={widgetKey} data-widget-id="burndown-chart" className="mb-6">
+                            <BurndownChart issues={filteredIssues} />
+                          </div>
+                        );
+                      case "flowEfficiency":
+                        return (
+                          <div key={widgetKey} data-widget-id="flow-efficiency" className="mb-6">
+                            <FlowEfficiency issues={filteredIssues} />
+                          </div>
+                        );
+                      case "severityHeatmap":
+                        return Object.values(analytics.severities).some(v => v > 0) ? (
+                          <div key={widgetKey} data-widget-id="severity-heatmap" className="mb-6">
+                            <BugSeverityHeatmap severities={analytics.severities} />
+                          </div>
+                        ) : null;
+                      case "resolutionTime":
+                        return analytics.resolutionTime.overall > 0 ? (
+                          <div key={widgetKey} data-widget-id="resolution-time" className="mb-6">
+                            <AverageResolutionTime stats={analytics.resolutionTime} />
+                          </div>
+                        ) : null;
+                      case "trendChart":
+                        return analytics.trend.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="issue-trend" className="mb-6">
+                            <IssueTrendChart data={analytics.trend} days={30} />
+                          </div>
+                        ) : null;
+                      case "moduleStability":
+                        return analytics.stability.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="module-stability" className="mb-6">
+                            <ModuleStabilityScore stability={analytics.stability} />
+                          </div>
+                        ) : null;
+                      case "reopenedIssues":
+                        return (
+                          <div key={widgetKey} data-widget-id="reopened-issues" className="mb-6">
+                            <ReopenedIssuesTracker stats={analytics.reopened} />
+                          </div>
+                        );
+                      case "categoryBreakdown":
+                        return Object.values(analytics.categories).some(v => v > 0) ? (
+                          <div key={widgetKey} data-widget-id="bug-category" className="mb-6">
+                            <BugCategoryBreakdown categories={analytics.categories} />
+                          </div>
+                        ) : null;
+                      case "bugHotspots":
+                        return analytics.hotspots.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="bug-hotspots" className="mb-6">
+                            <BugHotspots hotspots={analytics.hotspots} />
+                          </div>
+                        ) : null;
+                      case "atRiskRelease":
+                        return (
+                          <div key={widgetKey} data-widget-id="at-risk-release" className="mb-6">
+                            <AtRiskRelease stats={analytics.atRiskRelease} />
+                          </div>
+                        );
+                      case "agingIssues":
+                        return (
+                          <div key={widgetKey} data-widget-id="aging-issues" className="mb-6">
+                            <AgingIssues stats={analytics.agingIssues} />
+                          </div>
+                        );
+                      case "criticalUntouched":
+                        return analytics.criticalUntouched.issues.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="critical-untouched" className="mb-6">
+                            <CriticalUntouched stats={analytics.criticalUntouched} />
+                          </div>
+                        ) : null;
+                      case "backlogGrowth":
+                        return (
+                          <div key={widgetKey} data-widget-id="backlog-growth" className="mb-6">
+                            <BacklogGrowth stats={analytics.backlogGrowth} />
+                          </div>
+                        );
+                      case "bugFixEfficiency":
+                        return (
+                          <div key={widgetKey} data-widget-id="bug-fix-efficiency" className="mb-6">
+                            <BugFixEfficiency stats={analytics.bugFixEfficiency} />
+                          </div>
+                        );
+                      case "repeatBugDetector":
+                        return analytics.repeatBugs.topRepeatingLabels.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="repeat-bugs" className="mb-6">
+                            <RepeatBugDetector stats={analytics.repeatBugs} />
+                          </div>
+                        ) : null;
+                      case "developerLoad":
+                        return analytics.developerLoad.developers.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="developer-load" className="mb-6">
+                            <DeveloperLoad stats={analytics.developerLoad} />
+                          </div>
+                        ) : null;
+                      case "focusRecommendations":
+                        return analytics.focusRecommendations.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="focus-recommendations" className="mb-6">
+                            <FocusRecommendations recommendations={analytics.focusRecommendations} />
+                          </div>
+                        ) : null;
+                      case "bugHeatmap":
+                        return analytics.bugHeatmap.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="bug-heatmap" className="mb-6">
+                            <BugHeatmap data={analytics.bugHeatmap} />
+                          </div>
+                        ) : null;
+                      case "resolutionHistogram":
+                        return analytics.resolutionHistogram.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="resolution-histogram" className="mb-6">
+                            <ResolutionHistogram data={analytics.resolutionHistogram} />
+                          </div>
+                        ) : null;
+                      case "priorityScatterPlot":
+                        return analytics.priorityScatter.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="priority-scatter" className="mb-6">
+                            <PriorityScatterPlot data={analytics.priorityScatter} />
+                          </div>
+                        ) : null;
+                      case "stackedAreaChart":
+                        return analytics.stackedAreaData.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="stacked-area" className="mb-6">
+                            <StackedAreaChart data={analytics.stackedAreaData} />
+                          </div>
+                        ) : null;
+                      case "issueFunnelChart":
+                        return analytics.issueFunnel.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="issue-funnel" className="mb-6">
+                            <IssueFunnelChart stages={analytics.issueFunnel} />
+                          </div>
+                        ) : null;
+                      case "backlogWaterfallChart":
+                        return analytics.backlogWaterfall.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="backlog-waterfall" className="mb-6">
+                            <BacklogWaterfallChart data={analytics.backlogWaterfall} />
+                          </div>
+                        ) : null;
+                      case "moduleTreemap":
+                        return analytics.moduleTreemap.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="module-treemap" className="mb-6">
+                            <ModuleTreemap data={analytics.moduleTreemap} />
+                          </div>
+                        ) : null;
+                      case "moduleRadarChart":
+                        return analytics.moduleRadar.length > 0 ? (
+                          <div key={widgetKey} data-widget-id="module-radar" className="mb-6">
+                            <ModuleRadarChart data={analytics.moduleRadar} />
+                          </div>
+                        ) : null;
+                      case "kpiBulletChart":
+                        return (
+                          <div key={widgetKey} data-widget-id="kpi-bullet" className="mb-6">
+                            <BulletChart metrics={analytics.kpiMetrics} />
+                          </div>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
+                </Masonry>
 
                 {availableLabels.length > 0 && (
                   <div className="mb-6">
@@ -1798,28 +1864,6 @@ export default function Home() {
               </div>
             )}
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Widget Settings Modal */}
-      <Dialog open={showWidgetSettings} onOpenChange={setShowWidgetSettings}>
-        <DialogContent className="w-[90vw] max-w-6xl h-[80vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <LayoutGrid className="h-5 w-5" />
-              Widget Settings
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto">
-            <WidgetSettings 
-              visibility={widgetVisibility}
-              onVisibilityChange={handleVisibilityChange}
-              widgetOrder={widgetOrder}
-              onWidgetOrderChange={setWidgetOrder}
-              widgetSizes={widgetSizes}
-              onWidgetSizeChange={handleWidgetSizeChange}
-            />
-          </div>
         </DialogContent>
       </Dialog>
     </div>
