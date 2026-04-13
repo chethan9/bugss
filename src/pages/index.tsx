@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff, Plus, FileText } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,7 +41,9 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
+import { PDFExport } from "@/components/PDFExport";
 import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
+import { ReportSettings, type ReportConfig, DEFAULT_REPORT_CONFIG } from "@/components/ReportSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { DataFetchingLoader } from "@/components/LoadingSpinner";
@@ -193,6 +195,7 @@ export default function Home() {
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const [widgetsPerRow, setWidgetsPerRow] = useState(3);
   const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
+  const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -338,11 +341,31 @@ export default function Home() {
         console.error("Failed to load widget preferences:", e);
       }
     }
+
+    const savedReportConfig = localStorage.getItem("reportConfig");
+    if (savedReportConfig) {
+      try {
+        const parsed = JSON.parse(savedReportConfig);
+        // Merge with defaults to ensure pdfWidgets is always present
+        setReportConfig({
+          ...DEFAULT_REPORT_CONFIG,
+          ...parsed,
+          pdfWidgets: parsed.pdfWidgets?.length ? parsed.pdfWidgets : DEFAULT_REPORT_CONFIG.pdfWidgets,
+        });
+      } catch (e) {
+        console.error("Failed to load report config:", e);
+      }
+    }
   }, []);
 
   const handleVisibilityChange = (newVisibility: WidgetVisibility) => {
     setWidgetVisibility(newVisibility);
     localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
+  };
+
+  const handleReportConfigChange = (newConfig: ReportConfig) => {
+    setReportConfig(newConfig);
+    localStorage.setItem("reportConfig", JSON.stringify(newConfig));
   };
 
   const handleFetchIssues = async (tokenParam?: string, reposParam?: string[]) => {
@@ -952,10 +975,6 @@ export default function Home() {
                       <User className="h-4 w-4 mr-2" />
                       Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/reports")}>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Reports
-                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
                 )}
@@ -975,6 +994,19 @@ export default function Home() {
                         onWidgetsPerRowChange={setWidgetsPerRow}
                         widgetOrder={widgetOrder}
                         onWidgetOrderChange={setWidgetOrder}
+                      />
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <ReportSettings 
+                        config={reportConfig}
+                        onConfigChange={handleReportConfigChange}
+                      />
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <PDFExport 
+                        disabled={filteredIssues.length === 0} 
+                        reportConfig={reportConfig}
+                        issues={filteredIssues}
                       />
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

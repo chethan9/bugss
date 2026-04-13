@@ -155,42 +155,6 @@ export type Database = {
         }
         Relationships: []
       }
-      reports: {
-        Row: {
-          created_at: string | null
-          file_path: string
-          file_size: number
-          id: string
-          name: string
-          settings: Json | null
-          status: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          file_path: string
-          file_size?: number
-          id?: string
-          name: string
-          settings?: Json | null
-          status?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          file_path?: string
-          file_size?: number
-          id?: string
-          name?: string
-          settings?: Json | null
-          status?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       repositories: {
         Row: {
           connection_id: string | null

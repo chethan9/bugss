@@ -627,7 +627,7 @@ export default function CreateIssuePage() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium flex items-center gap-2">
                         <Tag className="h-4 w-4" />
-                        Labels ({availableLabels.length} available)
+                        Labels
                       </Label>
                       <Button
                         type="button"
@@ -660,22 +660,22 @@ export default function CreateIssuePage() {
                       </div>
                     )}
 
-                    {/* Label Picker - Show all labels */}
+                    {/* Label Picker */}
                     {showLabelPicker && availableLabels.length > 0 && (
-                      <ScrollArea className="h-64 border rounded-md p-3">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      <ScrollArea className="h-32 border rounded-md p-2">
+                        <div className="flex flex-wrap gap-2">
                           {availableLabels.map((label) => (
                             <Badge
                               key={label.name}
                               variant={selectedLabels.includes(label.name) ? "default" : "outline"}
-                              className="cursor-pointer hover:opacity-80 transition-opacity justify-between px-2 py-1.5"
+                              className="cursor-pointer hover:opacity-80 transition-opacity"
                               style={getLabelColor(label.color)}
                               onClick={() => toggleLabel(label.name)}
                             >
-                              <span className="truncate">{label.name}</span>
                               {selectedLabels.includes(label.name) && (
-                                <CheckCircle2 className="h-3 w-3 ml-1 flex-shrink-0" />
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
                               )}
+                              {label.name}
                             </Badge>
                           ))}
                         </div>
