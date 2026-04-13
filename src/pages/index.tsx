@@ -1,9 +1,33 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff, Plus, FileText } from "lucide-react";
+import { 
+  GitBranch, 
+  Search, 
+  Filter, 
+  RefreshCw, 
+  Calendar, 
+  Settings, 
+  User, 
+  LogOut, 
+  FileText, 
+  Eye, 
+  EyeOff, 
+  LayoutGrid, 
+  ChevronDown,
+  Loader2,
+  Plus,
+  ExternalLink,
+  Pencil,
+  GripVertical,
+  Maximize2,
+  Minimize2,
+  Github,
+  Key,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -15,7 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertCircle } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
@@ -102,6 +126,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
@@ -183,10 +208,10 @@ export default function Home() {
   });
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
-  const [widgetsPerRow, setWidgetsPerRow] = useState(3);
   const [widgetOrder, setWidgetOrder] = useState<WidgetKey[]>(DEFAULT_WIDGET_ORDER);
   const [widgetSizes, setWidgetSizes] = useState<Record<WidgetKey, WidgetSize>>(DEFAULT_WIDGET_SIZES);
   const [showWidgetSettings, setShowWidgetSettings] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -323,6 +348,18 @@ export default function Home() {
     }
   }, []);
 
+  // Load widget sizes from localStorage
+  useEffect(() => {
+    const savedSizes = localStorage.getItem("widgetSizes");
+    if (savedSizes) {
+      try {
+        setWidgetSizes(JSON.parse(savedSizes));
+      } catch (e) {
+        console.error("Failed to parse widget sizes:", e);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem("widgetVisibility");
     if (saved) {
@@ -340,9 +377,14 @@ export default function Home() {
     localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
   };
 
-  const handleWidgetSizeChange = (key: WidgetKey, size: WidgetSize) => {
-    setWidgetSizes(prev => ({ ...prev, [key]: size }));
-  };
+  const handleWidgetSizeChange = useCallback((key: WidgetKey, size: WidgetSize) => {
+    setWidgetSizes(prev => {
+      const newSizes = { ...prev, [key]: size };
+      // Save to localStorage
+      localStorage.setItem("widgetSizes", JSON.stringify(newSizes));
+      return newSizes;
+    });
+  }, []);
 
   const handleFetchIssues = async (tokenParam?: string, reposParam?: string[]) => {
     const tokenToUse = tokenParam || githubToken;
@@ -869,6 +911,20 @@ export default function Home() {
                     {allWidgetsVisible ? "Hide" : "Show"}
                   </span>
                 </Button>
+                
+                {/* Edit Mode Toggle */}
+                <Button
+                  variant={editMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setEditMode(!editMode)}
+                  className={cn(
+                    "gap-2",
+                    editMode && "bg-primary text-primary-foreground"
+                  )}
+                >
+                  <Pencil className="h-4 w-4" />
+                  {editMode ? "Done" : "Edit"}
+                </Button>
               </>
             )}
             
@@ -1002,141 +1058,127 @@ export default function Home() {
 
                   {/* Main Dashboard Grid - Auto-flow widgets */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {widgetVisibility.projectHealthGauge && (
-                      <div data-widget-id="project-health" className="dashboard-card">
-                        <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
-                      </div>
-                    )}
-                    {widgetVisibility.burndownChart && (
-                      <div data-widget-id="burndown-chart" className="dashboard-card">
-                        <BurndownChart issues={filteredIssues} />
-                      </div>
-                    )}
-                    {widgetVisibility.flowEfficiency && (
-                      <div data-widget-id="flow-efficiency" className="dashboard-card">
-                        <FlowEfficiency issues={filteredIssues} />
-                      </div>
-                    )}
-                    {widgetVisibility.trendChart && (
-                      <div data-widget-id="issue-trend" className="dashboard-card">
-                        <IssueTrendChart data={analytics.trend} days={30} />
-                      </div>
-                    )}
-                    {widgetVisibility.categoryBreakdown && (
-                      <div data-widget-id="bug-category" className="dashboard-card">
-                        <BugCategoryBreakdown categories={analytics.categories} />
-                      </div>
-                    )}
-                    {widgetVisibility.severityHeatmap && (
-                      <div data-widget-id="severity-heatmap" className="dashboard-card">
-                        <BugSeverityHeatmap severities={analytics.severities} />
-                      </div>
-                    )}
-                    {widgetVisibility.resolutionTime && (
-                      <div data-widget-id="resolution-time" className="dashboard-card">
-                        <AverageResolutionTime stats={analytics.resolutionTime} />
-                      </div>
-                    )}
-                    {widgetVisibility.priorityScatterPlot && (
-                      <div data-widget-id="priority-scatter" className="dashboard-card">
-                        <PriorityScatterPlot data={analytics.priorityScatter} />
-                      </div>
-                    )}
-                    {widgetVisibility.moduleStability && (
-                      <div data-widget-id="module-stability" className="dashboard-card">
-                        <ModuleStabilityScore stability={analytics.stability} />
-                      </div>
-                    )}
-                    {widgetVisibility.agingIssues && (
-                      <div data-widget-id="aging-issues" className="dashboard-card">
-                        <AgingIssues stats={analytics.agingIssues} />
-                      </div>
-                    )}
-                    {widgetVisibility.atRiskRelease && (
-                      <div data-widget-id="at-risk-release" className="dashboard-card">
-                        <AtRiskRelease stats={analytics.atRiskRelease} />
-                      </div>
-                    )}
-                    {widgetVisibility.backlogGrowth && (
-                      <div data-widget-id="backlog-growth" className="dashboard-card">
-                        <BacklogGrowth stats={analytics.backlogGrowth} />
-                      </div>
-                    )}
-                    {widgetVisibility.bugFixEfficiency && (
-                      <div data-widget-id="bug-fix-efficiency" className="dashboard-card">
-                        <BugFixEfficiency stats={analytics.bugFixEfficiency} />
-                      </div>
-                    )}
-                    {widgetVisibility.developerLoad && (
-                      <div data-widget-id="developer-load" className="dashboard-card">
-                        <DeveloperLoad stats={analytics.developerLoad} />
-                      </div>
-                    )}
-                    {widgetVisibility.focusRecommendations && (
-                      <div data-widget-id="focus-recommendations" className="dashboard-card">
-                        <FocusRecommendations recommendations={analytics.focusRecommendations} />
-                      </div>
-                    )}
-                    {widgetVisibility.stackedAreaChart && (
-                      <div data-widget-id="stacked-area" className="dashboard-card">
-                        <StackedAreaChart data={analytics.stackedAreaData} />
-                      </div>
-                    )}
-                    {widgetVisibility.issueFunnelChart && (
-                      <div data-widget-id="issue-funnel" className="dashboard-card">
-                        <IssueFunnelChart stages={analytics.issueFunnel} />
-                      </div>
-                    )}
-                    {widgetVisibility.backlogWaterfallChart && (
-                      <div data-widget-id="backlog-waterfall" className="dashboard-card">
-                        <BacklogWaterfallChart data={analytics.backlogWaterfall} />
-                      </div>
-                    )}
-                    {widgetVisibility.moduleTreemap && (
-                      <div data-widget-id="module-treemap" className="dashboard-card">
-                        <ModuleTreemap data={analytics.moduleTreemap} />
-                      </div>
-                    )}
-                    {widgetVisibility.moduleRadarChart && (
-                      <div data-widget-id="module-radar" className="dashboard-card">
-                        <ModuleRadarChart data={analytics.moduleRadar} />
-                      </div>
-                    )}
-                    {widgetVisibility.kpiBulletChart && (
-                      <div data-widget-id="kpi-bullet" className="dashboard-card">
-                        <BulletChart metrics={analytics.kpiMetrics} />
-                      </div>
-                    )}
-                    {widgetVisibility.bugHeatmap && (
-                      <div data-widget-id="bug-heatmap" className="dashboard-card">
-                        <BugHeatmap data={analytics.bugHeatmap} />
-                      </div>
-                    )}
-                    {widgetVisibility.resolutionHistogram && (
-                      <div data-widget-id="resolution-histogram" className="dashboard-card">
-                        <ResolutionHistogram data={analytics.resolutionHistogram} />
-                      </div>
-                    )}
-                    {widgetVisibility.reopenedIssues && (
-                      <div data-widget-id="reopened-issues" className="dashboard-card">
-                        <ReopenedIssuesTracker stats={analytics.reopened} />
-                      </div>
-                    )}
-                    {widgetVisibility.bugHotspots && (
-                      <div data-widget-id="bug-hotspots" className="dashboard-card">
-                        <BugHotspots hotspots={analytics.hotspots} />
-                      </div>
-                    )}
-                    {widgetVisibility.criticalUntouched && (
-                      <div data-widget-id="critical-untouched" className="dashboard-card">
-                        <CriticalUntouched stats={analytics.criticalUntouched} />
-                      </div>
-                    )}
-                    {widgetVisibility.repeatBugDetector && (
-                      <div data-widget-id="repeat-bugs" className="dashboard-card">
-                        <RepeatBugDetector stats={analytics.repeatBugs} />
-                      </div>
-                    )}
+                    {widgetOrder
+                      .filter(key => widgetVisibility[key])
+                      .map((widgetKey) => {
+                        const size = widgetSizes[widgetKey] || { cols: 1, rows: 1 };
+                        const colSpan = size.cols === 3 ? "lg:col-span-3" : size.cols === 2 ? "lg:col-span-2" : "";
+                        const rowSpan = size.rows === 2 ? "row-span-2" : "";
+                        
+                        const renderWidget = () => {
+                          switch (widgetKey) {
+                            case "projectHealthGauge":
+                              return <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />;
+                            case "burndownChart":
+                              return <BurndownChart issues={filteredIssues} />;
+                            case "flowEfficiency":
+                              return <FlowEfficiency issues={filteredIssues} />;
+                            case "trendChart":
+                              return <IssueTrendChart data={analytics.trend} days={30} />;
+                            case "categoryBreakdown":
+                              return <BugCategoryBreakdown categories={analytics.categories} />;
+                            case "severityHeatmap":
+                              return <BugSeverityHeatmap severities={analytics.severities} />;
+                            case "resolutionTime":
+                              return <AverageResolutionTime stats={analytics.resolutionTime} />;
+                            case "priorityScatterPlot":
+                              return <PriorityScatterPlot data={analytics.priorityScatter} />;
+                            case "moduleStability":
+                              return <ModuleStabilityScore stability={analytics.stability} />;
+                            case "agingIssues":
+                              return <AgingIssues stats={analytics.agingIssues} />;
+                            case "atRiskRelease":
+                              return <AtRiskRelease stats={analytics.atRiskRelease} />;
+                            case "backlogGrowth":
+                              return <BacklogGrowth stats={analytics.backlogGrowth} />;
+                            case "bugFixEfficiency":
+                              return <BugFixEfficiency stats={analytics.bugFixEfficiency} />;
+                            case "developerLoad":
+                              return <DeveloperLoad stats={analytics.developerLoad} />;
+                            case "focusRecommendations":
+                              return <FocusRecommendations recommendations={analytics.focusRecommendations} />;
+                            case "stackedAreaChart":
+                              return <StackedAreaChart data={analytics.stackedAreaData} />;
+                            case "issueFunnelChart":
+                              return <IssueFunnelChart stages={analytics.issueFunnel} />;
+                            case "backlogWaterfallChart":
+                              return <BacklogWaterfallChart data={analytics.backlogWaterfall} />;
+                            case "moduleTreemap":
+                              return <ModuleTreemap data={analytics.moduleTreemap} />;
+                            case "moduleRadarChart":
+                              return <ModuleRadarChart data={analytics.moduleRadar} />;
+                            case "kpiBulletChart":
+                              return <BulletChart metrics={analytics.kpiMetrics} />;
+                            case "bugHeatmap":
+                              return <BugHeatmap data={analytics.bugHeatmap} />;
+                            case "resolutionHistogram":
+                              return <ResolutionHistogram data={analytics.resolutionHistogram} />;
+                            case "reopenedIssues":
+                              return <ReopenedIssuesTracker stats={analytics.reopened} />;
+                            case "bugHotspots":
+                              return <BugHotspots hotspots={analytics.hotspots} />;
+                            case "criticalUntouched":
+                              return <CriticalUntouched stats={analytics.criticalUntouched} />;
+                            case "repeatBugDetector":
+                              return <RepeatBugDetector stats={analytics.repeatBugs} />;
+                            default:
+                              return null;
+                          }
+                        };
+
+                        // Skip summary and progress widgets here (handled separately)
+                        if (widgetKey === "summaryMetrics" || widgetKey === "progressBar" || 
+                            widgetKey === "smartInsights" || widgetKey === "repositoryFilter") {
+                          return null;
+                        }
+
+                        return (
+                          <div 
+                            key={widgetKey}
+                            data-widget-id={widgetKey}
+                            className={cn(
+                              "dashboard-card relative group",
+                              colSpan,
+                              rowSpan,
+                              editMode && "ring-2 ring-primary/20 ring-offset-2"
+                            )}
+                          >
+                            {/* Edit Mode Controls */}
+                            {editMode && (
+                              <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-background/95 backdrop-blur rounded-lg p-1 shadow-lg border">
+                                <span className="text-xs font-medium px-2 text-muted-foreground">
+                                  {size.cols}×{size.rows}
+                                </span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    const newCols = size.cols >= 3 ? 1 : size.cols + 1;
+                                    handleWidgetSizeChange(widgetKey, { ...size, cols: newCols });
+                                  }}
+                                  title="Change width"
+                                >
+                                  <Maximize2 className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    const newRows = size.rows >= 2 ? 1 : size.rows + 1;
+                                    handleWidgetSizeChange(widgetKey, { ...size, rows: newRows });
+                                  }}
+                                  title="Change height"
+                                >
+                                  <GripVertical className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                            {renderWidget()}
+                          </div>
+                        );
+                      })}
                   </div>
 
                   {/* Full Width Widgets */}
