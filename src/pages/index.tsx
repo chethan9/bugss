@@ -1768,23 +1768,23 @@ export default function Home() {
 
       {/* Widget Settings Modal */}
       <Dialog open={showWidgetSettings} onOpenChange={setShowWidgetSettings}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="w-[90vw] max-w-6xl h-[80vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <LayoutGrid className="h-5 w-5" />
               Widget Settings
             </DialogTitle>
           </DialogHeader>
-          <WidgetSettings 
-            visibility={widgetVisibility}
-            onVisibilityChange={handleVisibilityChange}
-            widgetsPerRow={widgetsPerRow}
-            onWidgetsPerRowChange={setWidgetsPerRow}
-            widgetOrder={widgetOrder}
-            onWidgetOrderChange={setWidgetOrder}
-            widgetSizes={widgetSizes}
-            onWidgetSizeChange={handleWidgetSizeChange}
-          />
+          <div className="flex-1 overflow-y-auto">
+            <WidgetSettings 
+              visibility={widgetVisibility}
+              onVisibilityChange={handleVisibilityChange}
+              widgetOrder={widgetOrder}
+              onWidgetOrderChange={setWidgetOrder}
+              widgetSizes={widgetSizes}
+              onWidgetSizeChange={handleWidgetSizeChange}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

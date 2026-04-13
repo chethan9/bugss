@@ -56,10 +56,8 @@ export interface WidgetConfig {
 interface WidgetSettingsProps {
   visibility: WidgetVisibility;
   onVisibilityChange: (key: keyof WidgetVisibility, value: boolean) => void;
-  widgetsPerRow: number;
-  onWidgetsPerRowChange: (value: number) => void;
   widgetOrder: WidgetKey[];
-  onWidgetOrderChange: (newOrder: WidgetKey[]) => void;
+  onWidgetOrderChange: (order: WidgetKey[]) => void;
   widgetSizes: Record<WidgetKey, WidgetSize>;
   onWidgetSizeChange: (key: WidgetKey, size: WidgetSize) => void;
 }
@@ -175,8 +173,6 @@ function SortableWidgetItem({ id, visibility, onVisibilityChange, size, onSizeCh
 export function WidgetSettings({
   visibility,
   onVisibilityChange,
-  widgetsPerRow,
-  onWidgetsPerRowChange,
   widgetOrder,
   onWidgetOrderChange,
   widgetSizes,
@@ -242,32 +238,16 @@ export function WidgetSettings({
         </Button>
       </div>
 
-      {/* Grid Columns Selector */}
-      <div className="space-y-2">
-        <span className="text-xs text-muted-foreground">Dashboard Columns</span>
-        <div className="flex gap-1">
-          {[1, 2, 3, 4].map(num => (
-            <Button
-              key={num}
-              variant={widgetsPerRow === num ? "default" : "outline"}
-              size="sm"
-              onClick={() => onWidgetsPerRowChange(num)}
-              className="flex-1 h-8"
-            >
-              {num}
-            </Button>
-          ))}
-        </div>
+      {/* Size Guide */}
+      <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium">Size:</span> Width × Height (in grid units)
+          <br />
+          <span className="text-xs">1×1 = 1 col, 2×1 = 2 cols, 1×2 = tall, 2×2 = large</span>
+        </p>
       </div>
 
-      {/* Size Legend */}
-      <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded">
-        <strong>Size:</strong> Width × Height (in grid units)
-        <br />
-        <span className="text-[10px]">1×1 = 1 col, 2×1 = 2 cols, 1×2 = tall, 2×2 = large</span>
-      </div>
-
-      {/* 3-Column Widget List */}
+      {/* Widget List - 3 columns */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-3 gap-2 max-h-[60vh] overflow-y-auto">
           {/* Column 1 */}
@@ -329,35 +309,46 @@ export function WidgetSettings({
 }
 
 export const DEFAULT_WIDGET_ORDER: WidgetKey[] = [
+  // Row 1: Summary
   "summaryMetrics",
   "progressBar",
+  // Row 2: Main analytics
   "projectHealthGauge",
   "burndownChart",
   "flowEfficiency",
+  // Row 3: Trends
   "trendChart",
   "categoryBreakdown",
   "severityHeatmap",
+  // Row 4: Resolution
   "resolutionTime",
   "priorityScatterPlot",
   "moduleStability",
+  // Row 5: Issues
   "agingIssues",
   "atRiskRelease",
   "backlogGrowth",
+  // Row 6: Efficiency
   "bugFixEfficiency",
   "developerLoad",
   "focusRecommendations",
+  // Row 7: Charts
   "stackedAreaChart",
   "issueFunnelChart",
   "backlogWaterfallChart",
+  // Row 8: Module analysis
   "moduleTreemap",
   "moduleRadarChart",
   "kpiBulletChart",
+  // Row 9: Heatmaps
   "bugHeatmap",
   "resolutionHistogram",
   "reopenedIssues",
+  // Row 10: Detection
   "bugHotspots",
   "criticalUntouched",
   "repeatBugDetector",
+  // Full width
   "smartInsights",
   "repositoryFilter",
 ];
