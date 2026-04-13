@@ -259,13 +259,6 @@ export default function Home() {
           if (settings.widget_order && Array.isArray(settings.widget_order)) {
             setWidgetOrder(settings.widget_order as WidgetKey[]);
           }
-          // Fix: Check for number type instead of truthy value (0 would fail truthy check)
-          if (typeof settings.widgets_per_row === "number" && settings.widgets_per_row >= 1 && settings.widgets_per_row <= 4) {
-            console.log("Setting widgetsPerRow to:", settings.widgets_per_row);
-            setWidgetsPerRow(settings.widgets_per_row);
-          } else {
-            console.log("widgets_per_row not valid, keeping default. Value:", settings.widgets_per_row, "Type:", typeof settings.widgets_per_row);
-          }
           if (settings.app_name) {
             setAppName(settings.app_name);
           }
@@ -313,11 +306,10 @@ export default function Home() {
     if (!user || !settingsLoaded) return;
     
     const saveTimeout = setTimeout(async () => {
-      console.log("Saving settings to Supabase:", { widgetsPerRow, widgetVisibility });
+      console.log("Saving settings to Supabase:", { widgetVisibility });
       await saveUserSettings(user.id, {
         widget_visibility: widgetVisibility,
         widget_order: widgetOrder,
-        widgets_per_row: widgetsPerRow,
         github_token: githubToken || null,
         selected_repos: selectedRepos,
       });
@@ -325,7 +317,7 @@ export default function Home() {
     }, 500);
     
     return () => clearTimeout(saveTimeout);
-  }, [user, settingsLoaded, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
+  }, [user, settingsLoaded, widgetVisibility, widgetOrder, githubToken, selectedRepos]);
 
   useEffect(() => {
     console.log("🟢 Auto-load useEffect running...");
