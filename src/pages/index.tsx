@@ -24,6 +24,7 @@ import {
   GripVertical,
   Maximize2,
   Minimize2,
+  AlertCircle,
   Github,
   Key,
   X,
@@ -39,7 +40,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertCircle } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
