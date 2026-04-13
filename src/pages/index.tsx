@@ -127,6 +127,7 @@ import { getUserSettings, saveUserSettings } from "@/services/userSettingsServic
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
