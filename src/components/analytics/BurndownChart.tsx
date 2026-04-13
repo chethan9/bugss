@@ -196,7 +196,7 @@ export function BurndownChart({ issues, sprintDays = 14 }: BurndownChartProps) {
         </div>
         <div>
           <div className={`text-2xl font-bold ${isAhead ? "text-green-500" : "text-red-500"}`}>
-            {isAhead ? "-" : "+"}{Math.abs(Math.round(currentRemaining - idealRemaining))}
+            {isAhead ? "-" : "+"}{Math.abs(currentRemaining - idealRemaining)}
           </div>
           <div className="text-xs text-muted-foreground">vs Ideal</div>
         </div>

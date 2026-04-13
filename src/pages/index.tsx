@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar, Eye, EyeOff, Plus } from "lucide-react";
+import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -111,7 +111,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
-import Link from "next/link";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
@@ -193,13 +192,12 @@ export default function Home() {
   });
   
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
-  const [widgetsPerRow, setWidgetsPerRow] = useState(3);
+  const [widgetsPerRow, setWidgetsPerRow] = useState(2);
   const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [appName, setAppName] = useState("FixFlix");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<number>(1);
@@ -235,20 +233,15 @@ export default function Home() {
         
         // Load user settings from database
         const settings = await getUserSettings(session.user.id);
-        console.log("Loaded settings from Supabase:", settings);
         if (settings) {
           if (settings.widget_visibility) {
             setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
           }
-          if (settings.widget_order && Array.isArray(settings.widget_order)) {
+          if (settings.widget_order) {
             setWidgetOrder(settings.widget_order as (keyof WidgetVisibility)[]);
           }
-          // Fix: Check for number type instead of truthy value (0 would fail truthy check)
-          if (typeof settings.widgets_per_row === "number" && settings.widgets_per_row >= 1 && settings.widgets_per_row <= 4) {
-            console.log("Setting widgetsPerRow to:", settings.widgets_per_row);
+          if (settings.widgets_per_row) {
             setWidgetsPerRow(settings.widgets_per_row);
-          } else {
-            console.log("widgets_per_row not valid, keeping default. Value:", settings.widgets_per_row, "Type:", typeof settings.widgets_per_row);
           }
           if (settings.app_name) {
             setAppName(settings.app_name);
@@ -269,8 +262,17 @@ export default function Home() {
           }
         }
         
-        // Mark settings as loaded - now save effect can run
-        setSettingsLoaded(true);
+        // Load app version
+        const { data: versionData } = await supabase
+          .from("app_version")
+          .select("version_number")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (versionData) {
+          setAppVersion(versionData.version_number);
+        }
       } catch (error) {
         console.error("Auth check error:", error);
         router.push("/auth");
@@ -292,12 +294,11 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Save settings when they change (debounced) - only after initial load
+  // Save settings when they change (debounced)
   useEffect(() => {
-    if (!user || !settingsLoaded) return;
+    if (!user) return;
     
     const saveTimeout = setTimeout(async () => {
-      console.log("Saving settings to Supabase:", { widgetsPerRow, widgetVisibility });
       await saveUserSettings(user.id, {
         widget_visibility: widgetVisibility,
         widget_order: widgetOrder,
@@ -305,11 +306,10 @@ export default function Home() {
         github_token: githubToken || null,
         selected_repos: selectedRepos,
       });
-      console.log("Settings saved successfully");
-    }, 500);
+    }, 1000);
     
     return () => clearTimeout(saveTimeout);
-  }, [user, settingsLoaded, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
+  }, [user, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
 
   useEffect(() => {
     console.log("🟢 Auto-load useEffect running...");
@@ -345,13 +345,7 @@ export default function Home() {
     const savedReportConfig = localStorage.getItem("reportConfig");
     if (savedReportConfig) {
       try {
-        const parsed = JSON.parse(savedReportConfig);
-        // Merge with defaults to ensure pdfWidgets is always present
-        setReportConfig({
-          ...DEFAULT_REPORT_CONFIG,
-          ...parsed,
-          pdfWidgets: parsed.pdfWidgets?.length ? parsed.pdfWidgets : DEFAULT_REPORT_CONFIG.pdfWidgets,
-        });
+        setReportConfig(JSON.parse(savedReportConfig));
       } catch (e) {
         console.error("Failed to load report config:", e);
       }
@@ -750,27 +744,6 @@ export default function Home() {
     });
   };
 
-  const [allWidgetsVisible, setAllWidgetsVisible] = useState(true);
-
-  // Sync allWidgetsVisible with actual widget visibility state
-  useEffect(() => {
-    const visibleCount = Object.values(widgetVisibility).filter(Boolean).length;
-    const totalCount = Object.keys(widgetVisibility).length;
-    setAllWidgetsVisible(visibleCount === totalCount);
-  }, [widgetVisibility]);
-
-  const toggleAllWidgets = () => {
-    const newState = !allWidgetsVisible;
-    setAllWidgetsVisible(newState);
-    
-    const newVisibility = { ...widgetVisibility };
-    Object.keys(newVisibility).forEach((key) => {
-      newVisibility[key as keyof WidgetVisibility] = newState;
-    });
-    setWidgetVisibility(newVisibility);
-    localStorage.setItem("widgetVisibility", JSON.stringify(newVisibility));
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -933,24 +906,6 @@ export default function Home() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                
-                {/* Widget Visibility Toggle */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleAllWidgets}
-                  title={allWidgetsVisible ? "Hide all widgets" : "Show all widgets"}
-                  className="gap-2"
-                >
-                  {allWidgetsVisible ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline text-xs">
-                    {allWidgetsVisible ? "Hide" : "Show"}
-                  </span>
-                </Button>
               </>
             )}
             
@@ -1006,7 +961,6 @@ export default function Home() {
                       <PDFExport 
                         disabled={filteredIssues.length === 0} 
                         reportConfig={reportConfig}
-                        issues={filteredIssues}
                       />
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -1083,7 +1037,7 @@ export default function Home() {
                     switch (widgetKey) {
                       case "repositoryFilter":
                         return selectedRepos.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="repository-filter" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <RepositoryFilter
                               repositories={selectedRepos}
                               activeRepositories={filters.repositories.length > 0 ? filters.repositories : selectedRepos}
@@ -1116,13 +1070,13 @@ export default function Home() {
                         ) : null;
                       case "smartInsights":
                         return analytics.insights.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="smart-insights" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <SmartInsights insights={analytics.insights} />
                           </div>
                         ) : null;
                       case "summaryMetrics":
                         return (
-                          <div key={widgetKey} data-widget-id="summary-metrics" id="summary-metrics-section" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <DashboardMetrics
                               totalRepos={selectedRepos.length}
                               totalIssues={filteredIssues.length}
@@ -1134,7 +1088,7 @@ export default function Home() {
                         );
                       case "progressBar":
                         return (
-                          <div key={widgetKey} data-widget-id="progress-bar" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <ProgressBar
                               open={metrics.statusCounts.open}
                               inProgress={metrics.statusCounts.inProgress || 0}
@@ -1146,163 +1100,163 @@ export default function Home() {
                         );
                       case "projectHealthGauge":
                         return (
-                          <div key={widgetKey} data-widget-id="project-health" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <ProjectHealthGauge issues={filteredIssues} isLoading={isLoadingIssues} />
                           </div>
                         );
                       case "burndownChart":
                         return (
-                          <div key={widgetKey} data-widget-id="burndown-chart" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BurndownChart issues={filteredIssues} />
                           </div>
                         );
                       case "flowEfficiency":
                         return (
-                          <div key={widgetKey} data-widget-id="flow-efficiency" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <FlowEfficiency issues={filteredIssues} />
                           </div>
                         );
                       case "severityHeatmap":
                         return Object.values(analytics.severities).some(v => v > 0) ? (
-                          <div key={widgetKey} data-widget-id="severity-heatmap" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BugSeverityHeatmap severities={analytics.severities} />
                           </div>
                         ) : null;
                       case "resolutionTime":
                         return analytics.resolutionTime.overall > 0 ? (
-                          <div key={widgetKey} data-widget-id="resolution-time" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <AverageResolutionTime stats={analytics.resolutionTime} />
                           </div>
                         ) : null;
                       case "trendChart":
                         return analytics.trend.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="issue-trend" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <IssueTrendChart data={analytics.trend} days={30} />
                           </div>
                         ) : null;
                       case "moduleStability":
                         return analytics.stability.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="module-stability" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <ModuleStabilityScore stability={analytics.stability} />
                           </div>
                         ) : null;
                       case "reopenedIssues":
                         return (
-                          <div key={widgetKey} data-widget-id="reopened-issues" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <ReopenedIssuesTracker stats={analytics.reopened} />
                           </div>
                         );
                       case "categoryBreakdown":
                         return Object.values(analytics.categories).some(v => v > 0) ? (
-                          <div key={widgetKey} data-widget-id="bug-category" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BugCategoryBreakdown categories={analytics.categories} />
                           </div>
                         ) : null;
                       case "bugHotspots":
                         return analytics.hotspots.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="bug-hotspots" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BugHotspots hotspots={analytics.hotspots} />
                           </div>
                         ) : null;
                       case "atRiskRelease":
                         return (
-                          <div key={widgetKey} data-widget-id="at-risk-release" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <AtRiskRelease stats={analytics.atRiskRelease} />
                           </div>
                         );
                       case "agingIssues":
                         return (
-                          <div key={widgetKey} data-widget-id="aging-issues" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <AgingIssues stats={analytics.agingIssues} />
                           </div>
                         );
                       case "criticalUntouched":
                         return analytics.criticalUntouched.issues.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="critical-untouched" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <CriticalUntouched stats={analytics.criticalUntouched} />
                           </div>
                         ) : null;
                       case "backlogGrowth":
                         return (
-                          <div key={widgetKey} data-widget-id="backlog-growth" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BacklogGrowth stats={analytics.backlogGrowth} />
                           </div>
                         );
                       case "bugFixEfficiency":
                         return (
-                          <div key={widgetKey} data-widget-id="bug-fix-efficiency" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BugFixEfficiency stats={analytics.bugFixEfficiency} />
                           </div>
                         );
                       case "repeatBugDetector":
                         return analytics.repeatBugs.topRepeatingLabels.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="repeat-bugs" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <RepeatBugDetector stats={analytics.repeatBugs} />
                           </div>
                         ) : null;
                       case "developerLoad":
                         return analytics.developerLoad.developers.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="developer-load" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <DeveloperLoad stats={analytics.developerLoad} />
                           </div>
                         ) : null;
                       case "focusRecommendations":
                         return analytics.focusRecommendations.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="focus-recommendations" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <FocusRecommendations recommendations={analytics.focusRecommendations} />
                           </div>
                         ) : null;
                       case "bugHeatmap":
                         return analytics.bugHeatmap.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="bug-heatmap" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BugHeatmap data={analytics.bugHeatmap} />
                           </div>
                         ) : null;
                       case "resolutionHistogram":
                         return analytics.resolutionHistogram.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="resolution-histogram" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <ResolutionHistogram data={analytics.resolutionHistogram} />
                           </div>
                         ) : null;
                       case "priorityScatterPlot":
                         return analytics.priorityScatter.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="priority-scatter" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <PriorityScatterPlot data={analytics.priorityScatter} />
                           </div>
                         ) : null;
                       case "stackedAreaChart":
                         return analytics.stackedAreaData.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="stacked-area" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <StackedAreaChart data={analytics.stackedAreaData} />
                           </div>
                         ) : null;
                       case "issueFunnelChart":
                         return analytics.issueFunnel.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="issue-funnel" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <IssueFunnelChart stages={analytics.issueFunnel} />
                           </div>
                         ) : null;
                       case "backlogWaterfallChart":
                         return analytics.backlogWaterfall.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="backlog-waterfall" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BacklogWaterfallChart data={analytics.backlogWaterfall} />
                           </div>
                         ) : null;
                       case "moduleTreemap":
                         return analytics.moduleTreemap.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="module-treemap" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <ModuleTreemap data={analytics.moduleTreemap} />
                           </div>
                         ) : null;
                       case "moduleRadarChart":
                         return analytics.moduleRadar.length > 0 ? (
-                          <div key={widgetKey} data-widget-id="module-radar" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <ModuleRadarChart data={analytics.moduleRadar} />
                           </div>
                         ) : null;
                       case "kpiBulletChart":
                         return (
-                          <div key={widgetKey} data-widget-id="kpi-bullet" className="mb-6">
+                          <div key={widgetKey} className="mb-6">
                             <BulletChart metrics={analytics.kpiMetrics} />
                           </div>
                         );
@@ -1314,6 +1268,22 @@ export default function Home() {
 
                 {availableLabels.length > 0 && (
                   <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold">Issues</h3>
+                        <span className="text-sm text-muted-foreground">
+                          Showing {Math.min(filteredIssues.length, itemsPerPage)} of {filteredIssues.length}
+                        </span>
+                      </div>
+                      {filters.labels.length > 0 && (
+                        <button
+                          onClick={() => setFilters({ ...filters, labels: [] })}
+                          className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          Clear labels
+                        </button>
+                      )}
+                    </div>
                     {(() => {
                       // Calculate label counts
                       const labelCounts = new Map<string, number>();
@@ -1422,15 +1392,6 @@ export default function Home() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
-                          
-                          {filters.labels.length > 0 && (
-                            <button
-                              onClick={() => setFilters({ ...filters, labels: [] })}
-                              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                            >
-                              Clear
-                            </button>
-                          )}
                         </div>
                       );
                     })()}
@@ -1456,23 +1417,7 @@ export default function Home() {
 
                 <div id="issue-table-section">
                   <div className="space-y-6">
-                    <IssueTable 
-                      issues={filteredIssues} 
-                      onIssueClick={handleIssueClick}
-                      headerRight={
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-muted-foreground">
-                            {filteredIssues.length} of {issues.length} issues
-                          </span>
-                          <Link href={`/create-issue?repos=${encodeURIComponent(selectedRepos.join(","))}&token=${encodeURIComponent(token)}`}>
-                            <Button size="sm" className="gap-2">
-                              <Plus className="h-4 w-4" />
-                              <span className="hidden sm:inline">Create Issue</span>
-                            </Button>
-                          </Link>
-                        </div>
-                      }
-                    />
+                    <IssueTable issues={filteredIssues} onIssueClick={handleIssueClick} />
                   </div>
                 </div>
 
@@ -1490,233 +1435,6 @@ export default function Home() {
           </>
         )}
       </main>
-
-      {/* Hidden container for PDF export - renders widgets regardless of dashboard visibility */}
-      <div 
-        id="pdf-print-container" 
-        className="fixed -left-[9999px] top-0 w-[800px] bg-white"
-        aria-hidden="true"
-      >
-        {selectedRepos.length > 0 && !isLoadingIssues && (
-          <div className="p-4 space-y-4">
-            {/* Smart Insights */}
-            {analytics.insights.length > 0 && (
-              <div data-pdf-widget-id="smart-insights" className="bg-white p-4 rounded-lg border">
-                <SmartInsights insights={analytics.insights} />
-              </div>
-            )}
-            
-            {/* Summary Metrics */}
-            <div data-pdf-widget-id="summary-metrics" className="bg-white p-4 rounded-lg border">
-              <DashboardMetrics
-                totalRepos={selectedRepos.length}
-                totalIssues={filteredIssues.length}
-                openIssues={metrics.statusCounts.open}
-                closedIssues={metrics.statusCounts.closed}
-                isLoading={false}
-              />
-            </div>
-            
-            {/* Progress Bar */}
-            <div data-pdf-widget-id="progress-bar" className="bg-white p-4 rounded-lg border">
-              <ProgressBar
-                open={metrics.statusCounts.open}
-                inProgress={metrics.statusCounts.inProgress || 0}
-                closed={metrics.statusCounts.closed}
-                total={filteredIssues.length}
-                isLoading={false}
-              />
-            </div>
-            
-            {/* Project Health */}
-            <div data-pdf-widget-id="project-health" className="bg-white p-4 rounded-lg border">
-              <ProjectHealthGauge issues={filteredIssues} isLoading={false} />
-            </div>
-            
-            {/* Burndown Chart */}
-            <div data-pdf-widget-id="burndown-chart" className="bg-white p-4 rounded-lg border">
-              <BurndownChart issues={filteredIssues} />
-            </div>
-            
-            {/* Flow Efficiency */}
-            <div data-pdf-widget-id="flow-efficiency" className="bg-white p-4 rounded-lg border">
-              <FlowEfficiency issues={filteredIssues} />
-            </div>
-            
-            {/* Severity Heatmap */}
-            {Object.values(analytics.severities).some(v => v > 0) && (
-              <div data-pdf-widget-id="severity-heatmap" className="bg-white p-4 rounded-lg border">
-                <BugSeverityHeatmap severities={analytics.severities} />
-              </div>
-            )}
-            
-            {/* Resolution Time */}
-            {analytics.resolutionTime.overall > 0 && (
-              <div data-pdf-widget-id="resolution-time" className="bg-white p-4 rounded-lg border">
-                <AverageResolutionTime stats={analytics.resolutionTime} />
-              </div>
-            )}
-            
-            {/* Issue Trend */}
-            {analytics.trend.length > 0 && (
-              <div data-pdf-widget-id="issue-trend" className="bg-white p-4 rounded-lg border">
-                <IssueTrendChart data={analytics.trend} days={30} />
-              </div>
-            )}
-            
-            {/* Module Stability */}
-            {analytics.stability.length > 0 && (
-              <div data-pdf-widget-id="module-stability" className="bg-white p-4 rounded-lg border">
-                <ModuleStabilityScore stability={analytics.stability} />
-              </div>
-            )}
-            
-            {/* Reopened Issues */}
-            <div data-pdf-widget-id="reopened-issues" className="bg-white p-4 rounded-lg border">
-              <ReopenedIssuesTracker stats={analytics.reopened} />
-            </div>
-            
-            {/* Bug Category */}
-            {Object.values(analytics.categories).some(v => v > 0) && (
-              <div data-pdf-widget-id="bug-category" className="bg-white p-4 rounded-lg border">
-                <BugCategoryBreakdown categories={analytics.categories} />
-              </div>
-            )}
-            
-            {/* Bug Hotspots */}
-            {analytics.hotspots.length > 0 && (
-              <div data-pdf-widget-id="bug-hotspots" className="bg-white p-4 rounded-lg border">
-                <BugHotspots hotspots={analytics.hotspots} />
-              </div>
-            )}
-            
-            {/* At Risk Release */}
-            <div data-pdf-widget-id="at-risk-release" className="bg-white p-4 rounded-lg border">
-              <AtRiskRelease stats={analytics.atRiskRelease} />
-            </div>
-            
-            {/* Aging Issues */}
-            <div data-pdf-widget-id="aging-issues" className="bg-white p-4 rounded-lg border">
-              <AgingIssues stats={analytics.agingIssues} />
-            </div>
-            
-            {/* Critical Untouched */}
-            {analytics.criticalUntouched.issues.length > 0 && (
-              <div data-pdf-widget-id="critical-untouched" className="bg-white p-4 rounded-lg border">
-                <CriticalUntouched stats={analytics.criticalUntouched} />
-              </div>
-            )}
-            
-            {/* Backlog Growth */}
-            <div data-pdf-widget-id="backlog-growth" className="bg-white p-4 rounded-lg border">
-              <BacklogGrowth stats={analytics.backlogGrowth} />
-            </div>
-            
-            {/* Bug Fix Efficiency */}
-            <div data-pdf-widget-id="bug-fix-efficiency" className="bg-white p-4 rounded-lg border">
-              <BugFixEfficiency stats={analytics.bugFixEfficiency} />
-            </div>
-            
-            {/* Repeat Bugs */}
-            {analytics.repeatBugs.topRepeatingLabels.length > 0 && (
-              <div data-pdf-widget-id="repeat-bugs" className="bg-white p-4 rounded-lg border">
-                <RepeatBugDetector stats={analytics.repeatBugs} />
-              </div>
-            )}
-            
-            {/* Developer Load */}
-            {analytics.developerLoad.developers.length > 0 && (
-              <div data-pdf-widget-id="developer-load" className="bg-white p-4 rounded-lg border">
-                <DeveloperLoad stats={analytics.developerLoad} />
-              </div>
-            )}
-            
-            {/* Focus Recommendations */}
-            {analytics.focusRecommendations.length > 0 && (
-              <div data-pdf-widget-id="focus-recommendations" className="bg-white p-4 rounded-lg border">
-                <FocusRecommendations recommendations={analytics.focusRecommendations} />
-              </div>
-            )}
-            
-            {/* Bug Heatmap */}
-            {analytics.bugHeatmap.length > 0 && (
-              <div data-pdf-widget-id="bug-heatmap" className="bg-white p-4 rounded-lg border">
-                <BugHeatmap data={analytics.bugHeatmap} />
-              </div>
-            )}
-            
-            {/* Resolution Histogram */}
-            {analytics.resolutionHistogram.length > 0 && (
-              <div data-pdf-widget-id="resolution-histogram" className="bg-white p-4 rounded-lg border">
-                <ResolutionHistogram data={analytics.resolutionHistogram} />
-              </div>
-            )}
-            
-            {/* Priority Scatter */}
-            {analytics.priorityScatter.length > 0 && (
-              <div data-pdf-widget-id="priority-scatter" className="bg-white p-4 rounded-lg border">
-                <PriorityScatterPlot data={analytics.priorityScatter} />
-              </div>
-            )}
-            
-            {/* Stacked Area */}
-            {analytics.stackedAreaData.length > 0 && (
-              <div data-pdf-widget-id="stacked-area" className="bg-white p-4 rounded-lg border">
-                <StackedAreaChart data={analytics.stackedAreaData} />
-              </div>
-            )}
-            
-            {/* Issue Funnel */}
-            {analytics.issueFunnel.length > 0 && (
-              <div data-pdf-widget-id="issue-funnel" className="bg-white p-4 rounded-lg border">
-                <IssueFunnelChart stages={analytics.issueFunnel} />
-              </div>
-            )}
-            
-            {/* Backlog Waterfall */}
-            {analytics.backlogWaterfall.length > 0 && (
-              <div data-pdf-widget-id="backlog-waterfall" className="bg-white p-4 rounded-lg border">
-                <BacklogWaterfallChart data={analytics.backlogWaterfall} />
-              </div>
-            )}
-            
-            {/* Module Treemap */}
-            {analytics.moduleTreemap.length > 0 && (
-              <div data-pdf-widget-id="module-treemap" className="bg-white p-4 rounded-lg border">
-                <ModuleTreemap data={analytics.moduleTreemap} />
-              </div>
-            )}
-            
-            {/* Module Radar */}
-            {analytics.moduleRadar.length > 0 && (
-              <div data-pdf-widget-id="module-radar" className="bg-white p-4 rounded-lg border">
-                <ModuleRadarChart data={analytics.moduleRadar} />
-              </div>
-            )}
-            
-            {/* KPI Bullet */}
-            <div data-pdf-widget-id="kpi-bullet" className="bg-white p-4 rounded-lg border">
-              <BulletChart metrics={analytics.kpiMetrics} />
-            </div>
-            
-            {/* Repository Filter */}
-            {selectedRepos.length > 0 && (
-              <div data-pdf-widget-id="repository-filter" className="bg-white p-4 rounded-lg border">
-                <RepositoryFilter
-                  repositories={selectedRepos}
-                  activeRepositories={selectedRepos}
-                  onToggle={() => {}}
-                  issueCounts={issues.reduce((acc, issue) => {
-                    acc[issue.repository] = (acc[issue.repository] || 0) + 1;
-                    return acc;
-                  }, {} as Record<string, number>)}
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* GitHub Connection Dialog */}
       <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
