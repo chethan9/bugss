@@ -11,13 +11,13 @@ interface SEOProps {
 export function SEOElements() {
   return (
     <>
-      <title>FixFlix - GitHub Issue Analytics Dashboard</title>
+      <title>Bugzilla - GitHub Issue Analytics Dashboard</title>
       <meta name="description" content="Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly." />
       <meta property="og:type" content="website" />
-      <meta property="og:title" content="FixFlix - GitHub Issue Analytics Dashboard" />
+      <meta property="og:title" content="Bugzilla - GitHub Issue Analytics Dashboard" />
       <meta property="og:description" content="Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly." />
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content="FixFlix - GitHub Issue Analytics Dashboard" />
+      <meta name="twitter:title" content="Bugzilla - GitHub Issue Analytics Dashboard" />
       <meta name="twitter:description" content="Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly." />
     </>
   );
@@ -26,7 +26,7 @@ export function SEOElements() {
 // SEO component for use in pages/_app.tsx or individual pages (uses next/head)
 // Note: Flattened structure (no fragment) for better Next.js Head compatibility during hot reload
 export function SEO({
-  title = "FixFlix - GitHub Issue Analytics Dashboard",
+  title = "Bugzilla - GitHub Issue Analytics Dashboard",
   description = "Analyze GitHub issues and tasks with powerful filtering, reporting, and 27 analytics widgets. Connect any repository and get actionable insights instantly.",
   image = "/og-image.png",
   url,

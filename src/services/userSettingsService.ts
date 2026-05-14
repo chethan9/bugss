@@ -36,7 +36,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
     widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
     widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
     selected_repos: (data.selected_repos as unknown as string[]) || [],
-    app_name: data.app_name || "FixFlix",
+    app_name: data.app_name || "Bugzilla",
     logo_url: data.logo_url || null,
   };
 }
@@ -51,7 +51,7 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
       widgets_per_row: 3,
       theme: "system",
       selected_repos: JSON.parse(JSON.stringify([])),
-      app_name: "FixFlix",
+      app_name: "Bugzilla",
       logo_url: null,
     })
     .select()
@@ -67,7 +67,7 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     widget_visibility: (data.widget_visibility as unknown as WidgetVisibility) || DEFAULT_VISIBILITY,
     widget_order: (data.widget_order as unknown as (keyof WidgetVisibility)[]) || DEFAULT_WIDGET_ORDER,
     selected_repos: (data.selected_repos as unknown as string[]) || [],
-    app_name: data.app_name || "FixFlix",
+    app_name: data.app_name || "Bugzilla",
     logo_url: data.logo_url || null,
   };
 }

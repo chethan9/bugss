@@ -12,7 +12,7 @@ export function Logo({
   className = "", 
   showText = true, 
   size = "md",
-  appName = "FixFlix",
+  appName = "Bugzilla",
   logoUrl = null
 }: LogoProps) {
   const sizes = {

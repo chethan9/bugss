@@ -54,7 +54,7 @@ export default function ProfilePage() {
   const [isGithubOAuth, setIsGithubOAuth] = useState(false);
   
   // Branding settings
-  const [appName, setAppName] = useState("FixFlix");
+  const [appName, setAppName] = useState("Bugzilla");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -224,7 +224,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <SEO title="Profile - FixFlix" description="Manage your account settings" />
+      <SEO title="Profile - Bugzilla" description="Manage your account settings" />
       
       <div className="min-h-screen bg-background">
         {/* Header */}
@@ -461,7 +461,7 @@ export default function ProfilePage() {
                     id="appName"
                     value={appName}
                     onChange={(e) => setAppName(e.target.value)}
-                    placeholder="FixFlix"
+                    placeholder="Bugzilla"
                   />
                   <p className="text-xs text-muted-foreground">
                     The name displayed in the header and login page

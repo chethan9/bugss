@@ -1,4 +1,4 @@
-# FixFlix
+# Bugzilla
 
 ## Vision
 A developer-focused dashboard that connects to any GitHub repository, fetches all issues and tasks, and presents them through an intuitive interface with powerful filtering and reporting capabilities. Built for project managers, team leads, and developers who need a bird's-eye view of repository activity.

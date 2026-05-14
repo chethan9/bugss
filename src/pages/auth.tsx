@@ -95,7 +95,7 @@ export default function AuthPage() {
 
   return (
     <>
-      <SEO title={isLogin ? "Sign In - FixFlix" : "Sign Up - FixFlix"} />
+      <SEO title={isLogin ? "Sign In - Bugzilla" : "Sign Up - Bugzilla"} />
       
       <div className="min-h-screen flex">
         {/* Left side - Form */}

@@ -198,7 +198,7 @@ export default function Home() {
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [appName, setAppName] = useState("FixFlix");
+  const [appName, setAppName] = useState("Bugzilla");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<number>(1);
   const router = useRouter();
@@ -1009,7 +1009,7 @@ export default function Home() {
               Connect to GitHub
             </h2>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Connect your GitHub repositories to start analyzing issues and generating insights with FixFlix.
+              Connect your GitHub repositories to start analyzing issues and generating insights with Bugzilla.
             </p>
           </div>
         ) : (
