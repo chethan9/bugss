@@ -222,7 +222,7 @@ export async function disconnectGitHub() {
 
 export async function fetchGitHubRepositories(accessToken: string): Promise<GitHubRepo[]> {
   const response = await fetch(
-    "https://api.github.com/user/repos?per_page=100&sort=updated&type=all&affiliation=owner,collaborator,organization_member",
+    "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member",
     {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -454,6 +454,7 @@ export interface GitHubRepository {
  * Fetch repositories the token can access: personal, collaborator, and organization
  * repositories. Merges `GET /user/repos` (with org-member affiliation) with a per-org
  * pass via `GET /user/orgs` + `GET /orgs/{org}/repos`, deduped by GitHub repo id.
+ * (Do not add `type` to `GET /user/repos` when using `affiliation` — GitHub returns 422.)
  *
  * For organization and private org repos, ensure:
  * - OAuth: app is approved under the org (GitHub → Organization → Third-party access).
@@ -503,7 +504,7 @@ export async function fetchUserRepositories(token: string): Promise<GitHubReposi
     while (page <= 100) {
       console.log(`📡 Fetching user/repos page ${page}...`);
       const response = await fetch(
-        `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated&type=all&affiliation=owner,collaborator,organization_member`,
+        `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated&affiliation=owner,collaborator,organization_member`,
         { headers }
       );
       console.log(`📊 user/repos response: ${response.status}`);
