@@ -49,10 +49,22 @@ export default async function handler(
     return res.status(500).json({ error: "GitHub OAuth is not configured on the server" });
   }
 
+  const rawLogin = req.query.login;
+  let loginHint: string | undefined;
+  if (typeof rawLogin === "string") {
+    const t = rawLogin.trim().slice(0, 39);
+    // GitHub usernames: alphanumeric + single hyphens, no leading/trailing hyphen
+    if (t && /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(t)) {
+      loginHint = t;
+    } else if (t) {
+      return res.status(400).json({ error: "Invalid GitHub username for login hint" });
+    }
+  }
+
   const exp = Math.floor(Date.now() / 1000) + 10 * 60;
   const state = signState({ sub: user.id, exp }, stateSecret);
   const redirectUri = getGithubOAuthRedirectUri();
-  const url = buildGithubAuthorizeUrl({ clientId, redirectUri, state });
+  const url = buildGithubAuthorizeUrl({ clientId, redirectUri, state, login: loginHint });
 
   return res.status(200).json({ url });
 }

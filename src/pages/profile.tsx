@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
-import { AppMobileNav } from "@/components/AppMobileNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +42,10 @@ import {
   AlertCircle,
   Link2,
   Unlink,
-  Bug
+  Bug,
+  LayoutDashboard,
+  Settings,
+  LogOut,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -231,18 +241,39 @@ export default function ProfilePage() {
         {/* Header */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AppMobileNav
-              currentPath={router.pathname}
-              signedIn
-              userEmail={user?.email ?? null}
-              onSignOut={handleSignOut}
-            />
-            <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </div>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Menu
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground truncate">
+                    {user?.email}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push("/")}>
+                    <LayoutDashboard className="h-4 w-4 mr-2 shrink-0" />
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled className="opacity-70">
+                    <User className="h-4 w-4 mr-2 shrink-0" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2 shrink-0" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </div>
             
             <div className="flex items-center gap-2">
               <ThemeToggle />

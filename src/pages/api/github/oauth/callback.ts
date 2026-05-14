@@ -181,5 +181,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return redirect(res, `/?github_oauth=error&reason=save_failed&hint=${hint}`);
   }
 
-  return redirect(res, "/?github_oauth=success");
+  const loginEnc = encodeURIComponent(userData.login);
+  return redirect(res, `/?github_oauth=success&linked_login=${loginEnc}`);
 }

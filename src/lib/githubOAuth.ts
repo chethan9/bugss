@@ -66,6 +66,8 @@ export function buildGithubAuthorizeUrl(params: {
   redirectUri: string;
   state: string;
   scope?: string;
+  /** Suggests which GitHub account to authenticate — required to link a second user while the browser is signed into another. */
+  login?: string;
 }): string {
   const u = new URL("https://github.com/login/oauth/authorize");
   u.searchParams.set("client_id", params.clientId);
@@ -73,6 +75,9 @@ export function buildGithubAuthorizeUrl(params: {
   u.searchParams.set("state", params.state);
   u.searchParams.set("scope", params.scope ?? GITHUB_OAUTH_SCOPES);
   u.searchParams.set("allow_signup", "true");
+  if (params.login?.trim()) {
+    u.searchParams.set("login", params.login.trim());
+  }
   return u.toString();
 }
 

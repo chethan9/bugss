@@ -1,9 +1,27 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
-import { LayoutGrid, GitBranch, LogOut, Github, AlertCircle, RefreshCw, Key, Search, X, Settings, Timer, User, Calendar } from "lucide-react";
+import {
+  LayoutGrid,
+  GitBranch,
+  LogOut,
+  Github,
+  AlertCircle,
+  RefreshCw,
+  Key,
+  Search,
+  X,
+  Settings,
+  Timer,
+  User,
+  Calendar,
+  Check,
+  Trash2,
+  Link2,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,6 +37,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -119,7 +138,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
-import { AppMobileNav } from "@/components/AppMobileNav";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
@@ -212,6 +230,9 @@ export default function Home() {
   >([]);
   const [activeGithubConnectionId, setActiveGithubConnectionId] = useState<string | null>(null);
   const [usesPatForGithub, setUsesPatForGithub] = useState(false);
+  const [oauthSuccessBanner, setOauthSuccessBanner] = useState<string | null>(null);
+  const [showOauthLoginHintDialog, setShowOauthLoginHintDialog] = useState(false);
+  const [oauthLoginHintInput, setOauthLoginHintInput] = useState("");
   const [appName, setAppName] = useState("Bugzilla");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<number>(1);
@@ -356,6 +377,15 @@ export default function Home() {
       }
 
       try {
+        const linkedRaw =
+          typeof router.query.linked_login === "string" ? router.query.linked_login : null;
+        const linked = linkedRaw ? decodeURIComponent(linkedRaw) : null;
+        if (linked) {
+          setOauthSuccessBanner(
+            `@${linked} is now linked. Pick repositories below (or use Menu → GitHub to switch accounts).`
+          );
+        }
+
         const conn = await getGitHubConnection();
         const t = conn?.access_token;
         if (!t) {
@@ -401,6 +431,7 @@ export default function Home() {
     router.query.github_oauth,
     router.query.reason,
     router.query.hint,
+    router.query.linked_login,
     isAuthLoading,
     router,
     selectedRepos,
@@ -585,7 +616,7 @@ export default function Home() {
 
   const [isOAuthStarting, setIsOAuthStarting] = useState(false);
 
-  const handleGithubOAuthConnect = async () => {
+  const handleGithubOAuthConnect = async (loginHint?: string) => {
     setTokenError("");
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
@@ -595,7 +626,11 @@ export default function Home() {
     }
     setIsOAuthStarting(true);
     try {
-      const res = await fetch("/api/github/oauth/start", {
+      const q =
+        typeof loginHint === "string" && loginHint.trim()
+          ? `?login=${encodeURIComponent(loginHint.trim())}`
+          : "";
+      const res = await fetch(`/api/github/oauth/start${q}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = (await res.json()) as { url?: string; error?: string };
@@ -968,29 +1003,6 @@ export default function Home() {
               v{appVersion}
             </Badge>
           </button>
-          {user && (
-            <AppMobileNav
-              currentPath={router.pathname}
-              signedIn
-              userEmail={user.email ?? null}
-              onSignOut={handleSignOut}
-              github={{
-                hasPat: usesPatForGithub,
-                connections: githubConnections.map((c) => ({
-                  id: c.id,
-                  username: c.username,
-                  avatar_url: c.avatar_url,
-                })),
-                activeConnectionId: activeGithubConnectionId,
-                onSwitch: handleSwitchGithubAccount,
-                onRemove: handleRemoveGithubConnection,
-                onDisconnectAll: handleDisconnectAllGithubFromNav,
-                onConnectOAuth: handleGithubOAuthConnect,
-                onConnectPat: () => setShowConnectionDialog(true),
-                isOAuthStarting,
-              }}
-            />
-          )}
           </div>
           
           <div className="flex items-center gap-2">
@@ -1148,30 +1160,105 @@ export default function Home() {
                   Menu
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent
+                align="end"
+                className="w-80 max-h-[min(520px,85vh)] overflow-y-auto"
+              >
                 {user && (
                   <>
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground truncate">
                       {user.email}
-                    </div>
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => router.push("/profile")}>
-                      <User className="h-4 w-4 mr-2" />
+                      <User className="h-4 w-4 mr-2 shrink-0" />
                       Profile
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
+                      GitHub
+                    </DropdownMenuLabel>
+                    {usesPatForGithub && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground leading-snug">
+                        A personal access token is saved and is used for API calls until you remove it in
+                        Profile.
+                      </div>
+                    )}
+                    {!usesPatForGithub &&
+                      githubConnections.map((c) => (
+                        <Fragment key={c.id}>
+                          <DropdownMenuItem
+                            disabled={activeGithubConnectionId === c.id}
+                            onClick={() => void handleSwitchGithubAccount(c.id)}
+                          >
+                            {activeGithubConnectionId === c.id ? (
+                              <Check className="h-4 w-4 mr-2 shrink-0" />
+                            ) : (
+                              <Github className="h-4 w-4 mr-2 shrink-0" />
+                            )}
+                            <span className="truncate">Use @{c.username}</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => void handleRemoveGithubConnection(c.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2 shrink-0" />
+                            <span className="truncate">Remove @{c.username}</span>
+                          </DropdownMenuItem>
+                        </Fragment>
+                      ))}
+                    <DropdownMenuItem
+                      disabled={isOAuthStarting}
+                      onClick={() => void handleGithubOAuthConnect()}
+                    >
+                      <Link2 className="h-4 w-4 mr-2 shrink-0" />
+                      {isOAuthStarting
+                        ? "Opening GitHub…"
+                        : "Add GitHub (this browser session)"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={isOAuthStarting}
+                      onClick={() => {
+                        setOauthLoginHintInput("");
+                        setShowOauthLoginHintDialog(true);
+                      }}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2 shrink-0" />
+                      Add GitHub (different user)…
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowConnectionDialog(true);
+                        setConnectionStep("token");
+                      }}
+                    >
+                      <Key className="h-4 w-4 mr-2 shrink-0" />
+                      Connect with personal token
+                    </DropdownMenuItem>
+                    {(githubConnections.length > 0 || usesPatForGithub) && (
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => void handleDisconnectAllGithubFromNav()}
+                      >
+                        <LogOut className="h-4 w-4 mr-2 shrink-0" />
+                        Disconnect all GitHub
+                      </DropdownMenuItem>
+                    )}
                   </>
                 )}
-                
+
                 {selectedRepos.length > 0 && (
                   <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
+                      Dashboard
+                    </DropdownMenuLabel>
                     <DropdownMenuItem onClick={handleManageRepositories}>
-                      <GitBranch className="h-4 w-4 mr-2" />
+                      <GitBranch className="h-4 w-4 mr-2 shrink-0" />
                       Manage Repositories
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <WidgetSettings 
+                      <WidgetSettings
                         visibility={widgetVisibility}
                         onVisibilityChange={handleVisibilityChange}
                         widgetsPerRow={widgetsPerRow}
@@ -1181,46 +1268,31 @@ export default function Home() {
                       />
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <ReportSettings 
+                      <ReportSettings
                         config={reportConfig}
                         onConfigChange={handleReportConfigChange}
                       />
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <PDFExport 
-                        disabled={filteredIssues.length === 0} 
+                      <PDFExport
+                        disabled={filteredIssues.length === 0}
                         reportConfig={reportConfig}
                       />
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={handleDisconnect}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Disconnect GitHub
-                    </DropdownMenuItem>
                   </>
                 )}
-                
-                {!selectedRepos.length && (
-                  <DropdownMenuItem onClick={() => setShowConnectionDialog(true)}>
-                    <GitBranch className="h-4 w-4 mr-2" />
-                    Connect GitHub
-                  </DropdownMenuItem>
-                )}
-                
+
                 {user ? (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut}>
-                      <LogOut className="h-4 w-4 mr-2" />
+                      <LogOut className="h-4 w-4 mr-2 shrink-0" />
                       Sign Out
                     </DropdownMenuItem>
                   </>
                 ) : (
                   <DropdownMenuItem onClick={() => router.push("/auth")}>
-                    <User className="h-4 w-4 mr-2" />
+                    <User className="h-4 w-4 mr-2 shrink-0" />
                     Sign In
                   </DropdownMenuItem>
                 )}
@@ -1229,6 +1301,17 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {oauthSuccessBanner && (
+        <div className="border-b bg-muted/30">
+          <div className="container mx-auto flex items-start justify-between gap-3 px-4 py-2">
+            <p className="text-sm text-foreground pt-0.5">{oauthSuccessBanner}</p>
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setOauthSuccessBanner(null)}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
 
       <main className="container mx-auto px-6 py-8">
         {selectedRepos.length === 0 ? (
@@ -1692,7 +1775,7 @@ export default function Home() {
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={handleGithubOAuthConnect}
+                onClick={() => void handleGithubOAuthConnect()}
                 disabled={isOAuthStarting}
               >
                 {isOAuthStarting ? (
@@ -1706,6 +1789,19 @@ export default function Home() {
                     Continue with GitHub
                   </>
                 )}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={isOAuthStarting}
+                onClick={() => {
+                  setOauthLoginHintInput("");
+                  setShowOauthLoginHintDialog(true);
+                }}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Sign in as another GitHub user…
               </Button>
               <p className="text-center text-xs text-muted-foreground">or use a token</p>
               <div className="space-y-2">
@@ -1861,6 +1957,54 @@ export default function Home() {
                 </Button>
               </div>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showOauthLoginHintDialog} onOpenChange={setShowOauthLoginHintDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link a different GitHub user</DialogTitle>
+            <DialogDescription className="text-left space-y-2">
+              <span>
+                GitHub uses your current <span className="font-medium">github.com</span> browser
+                session. To add a <strong>second</strong> account while signed in as someone else,
+                enter that account&apos;s GitHub username — GitHub will ask you to sign in as them.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="gh-login-hint">GitHub username to authorize</Label>
+            <Input
+              id="gh-login-hint"
+              placeholder="octocat"
+              value={oauthLoginHintInput}
+              onChange={(e) => setOauthLoginHintInput(e.target.value)}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setShowOauthLoginHintDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isOAuthStarting}
+              onClick={async () => {
+                const hint = oauthLoginHintInput.trim();
+                if (!hint) {
+                  setTokenError("Enter the GitHub username you want to link.");
+                  return;
+                }
+                setTokenError("");
+                setShowOauthLoginHintDialog(false);
+                setOauthLoginHintInput("");
+                await handleGithubOAuthConnect(hint);
+              }}
+            >
+              Continue to GitHub
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
