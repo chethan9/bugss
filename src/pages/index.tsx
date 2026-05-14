@@ -1178,6 +1178,17 @@ export default function Home() {
                     <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
                       GitHub
                     </DropdownMenuLabel>
+                    {selectedRepos.length === 0 && (
+                      <DropdownMenuItem
+                        onClick={() => void handleManageRepositories()}
+                        className="font-medium"
+                      >
+                        <GitBranch className="h-4 w-4 mr-2 shrink-0" />
+                        {(token || githubToken).trim()
+                          ? "Choose repositories…"
+                          : "Connect & choose repositories…"}
+                      </DropdownMenuItem>
+                    )}
                     {usesPatForGithub && (
                       <div className="px-2 py-1.5 text-xs text-muted-foreground leading-snug">
                         A personal access token is saved and is used for API calls until you remove it in
@@ -1315,13 +1326,36 @@ export default function Home() {
 
       <main className="container mx-auto px-6 py-8">
         {selectedRepos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
             <GitBranch className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-heading font-bold mb-2">
-              Connect to GitHub
+              {(token || githubToken).trim() ? "Choose repositories" : "Connect to GitHub"}
             </h2>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              Connect your GitHub repositories to start analyzing issues and generating insights with Bugzilla.
+            <p className="text-muted-foreground mb-8 max-w-md">
+              {(token || githubToken).trim()
+                ? "You are linked to GitHub. Pick one or more repositories to load issues and dashboards."
+                : "Connect your GitHub account, then select which repositories to analyze with Bugzilla."}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
+              <Button size="lg" className="w-full sm:w-auto" onClick={() => void handleManageRepositories()}>
+                <GitBranch className="h-4 w-4 mr-2" />
+                {(token || githubToken).trim() ? "Choose repositories" : "Connect & choose repositories"}
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setShowConnectionDialog(true);
+                  setConnectionStep("token");
+                }}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Other connection options
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-6 max-w-md">
+              Tip: you can also use <span className="font-medium">Menu</span> → GitHub → Choose repositories.
             </p>
           </div>
         ) : (
