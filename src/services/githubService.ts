@@ -221,12 +221,15 @@ export async function disconnectGitHub() {
 }
 
 export async function fetchGitHubRepositories(accessToken: string): Promise<GitHubRepo[]> {
-  const response = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
+  const response = await fetch(
+    "https://api.github.com/user/repos?per_page=100&sort=updated&type=all&affiliation=owner,collaborator,organization_member",
+    {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github.v3+json"
     }
-  });
+  }
+  );
 
   if (!response.ok) {
     const error = await response.json();
@@ -439,6 +442,8 @@ export interface GitHubRepository {
   open_issues_count: number;
   language: string | null;
   private: boolean;
+  /** Present on REST repo objects; used for stable ordering after merges. */
+  updated_at?: string;
   owner: {
     login: string;
     avatar_url: string;
@@ -446,99 +451,153 @@ export interface GitHubRepository {
 }
 
 /**
- * Fetch all repositories accessible by the authenticated user
+ * Fetch repositories the token can access: personal, collaborator, and organization
+ * repositories. Merges `GET /user/repos` (with org-member affiliation) with a per-org
+ * pass via `GET /user/orgs` + `GET /orgs/{org}/repos`, deduped by GitHub repo id.
+ *
+ * For organization and private org repos, ensure:
+ * - OAuth: app is approved under the org (GitHub → Organization → Third-party access).
+ * - PAT: scopes include `repo` and `read:org` (re-generate the token after adding scopes).
  */
 export async function fetchUserRepositories(token: string): Promise<GitHubRepository[]> {
-  const repos: GitHubRepository[] = [];
-  let page = 1;
-  let hasMore = true;
-
-  // Validate token format
   if (!token || token.trim() === "") {
     throw new Error("GitHub token is required");
   }
 
-  // Check token format (should start with ghp_, gho_, or github_pat_)
   const tokenPrefix = token.substring(0, 4);
   if (!["ghp_", "gho_", "gith"].includes(tokenPrefix)) {
     console.warn("⚠️ Token may have invalid format. GitHub tokens usually start with ghp_, gho_, or github_pat_");
   }
 
-  try {
-    while (hasMore) {
-      console.log(`📡 Fetching repositories - Page ${page}...`);
-      
-      const response = await fetch(
-        `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated&affiliation=owner,collaborator,organization_member`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/vnd.github.v3+json",
-          },
-        }
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+  } as const;
+
+  const handleRepoListError = async (response: Response, context: string): Promise<never> => {
+    if (response.status === 401) {
+      throw new Error("Invalid or expired GitHub token. Please check your token and try again.");
+    }
+    if (response.status === 403) {
+      const rateLimitRemaining = response.headers.get("X-RateLimit-Remaining");
+      if (rateLimitRemaining === "0") {
+        throw new Error("GitHub API rate limit exceeded. Please try again later or use a different token.");
+      }
+      const body = await response.text();
+      throw new Error(
+        `GitHub API access forbidden (${context}). Use a token with repo (and read:org for org listing). ${body.slice(0, 160)}`
       );
+    }
+    if (response.status === 404) {
+      throw new Error(`GitHub API endpoint not found (${context}).`);
+    }
+    const errorText = await response.text();
+    console.error("GitHub API Error Response:", errorText);
+    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+  };
 
-      console.log(`📊 Response status: ${response.status}`);
+  try {
+    const byId = new Map<number, GitHubRepository>();
 
+    let page = 1;
+    while (page <= 100) {
+      console.log(`📡 Fetching user/repos page ${page}...`);
+      const response = await fetch(
+        `https://api.github.com/user/repos?per_page=100&page=${page}&sort=updated&type=all&affiliation=owner,collaborator,organization_member`,
+        { headers }
+      );
+      console.log(`📊 user/repos response: ${response.status}`);
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Invalid or expired GitHub token. Please check your token and try again.");
-        }
-        if (response.status === 403) {
-          const rateLimitRemaining = response.headers.get("X-RateLimit-Remaining");
-          if (rateLimitRemaining === "0") {
-            throw new Error("GitHub API rate limit exceeded. Please try again later or use a different token.");
-          }
-          throw new Error("GitHub API access forbidden. Please ensure your token has 'repo' scope permissions.");
-        }
-        if (response.status === 404) {
-          throw new Error("GitHub API endpoint not found. Please verify your token has access to repositories.");
-        }
-        
-        const errorText = await response.text();
-        console.error("GitHub API Error Response:", errorText);
-        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+        await handleRepoListError(response, "user/repos");
       }
-
-      const data = await response.json();
-      console.log(`✅ Fetched ${data.length} repositories on page ${page}`);
-      
-      if (data.length === 0) {
-        hasMore = false;
-      } else {
-        repos.push(...data);
-        page++;
+      const data = (await response.json()) as GitHubRepository[];
+      if (!Array.isArray(data) || data.length === 0) break;
+      for (const r of data) {
+        if (r?.id != null) byId.set(r.id, r);
       }
-
-      // GitHub API rate limiting: max 100 pages
-      if (page > 100) {
-        console.warn("⚠️ Reached maximum page limit (100)");
-        hasMore = false;
-      }
+      if (data.length < 100) break;
+      page++;
     }
 
-    console.log(`🎉 Total repositories fetched: ${repos.length}`);
-    return repos;
+    try {
+      let orgPage = 1;
+      const orgLogins: string[] = [];
+      while (orgPage <= 100) {
+        const orgRes = await fetch(`https://api.github.com/user/orgs?per_page=100&page=${orgPage}`, {
+          headers,
+        });
+        if (!orgRes.ok) {
+          if (orgRes.status === 403 || orgRes.status === 401) {
+            console.warn(
+              "[github repos] user/orgs returned",
+              orgRes.status,
+              "— add read:org to PAT scopes, or approve this OAuth app for the organization (Org settings → Third-party access)."
+            );
+          } else {
+            console.warn("[github repos] user/orgs returned", orgRes.status);
+          }
+          break;
+        }
+        const orgs = (await orgRes.json()) as Array<{ login?: string }>;
+        if (!Array.isArray(orgs) || orgs.length === 0) break;
+        for (const o of orgs) {
+          if (o.login) orgLogins.push(o.login);
+        }
+        if (orgs.length < 100) break;
+        orgPage++;
+      }
+
+      for (const orgLogin of orgLogins) {
+        let rpage = 1;
+        while (rpage <= 100) {
+          const orgRepoRes = await fetch(
+            `https://api.github.com/orgs/${encodeURIComponent(orgLogin)}/repos?per_page=100&page=${rpage}&type=all&sort=updated`,
+            { headers }
+          );
+          if (!orgRepoRes.ok) {
+            console.warn(`[github repos] orgs/${orgLogin}/repos returned`, orgRepoRes.status);
+            break;
+          }
+          const chunk = (await orgRepoRes.json()) as GitHubRepository[];
+          if (!Array.isArray(chunk) || chunk.length === 0) break;
+          for (const r of chunk) {
+            if (r?.id != null) byId.set(r.id, r);
+          }
+          if (chunk.length < 100) break;
+          rpage++;
+        }
+      }
+    } catch (e) {
+      console.warn("[github repos] supplemental org listing skipped:", e);
+    }
+
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => {
+      const ta = a.updated_at ?? "";
+      const tb = b.updated_at ?? "";
+      if (ta && tb) return tb.localeCompare(ta);
+      return a.full_name.localeCompare(b.full_name);
+    });
+
+    console.log(`🎉 Total repositories fetched (deduped): ${merged.length}`);
+    return merged;
   } catch (error: any) {
     console.error("❌ Failed to fetch repositories:", error);
-    
-    // Handle network errors
+
     if (error.message === "Failed to fetch") {
       throw new Error(
         "Network error: Unable to reach GitHub API. Please check:\n" +
-        "1. Your internet connection\n" +
-        "2. GitHub API is accessible (https://api.github.com)\n" +
-        "3. No browser extensions blocking the request\n" +
-        "4. No firewall/VPN blocking GitHub"
+          "1. Your internet connection\n" +
+          "2. GitHub API is accessible (https://api.github.com)\n" +
+          "3. No browser extensions blocking the request\n" +
+          "4. No firewall/VPN blocking GitHub"
       );
     }
-    
-    // Re-throw with original message if it's our custom error
+
     if (error.message.includes("GitHub") || error.message.includes("token")) {
       throw error;
     }
-    
-    // Generic error
+
     throw new Error(`Failed to fetch repositories: ${error.message}`);
   }
 }

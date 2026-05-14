@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-export const GITHUB_OAUTH_SCOPES = ["repo", "read:user", "user:email"].join(" ");
+export const GITHUB_OAUTH_SCOPES = ["repo", "read:org", "read:user", "user:email"].join(" ");
 
 export type OAuthStatePayload = {
   sub: string;

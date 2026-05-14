@@ -719,7 +719,7 @@ export default function Home() {
       const repos = await fetchUserRepositories(cleanToken);
       
       if (repos.length === 0) {
-        alert("No repositories found. This could mean:\n1. Your account has no repositories\n2. Your token lacks 'repo' scope permissions.");
+        alert("No repositories found. This could mean:\n1. Your account has no repositories\n2. Your token lacks repo (and read:org for org listing) scopes\n3. Your organization has not approved this app for third-party access");
         return;
       }
       
@@ -1818,7 +1818,7 @@ export default function Home() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Need a token? Go to GitHub → Settings → Developer settings → Personal access tokens → Generate new token (classic) with &quot;repo&quot; scope.
+                  Need a token? GitHub → Settings → Developer settings → Personal access tokens → Generate new token (classic) with &quot;repo&quot; and &quot;read:org&quot; so personal and organization repos appear. Organization owners may also need to approve third-party access for your org.
                 </p>
               </div>
               
