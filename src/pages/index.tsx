@@ -78,7 +78,12 @@ import { RepositoryFilter } from "@/components/analytics/RepositoryFilter";
 import { ProjectHealthGauge } from "@/components/analytics/ProjectHealthGauge";
 import { BurndownChart } from "@/components/analytics/BurndownChart";
 import { FlowEfficiency } from "@/components/analytics/FlowEfficiency";
-import { fetchUserRepositories, type GitHubRepository } from "@/services/githubService";
+import {
+  disconnectGitHub,
+  fetchUserRepositories,
+  getGitHubConnection,
+  type GitHubRepository,
+} from "@/services/githubService";
 import {
   generateSmartInsights,
   calculateSeverityDistribution,
@@ -249,7 +254,7 @@ export default function Home() {
           if (settings.logo_url) {
             setLogoUrl(settings.logo_url);
           }
-          // Load saved GitHub token and repos from Supabase
+          // Load saved GitHub token and repos from Supabase (PAT in user_settings)
           if (settings.github_token) {
             const storedToken = settings.github_token;
             setGithubToken(storedToken);
@@ -258,6 +263,17 @@ export default function Home() {
               setSelectedRepos(settings.selected_repos);
               // Auto-fetch issues with saved token and repos
               fetchSelectedIssues(settings.selected_repos, storedToken);
+            }
+          } else {
+            const conn = await getGitHubConnection();
+            if (conn?.access_token) {
+              const t = conn.access_token;
+              setGithubToken(t);
+              setToken(t);
+              if (settings.selected_repos && settings.selected_repos.length > 0) {
+                setSelectedRepos(settings.selected_repos);
+                fetchSelectedIssues(settings.selected_repos, t);
+              }
             }
           }
         }
@@ -293,6 +309,64 @@ export default function Home() {
     
     return () => subscription.unsubscribe();
   }, []);
+
+  // After GitHub OAuth redirect: token saved server-side; load repos step
+  useEffect(() => {
+    if (!router.isReady || isAuthLoading) return;
+    const status = router.query.github_oauth;
+    if (status !== "success" && status !== "error") return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      if (status === "error") {
+        const reason =
+          typeof router.query.reason === "string" ? router.query.reason : "unknown";
+        setTokenError(`GitHub OAuth failed (${reason})`);
+        await router.replace("/", undefined, { shallow: true });
+        return;
+      }
+
+      try {
+        const conn = await getGitHubConnection();
+        const t = conn?.access_token;
+        if (!t) {
+          setTokenError("GitHub authorized but connection not found. Try connecting again.");
+          await router.replace("/", undefined, { shallow: true });
+          return;
+        }
+        setToken(t);
+        setGithubToken(t);
+        setShowConnectionDialog(true);
+        setConnectionStep("repos");
+        setIsLoadingRepos(true);
+        const repos = await fetchUserRepositories(t);
+        if (cancelled) return;
+        setAvailableRepos(repos);
+        setDialogSelectedRepos((prev) =>
+          prev.length > 0 ? prev : selectedRepos.length > 0 ? [...selectedRepos] : []
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Failed to load repositories";
+        setTokenError(msg);
+      } finally {
+        if (!cancelled) setIsLoadingRepos(false);
+        await router.replace("/", undefined, { shallow: true });
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    router.isReady,
+    router.query.github_oauth,
+    router.query.reason,
+    isAuthLoading,
+    router,
+    selectedRepos,
+  ]);
 
   // Save settings when they change (debounced)
   useEffect(() => {
@@ -410,6 +484,11 @@ export default function Home() {
     
     // Clear token from Supabase
     if (user) {
+      try {
+        await disconnectGitHub();
+      } catch (e) {
+        console.error("disconnectGitHub:", e);
+      }
       await saveUserSettings(user.id, {
         github_token: null,
         selected_repos: [],
@@ -460,6 +539,38 @@ export default function Home() {
     console.log(`🟡 Total issues fetched: ${allIssues.length}`);
     console.log("🟡 Setting issues state...", allIssues);
     setIssues(allIssues);
+  };
+
+  const [isOAuthStarting, setIsOAuthStarting] = useState(false);
+
+  const handleGithubOAuthConnect = async () => {
+    setTokenError("");
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setTokenError("You must be signed in to connect GitHub.");
+      return;
+    }
+    setIsOAuthStarting(true);
+    try {
+      const res = await fetch("/api/github/oauth/start", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) {
+        setTokenError(data.error || "Could not start GitHub OAuth");
+        return;
+      }
+      if (!data.url) {
+        setTokenError("Invalid response from server");
+        return;
+      }
+      window.location.assign(data.url);
+    } catch (e: unknown) {
+      setTokenError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setIsOAuthStarting(false);
+    }
   };
 
   const handleTokenSubmit = async () => {
@@ -1445,7 +1556,7 @@ export default function Home() {
             </DialogTitle>
             <DialogDescription>
               {connectionStep === "token" 
-                ? "Enter your GitHub Personal Access Token to connect your repositories."
+                ? "Authorize with GitHub (recommended) or paste a Personal Access Token."
                 : `Select repositories to track (${dialogSelectedRepos.length} selected)`
               }
             </DialogDescription>
@@ -1453,6 +1564,32 @@ export default function Home() {
           
           {connectionStep === "token" ? (
             <div className="space-y-4 py-4">
+              {tokenError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{tokenError}</AlertDescription>
+                </Alert>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleGithubOAuthConnect}
+                disabled={isOAuthStarting}
+              >
+                {isOAuthStarting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Redirecting to GitHub…
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-4 w-4 mr-2" />
+                    Continue with GitHub
+                  </>
+                )}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">or use a token</p>
               <div className="space-y-2">
                 <Label htmlFor="token">Personal Access Token</Label>
                 <div className="relative">
@@ -1481,13 +1618,6 @@ export default function Home() {
                   Remember me on this device
                 </Label>
               </div>
-              
-              {tokenError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{tokenError}</AlertDescription>
-                </Alert>
-              )}
             </div>
           ) : (
             <div className="flex-1 overflow-hidden flex flex-col py-4">
