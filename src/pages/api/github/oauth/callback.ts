@@ -77,13 +77,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return redirect(res, "/?github_oauth=error&reason=github_user");
   }
 
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    console.error("[github-oauth-callback] SUPABASE_SERVICE_ROLE_KEY is not set");
+    return redirect(res, "/?github_oauth=error&reason=save_failed&hint=missing_service_role");
+  }
+
   try {
     const admin = createAdminClient();
-    const { data: existing } = await admin
+    const { data: existing, error: selectError } = await admin
       .from("github_connections")
       .select("id")
       .eq("user_id", payload.sub)
       .maybeSingle();
+
+    if (selectError) {
+      console.error("[github-oauth-callback] select github_connections", selectError);
+      throw selectError;
+    }
 
     const row = {
       username: userData.login,
@@ -97,16 +107,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from("github_connections")
         .update(row)
         .eq("id", existing.id);
-      if (error) throw error;
+      if (error) {
+        console.error("[github-oauth-callback] update github_connections", error);
+        throw error;
+      }
     } else {
       const { error } = await admin.from("github_connections").insert({
         user_id: payload.sub,
         ...row,
       });
-      if (error) throw error;
+      if (error) {
+        console.error("[github-oauth-callback] insert github_connections", error);
+        throw error;
+      }
     }
-  } catch {
-    return redirect(res, "/?github_oauth=error&reason=save_failed");
+  } catch (e: unknown) {
+    console.error("[github-oauth-callback] save failed", e);
+    const err = e as { message?: string; code?: string };
+    const msg = err?.message ? String(err.message) : String(e);
+    const code = err?.code ? String(err.code) : "";
+    const lower = msg.toLowerCase();
+    let hint = "unknown";
+    if (
+      lower.includes("missing next_public_supabase_url") ||
+      lower.includes("supabase_service_role_key")
+    ) {
+      hint = "missing_service_role";
+    } else if (
+      code === "42501" ||
+      lower.includes("permission denied") ||
+      lower.includes("row-level security") ||
+      lower.includes("42501")
+    ) {
+      hint = "rls_use_service_role";
+    } else if (code === "23503" || lower.includes("foreign key")) {
+      hint = "invalid_user";
+    }
+    return redirect(res, `/?github_oauth=error&reason=save_failed&hint=${hint}`);
   }
 
   return redirect(res, "/?github_oauth=success");

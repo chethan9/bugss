@@ -322,7 +322,20 @@ export default function Home() {
       if (status === "error") {
         const reason =
           typeof router.query.reason === "string" ? router.query.reason : "unknown";
-        setTokenError(`GitHub OAuth failed (${reason})`);
+        const hint =
+          typeof router.query.hint === "string" ? router.query.hint : "";
+        const hintText: Record<string, string> = {
+          missing_service_role:
+            "Set SUPABASE_SERVICE_ROLE_KEY in Vercel env (Supabase → Project Settings → API → service_role secret, not anon).",
+          rls_use_service_role:
+            "Database rejected the write: your SUPABASE_SERVICE_ROLE_KEY is probably the anon key. Use the service_role secret only on the server.",
+          invalid_user:
+            "Your account could not be linked. Sign out, sign in again, then retry GitHub OAuth.",
+          unknown:
+            "Check Vercel → Deployment → Functions → /api/github/oauth/callback logs for details.",
+        };
+        const extra = hint ? ` ${hintText[hint] ?? ""}` : "";
+        setTokenError(`GitHub OAuth failed (${reason}).${extra}`.trim());
         await router.replace("/", undefined, { shallow: true });
         return;
       }
@@ -363,6 +376,7 @@ export default function Home() {
     router.isReady,
     router.query.github_oauth,
     router.query.reason,
+    router.query.hint,
     isAuthLoading,
     router,
     selectedRepos,
