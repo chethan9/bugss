@@ -207,6 +207,7 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          active_github_connection_id: string | null
           app_name: string | null
           created_at: string | null
           github_token: string | null
@@ -221,6 +222,7 @@ export type Database = {
           widgets_per_row: number | null
         }
         Insert: {
+          active_github_connection_id?: string | null
           app_name?: string | null
           created_at?: string | null
           github_token?: string | null
@@ -235,6 +237,7 @@ export type Database = {
           widgets_per_row?: number | null
         }
         Update: {
+          active_github_connection_id?: string | null
           app_name?: string | null
           created_at?: string | null
           github_token?: string | null

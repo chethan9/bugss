@@ -80,8 +80,11 @@ import { BurndownChart } from "@/components/analytics/BurndownChart";
 import { FlowEfficiency } from "@/components/analytics/FlowEfficiency";
 import {
   disconnectGitHub,
+  disconnectGitHubConnection,
   fetchUserRepositories,
   getGitHubConnection,
+  getGitHubConnections,
+  setActiveGitHubConnection,
   type GitHubRepository,
 } from "@/services/githubService";
 import {
@@ -116,6 +119,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
+import { AppMobileNav } from "@/components/AppMobileNav";
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
@@ -203,6 +207,11 @@ export default function Home() {
 
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [githubConnections, setGithubConnections] = useState<
+    Awaited<ReturnType<typeof getGitHubConnections>>
+  >([]);
+  const [activeGithubConnectionId, setActiveGithubConnectionId] = useState<string | null>(null);
+  const [usesPatForGithub, setUsesPatForGithub] = useState(false);
   const [appName, setAppName] = useState("Bugzilla");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<number>(1);
@@ -235,9 +244,15 @@ export default function Home() {
         }
         
         setUser(session.user);
-        
-        // Load user settings from database
-        const settings = await getUserSettings(session.user.id);
+
+        const [settings, connections] = await Promise.all([
+          getUserSettings(session.user.id),
+          getGitHubConnections(),
+        ]);
+
+        setGithubConnections(connections);
+        setActiveGithubConnectionId(settings?.active_github_connection_id ?? null);
+
         if (settings) {
           if (settings.widget_visibility) {
             setWidgetVisibility(settings.widget_visibility as WidgetVisibility);
@@ -254,17 +269,17 @@ export default function Home() {
           if (settings.logo_url) {
             setLogoUrl(settings.logo_url);
           }
-          // Load saved GitHub token and repos from Supabase (PAT in user_settings)
           if (settings.github_token) {
+            setUsesPatForGithub(true);
             const storedToken = settings.github_token;
             setGithubToken(storedToken);
             setToken(storedToken);
             if (settings.selected_repos && settings.selected_repos.length > 0) {
               setSelectedRepos(settings.selected_repos);
-              // Auto-fetch issues with saved token and repos
               fetchSelectedIssues(settings.selected_repos, storedToken);
             }
           } else {
+            setUsesPatForGithub(false);
             const conn = await getGitHubConnection();
             if (conn?.access_token) {
               const t = conn.access_token;
@@ -350,6 +365,15 @@ export default function Home() {
         }
         setToken(t);
         setGithubToken(t);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const [list, st] = await Promise.all([
+            getGitHubConnections(),
+            getUserSettings(session.user.id),
+          ]);
+          setGithubConnections(list);
+          setActiveGithubConnectionId(st?.active_github_connection_id ?? null);
+        }
         setShowConnectionDialog(true);
         setConnectionStep("repos");
         setIsLoadingRepos(true);
@@ -506,8 +530,12 @@ export default function Home() {
       await saveUserSettings(user.id, {
         github_token: null,
         selected_repos: [],
+        active_github_connection_id: null,
       });
     }
+    setGithubConnections([]);
+    setActiveGithubConnectionId(null);
+    setUsesPatForGithub(false);
   };
 
   const handleSignOut = async () => {
@@ -587,6 +615,56 @@ export default function Home() {
     }
   };
 
+  const handleSwitchGithubAccount = async (connectionId: string) => {
+    if (!user) return;
+    try {
+      await setActiveGitHubConnection(connectionId);
+      setActiveGithubConnectionId(connectionId);
+      const conn = await getGitHubConnection();
+      const t = conn?.access_token;
+      if (t) {
+        setToken(t);
+        setGithubToken(t);
+      }
+      setSelectedRepos([]);
+      setIssues([]);
+      await saveUserSettings(user.id, { selected_repos: [] });
+    } catch (e: unknown) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : "Could not switch account");
+    }
+  };
+
+  const handleRemoveGithubConnection = async (connectionId: string) => {
+    if (!user) return;
+    try {
+      await disconnectGitHubConnection(connectionId);
+      const next = await getGitHubConnections();
+      setGithubConnections(next);
+      const st = await getUserSettings(user.id);
+      setActiveGithubConnectionId(st?.active_github_connection_id ?? null);
+      if (!usesPatForGithub) {
+        const conn = await getGitHubConnection();
+        if (conn?.access_token) {
+          setToken(conn.access_token);
+          setGithubToken(conn.access_token);
+        } else {
+          setToken("");
+          setGithubToken("");
+          setSelectedRepos([]);
+          setIssues([]);
+        }
+      }
+    } catch (e: unknown) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : "Could not remove account");
+    }
+  };
+
+  const handleDisconnectAllGithubFromNav = async () => {
+    await handleDisconnect();
+  };
+
   const handleTokenSubmit = async () => {
     if (!githubToken) {
       alert("Please enter a GitHub token");
@@ -656,6 +734,7 @@ export default function Home() {
           github_token: token,
           selected_repos: dialogSelectedRepos,
         });
+        setUsesPatForGithub(true);
         console.log("🔴 Saved token and repos to Supabase");
       }
       
@@ -873,6 +952,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
           <button 
             onClick={() => {
               if (window.location.pathname === "/") {
@@ -881,13 +961,37 @@ export default function Home() {
                 router.push("/");
               }
             }}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0"
           >
             <Logo appName={appName} logoUrl={logoUrl} />
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 shrink-0">
               v{appVersion}
             </Badge>
           </button>
+          {user && (
+            <AppMobileNav
+              currentPath={router.pathname}
+              signedIn
+              userEmail={user.email ?? null}
+              onSignOut={handleSignOut}
+              github={{
+                hasPat: usesPatForGithub,
+                connections: githubConnections.map((c) => ({
+                  id: c.id,
+                  username: c.username,
+                  avatar_url: c.avatar_url,
+                })),
+                activeConnectionId: activeGithubConnectionId,
+                onSwitch: handleSwitchGithubAccount,
+                onRemove: handleRemoveGithubConnection,
+                onDisconnectAll: handleDisconnectAllGithubFromNav,
+                onConnectOAuth: handleGithubOAuthConnect,
+                onConnectPat: () => setShowConnectionDialog(true),
+                isOAuthStarting,
+              }}
+            />
+          )}
+          </div>
           
           <div className="flex items-center gap-2">
             {selectedRepos.length > 0 && (

@@ -1,4 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { saveUserSettings } from "@/services/userSettingsService";
+
+export type GitHubConnectionRow = Tables<"github_connections">;
 
 interface GitHubRepo {
   id: number;
@@ -24,17 +28,15 @@ interface GitHubIssue {
 }
 
 export async function saveGitHubConnection(accessToken: string) {
-  // Get current session with better debugging
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   console.log("Session check:", { session, sessionError });
-  
-  if (!session || !session.user) {
+
+  if (!session?.user) {
     console.error("No session found");
     throw new Error("Not authenticated. Please refresh the page and try again.");
   }
 
   const user = session.user;
-  console.log("User authenticated:", user.id);
 
   const userResponse = await fetch("https://api.github.com/user", {
     headers: {
@@ -44,75 +46,178 @@ export async function saveGitHubConnection(accessToken: string) {
   });
 
   if (!userResponse.ok) throw new Error("Invalid GitHub token");
-  const userData = await userResponse.json();
+  const userData = (await userResponse.json()) as { login: string; avatar_url?: string | null };
   console.log("GitHub user data:", userData);
 
   const { data: existing } = await supabase
     .from("github_connections")
     .select("id")
     .eq("user_id", user.id)
+    .eq("username", userData.login)
     .maybeSingle();
 
-  if (existing) {
+  const row = {
+    username: userData.login,
+    access_token: accessToken,
+    avatar_url: userData.avatar_url ?? null,
+    connected_at: new Date().toISOString(),
+  };
+
+  let connectionId: string;
+
+  if (existing?.id) {
     const { error } = await supabase
       .from("github_connections")
-      .update({
-        username: userData.login,
-        access_token: accessToken,
-        avatar_url: userData.avatar_url,
-        connected_at: new Date().toISOString()
-      })
+      .update(row)
       .eq("id", existing.id);
     if (error) {
       console.error("Update error:", error);
       throw error;
     }
+    connectionId = existing.id;
   } else {
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from("github_connections")
       .insert({
         user_id: user.id,
-        username: userData.login,
-        access_token: accessToken,
-        avatar_url: userData.avatar_url,
-      });
+        ...row,
+      })
+      .select("id")
+      .single();
     if (error) {
       console.error("Insert error:", error);
       throw error;
     }
+    if (!inserted?.id) throw new Error("Failed to save GitHub connection");
+    connectionId = inserted.id;
   }
-  
+
+  await saveUserSettings(user.id, { active_github_connection_id: connectionId });
   console.log("GitHub connection saved successfully");
 }
 
-export async function getGitHubConnection() {
+export async function getGitHubConnections(): Promise<GitHubConnectionRow[]> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) return [];
 
   const { data, error } = await supabase
     .from("github_connections")
     .select("*")
     .eq("user_id", user.id)
+    .order("connected_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching GitHub connections:", error);
+    return [];
+  }
+
+  return data ?? [];
+}
+
+export async function getGitHubConnection(): Promise<GitHubConnectionRow | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: settingsRow, error: settingsError } = await supabase
+    .from("user_settings")
+    .select("active_github_connection_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (settingsError) {
+    console.error("Error fetching user_settings for active GitHub:", settingsError);
+  }
+
+  const activeId = settingsRow?.active_github_connection_id ?? null;
+
+  if (activeId) {
+    const { data, error } = await supabase
+      .from("github_connections")
+      .select("*")
+      .eq("id", activeId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching active GitHub connection:", error);
+    } else if (data) {
+      return data;
+    }
+  }
+
+  const { data: fallback, error } = await supabase
+    .from("github_connections")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("connected_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
     console.error("Error fetching GitHub connection:", error);
     return null;
   }
-  
-  return data;
+
+  return fallback;
 }
 
-export async function disconnectGitHub() {
+export async function setActiveGitHubConnection(connectionId: string | null) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  
+
+  if (connectionId) {
+    const { data } = await supabase
+      .from("github_connections")
+      .select("id")
+      .eq("id", connectionId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!data) throw new Error("GitHub connection not found");
+  }
+
+  const ok = await saveUserSettings(user.id, { active_github_connection_id: connectionId });
+  if (!ok) throw new Error("Failed to update active GitHub account");
+}
+
+export async function disconnectGitHubConnection(connectionId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: settingsRow } = await supabase
+    .from("user_settings")
+    .select("active_github_connection_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("github_connections")
+    .delete()
+    .eq("id", connectionId)
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+
+  if (settingsRow?.active_github_connection_id === connectionId) {
+    await saveUserSettings(user.id, { active_github_connection_id: null });
+  }
+}
+
+export async function disconnectAllGitHubConnections() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
   const { error } = await supabase
     .from("github_connections")
     .delete()
     .eq("user_id", user.id);
-    
+
   if (error) throw error;
+  await saveUserSettings(user.id, { active_github_connection_id: null });
+}
+
+/** Removes all linked GitHub OAuth rows for the signed-in user. */
+export async function disconnectGitHub() {
+  await disconnectAllGitHubConnections();
 }
 
 export async function fetchGitHubRepositories(accessToken: string): Promise<GitHubRepo[]> {

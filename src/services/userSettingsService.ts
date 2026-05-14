@@ -10,6 +10,7 @@ export interface UserSettings {
   widgets_per_row: number;
   theme: string;
   github_token: string | null;
+  active_github_connection_id: string | null;
   selected_repos: string[];
   app_name: string;
   logo_url: string | null;
@@ -38,6 +39,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
     selected_repos: (data.selected_repos as unknown as string[]) || [],
     app_name: data.app_name || "Bugzilla",
     logo_url: data.logo_url || null,
+    active_github_connection_id: data.active_github_connection_id ?? null,
   };
 }
 
@@ -69,6 +71,7 @@ export async function createUserSettings(userId: string): Promise<UserSettings |
     selected_repos: (data.selected_repos as unknown as string[]) || [],
     app_name: data.app_name || "Bugzilla",
     logo_url: data.logo_url || null,
+    active_github_connection_id: data.active_github_connection_id ?? null,
   };
 }
 
@@ -80,6 +83,7 @@ export async function saveUserSettings(
     widgets_per_row: number;
     theme: string;
     github_token: string | null;
+    active_github_connection_id: string | null;
     selected_repos: string[];
     app_name: string;
     logo_url: string | null;
@@ -104,6 +108,9 @@ export async function saveUserSettings(
   }
   if (settings.github_token !== undefined) {
     updateData.github_token = settings.github_token;
+  }
+  if (settings.active_github_connection_id !== undefined) {
+    updateData.active_github_connection_id = settings.active_github_connection_id;
   }
   if (settings.selected_repos !== undefined) {
     updateData.selected_repos = JSON.parse(JSON.stringify(settings.selected_repos));

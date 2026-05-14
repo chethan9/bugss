@@ -88,6 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from("github_connections")
       .select("id")
       .eq("user_id", payload.sub)
+      .eq("username", userData.login)
       .maybeSingle();
 
     if (selectError) {
@@ -102,6 +103,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       connected_at: new Date().toISOString(),
     };
 
+    let connectionId: string;
+
     if (existing?.id) {
       const { error } = await admin
         .from("github_connections")
@@ -111,14 +114,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error("[github-oauth-callback] update github_connections", error);
         throw error;
       }
+      connectionId = existing.id;
     } else {
-      const { error } = await admin.from("github_connections").insert({
-        user_id: payload.sub,
-        ...row,
-      });
+      const { data: inserted, error } = await admin
+        .from("github_connections")
+        .insert({
+          user_id: payload.sub,
+          ...row,
+        })
+        .select("id")
+        .single();
       if (error) {
         console.error("[github-oauth-callback] insert github_connections", error);
         throw error;
+      }
+      if (!inserted?.id) throw new Error("insert returned no id");
+      connectionId = inserted.id;
+    }
+
+    const { data: settingsRow, error: settingsSelectError } = await admin
+      .from("user_settings")
+      .select("id")
+      .eq("user_id", payload.sub)
+      .maybeSingle();
+
+    if (settingsSelectError) {
+      console.error("[github-oauth-callback] select user_settings", settingsSelectError);
+      throw settingsSelectError;
+    }
+
+    if (settingsRow?.id) {
+      const { error: settingsUpdateError } = await admin
+        .from("user_settings")
+        .update({
+          active_github_connection_id: connectionId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", payload.sub);
+      if (settingsUpdateError) {
+        console.error("[github-oauth-callback] update user_settings active_github", settingsUpdateError);
+        throw settingsUpdateError;
       }
     }
   } catch (e: unknown) {

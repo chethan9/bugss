@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
+import { AppMobileNav } from "@/components/AppMobileNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -230,12 +231,18 @@ export default function ProfilePage() {
         {/* Header */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <AppMobileNav
+              currentPath={router.pathname}
+              signedIn
+              userEmail={user?.email ?? null}
+              onSignOut={handleSignOut}
+            />
+            <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
             
             <div className="flex items-center gap-2">
               <ThemeToggle />
