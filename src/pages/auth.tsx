@@ -52,9 +52,14 @@ export default function AuthPage() {
         if (password.length < 6) {
           throw new Error("Password must be at least 6 characters");
         }
+        const origin =
+          typeof window !== "undefined" ? window.location.origin : "";
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: origin ? `${origin}/auth` : undefined,
+          },
         });
         if (error) throw error;
         setSuccess("Account created! Please check your email to verify your account.");

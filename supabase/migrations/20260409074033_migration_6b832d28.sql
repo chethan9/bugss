@@ -1,14 +1,14 @@
 CREATE TABLE IF NOT EXISTS app_version (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  version_number INTEGER NOT NULL DEFAULT 1,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  version_number INTEGER NOT NULL UNIQUE DEFAULT 1,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   change_log TEXT
 );
 
--- Insert initial version
-INSERT INTO app_version (version_number, change_log) 
+-- Insert initial version (idempotent)
+INSERT INTO app_version (version_number, change_log)
 VALUES (1, 'Initial release')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (version_number) DO NOTHING;
 
 -- Enable RLS
 ALTER TABLE app_version ENABLE ROW LEVEL SECURITY;
