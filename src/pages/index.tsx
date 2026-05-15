@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, Fragment } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import Masonry from "react-masonry-css";
 import {
@@ -19,8 +20,9 @@ import {
   Calendar,
   Check,
   Trash2,
-  Link2,
-  UserPlus,
+  PlusCircle,
+  ChevronDown,
+  FileDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +43,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
@@ -60,9 +67,17 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueTable, type GitHubIssue } from "@/components/IssueTable";
 import { IssueDetailsModal } from "@/components/IssueDetailsModal";
 import { FilterMenu } from "@/components/FilterMenu";
-import { PDFExport } from "@/components/PDFExport";
-import { WidgetSettings, DEFAULT_VISIBILITY, DEFAULT_WIDGET_ORDER, type WidgetVisibility } from "@/components/WidgetSettings";
-import { ReportSettings, type ReportConfig, DEFAULT_REPORT_CONFIG } from "@/components/ReportSettings";
+import {
+  WidgetSettingsPanel,
+  DEFAULT_VISIBILITY,
+  DEFAULT_WIDGET_ORDER,
+  type WidgetVisibility,
+} from "@/components/WidgetSettings";
+import {
+  ReportSettingsPanel,
+  type ReportConfig,
+  DEFAULT_REPORT_CONFIG,
+} from "@/components/ReportSettings";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { DataFetchingLoader } from "@/components/LoadingSpinner";
@@ -103,41 +118,30 @@ import {
   fetchUserRepositories,
   getGitHubConnection,
   getGitHubConnections,
+  migrateLegacyGithubTokenIfPresent,
+  normalizeProfileName,
+  saveGitHubConnection,
   setActiveGitHubConnection,
   type GitHubRepository,
 } from "@/services/githubService";
 import {
-  generateSmartInsights,
-  calculateSeverityDistribution,
-  calculateAverageResolutionTime,
-  calculateIssueTrend,
-  calculateModuleStability,
-  filterIssuesByDateRange,
-  calculateReopenedIssues,
-  calculateCategoryBreakdown,
-  calculateBugHotspots,
-  calculateAtRiskRelease,
-  calculateAgingIssues,
-  calculateCriticalUntouched,
-  calculateBacklogGrowth,
-  calculateBugFixEfficiency,
-  detectRepeatBugs,
-  calculateDeveloperLoad,
-  generateFocusRecommendations,
-  calculateBugHeatmap,
-  calculateResolutionHistogram,
-  calculatePriorityResolutionScatter,
-  calculateStackedAreaData,
-  calculateIssueFunnel,
-  calculateBacklogWaterfall,
-  calculateModuleTreemap,
-  calculateModuleRadarData,
-  calculateKPIMetrics,
-  calculateSparklineData,
-} from "@/services/analyticsService";
+  computeDashboardAnalytics,
+  INITIAL_WIDGET_ROWS,
+  WIDGET_ROWS_INCREMENT,
+} from "@/lib/dashboardWidgetAnalytics";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 import { SEO } from "@/components/SEO";
+
+const LazyPDFExport = dynamic(
+  () => import("@/components/PDFExport").then((m) => ({ default: m.PDFExport })),
+  {
+    ssr: false,
+    loading: () => (
+      <span className="text-sm text-muted-foreground p-4 inline-block">Loading export…</span>
+    ),
+  }
+);
 
 const STORAGE_KEYS = {
   TOKEN: "github_token_encoded",
@@ -208,11 +212,13 @@ export default function Home() {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [dialogSelectedRepos, setDialogSelectedRepos] = useState<string[]>([]);
   
-  // Log whenever dialog state changes
-  useEffect(() => {
-    console.log("🟢 showConnectionDialog changed to:", showConnectionDialog);
-  }, [showConnectionDialog]);
-  
+  const [connectionProfileName, setConnectionProfileName] = useState("");
+  const [pendingConnectionSaveId, setPendingConnectionSaveId] = useState<string | null>(null);
+
+  const [showWidgetSettingsDialog, setShowWidgetSettingsDialog] = useState(false);
+  const [showReportSettingsDialog, setShowReportSettingsDialog] = useState(false);
+  const [showPdfExportDialog, setShowPdfExportDialog] = useState(false);
+  const [githubProfilePopoverOpen, setGithubProfilePopoverOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null,
@@ -221,6 +227,7 @@ export default function Home() {
   const [widgetVisibility, setWidgetVisibility] = useState<WidgetVisibility>(DEFAULT_VISIBILITY);
   const [widgetsPerRow, setWidgetsPerRow] = useState(2);
   const [widgetOrder, setWidgetOrder] = useState<(keyof WidgetVisibility)[]>(DEFAULT_WIDGET_ORDER);
+  const [visibleWidgetRows, setVisibleWidgetRows] = useState(INITIAL_WIDGET_ROWS);
   const [reportConfig, setReportConfig] = useState<ReportConfig>(DEFAULT_REPORT_CONFIG);
 
   const [user, setUser] = useState<any>(null);
@@ -229,10 +236,6 @@ export default function Home() {
     Awaited<ReturnType<typeof getGitHubConnections>>
   >([]);
   const [activeGithubConnectionId, setActiveGithubConnectionId] = useState<string | null>(null);
-  const [usesPatForGithub, setUsesPatForGithub] = useState(false);
-  const [oauthSuccessBanner, setOauthSuccessBanner] = useState<string | null>(null);
-  const [showOauthLoginHintDialog, setShowOauthLoginHintDialog] = useState(false);
-  const [oauthLoginHintInput, setOauthLoginHintInput] = useState("");
   const [appName, setAppName] = useState("Bugzilla");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<number>(1);
@@ -266,6 +269,8 @@ export default function Home() {
         
         setUser(session.user);
 
+        await migrateLegacyGithubTokenIfPresent();
+
         const [settings, connections] = await Promise.all([
           getUserSettings(session.user.id),
           getGitHubConnections(),
@@ -290,26 +295,14 @@ export default function Home() {
           if (settings.logo_url) {
             setLogoUrl(settings.logo_url);
           }
-          if (settings.github_token) {
-            setUsesPatForGithub(true);
-            const storedToken = settings.github_token;
-            setGithubToken(storedToken);
-            setToken(storedToken);
+          const conn = await getGitHubConnection();
+          if (conn?.access_token) {
+            const t = conn.access_token;
+            setGithubToken(t);
+            setToken(t);
             if (settings.selected_repos && settings.selected_repos.length > 0) {
               setSelectedRepos(settings.selected_repos);
-              fetchSelectedIssues(settings.selected_repos, storedToken);
-            }
-          } else {
-            setUsesPatForGithub(false);
-            const conn = await getGitHubConnection();
-            if (conn?.access_token) {
-              const t = conn.access_token;
-              setGithubToken(t);
-              setToken(t);
-              if (settings.selected_repos && settings.selected_repos.length > 0) {
-                setSelectedRepos(settings.selected_repos);
-                fetchSelectedIssues(settings.selected_repos, t);
-              }
+              fetchSelectedIssues(settings.selected_repos, t);
             }
           }
         }
@@ -346,97 +339,6 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // After GitHub OAuth redirect: token saved server-side; load repos step
-  useEffect(() => {
-    if (!router.isReady || isAuthLoading) return;
-    const status = router.query.github_oauth;
-    if (status !== "success" && status !== "error") return;
-
-    let cancelled = false;
-
-    const run = async () => {
-      if (status === "error") {
-        const reason =
-          typeof router.query.reason === "string" ? router.query.reason : "unknown";
-        const hint =
-          typeof router.query.hint === "string" ? router.query.hint : "";
-        const hintText: Record<string, string> = {
-          missing_service_role:
-            "Set SUPABASE_SERVICE_ROLE_KEY in Vercel env (Supabase → Project Settings → API → service_role secret, not anon).",
-          rls_use_service_role:
-            "Database rejected the write: your SUPABASE_SERVICE_ROLE_KEY is probably the anon key. Use the service_role secret only on the server.",
-          invalid_user:
-            "Your account could not be linked. Sign out, sign in again, then retry GitHub OAuth.",
-          unknown:
-            "Check Vercel → Deployment → Functions → /api/github/oauth/callback logs for details.",
-        };
-        const extra = hint ? ` ${hintText[hint] ?? ""}` : "";
-        setTokenError(`GitHub OAuth failed (${reason}).${extra}`.trim());
-        await router.replace("/", undefined, { shallow: true });
-        return;
-      }
-
-      try {
-        const linkedRaw =
-          typeof router.query.linked_login === "string" ? router.query.linked_login : null;
-        const linked = linkedRaw ? decodeURIComponent(linkedRaw) : null;
-        if (linked) {
-          setOauthSuccessBanner(
-            `@${linked} is now linked. Pick repositories below (or use Menu → GitHub to switch accounts).`
-          );
-        }
-
-        const conn = await getGitHubConnection();
-        const t = conn?.access_token;
-        if (!t) {
-          setTokenError("GitHub authorized but connection not found. Try connecting again.");
-          await router.replace("/", undefined, { shallow: true });
-          return;
-        }
-        setToken(t);
-        setGithubToken(t);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const [list, st] = await Promise.all([
-            getGitHubConnections(),
-            getUserSettings(session.user.id),
-          ]);
-          setGithubConnections(list);
-          setActiveGithubConnectionId(st?.active_github_connection_id ?? null);
-        }
-        setShowConnectionDialog(true);
-        setConnectionStep("repos");
-        setIsLoadingRepos(true);
-        const repos = await fetchUserRepositories(t);
-        if (cancelled) return;
-        setAvailableRepos(repos);
-        setDialogSelectedRepos((prev) =>
-          prev.length > 0 ? prev : selectedRepos.length > 0 ? [...selectedRepos] : []
-        );
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Failed to load repositories";
-        setTokenError(msg);
-      } finally {
-        if (!cancelled) setIsLoadingRepos(false);
-        await router.replace("/", undefined, { shallow: true });
-      }
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    router.isReady,
-    router.query.github_oauth,
-    router.query.reason,
-    router.query.hint,
-    router.query.linked_login,
-    isAuthLoading,
-    router,
-    selectedRepos,
-  ]);
-
   // Save settings when they change (debounced)
   useEffect(() => {
     if (!user) return;
@@ -446,13 +348,16 @@ export default function Home() {
         widget_visibility: widgetVisibility,
         widget_order: widgetOrder,
         widgets_per_row: widgetsPerRow,
-        github_token: githubToken || null,
         selected_repos: selectedRepos,
       });
     }, 1000);
     
     return () => clearTimeout(saveTimeout);
-  }, [user, widgetVisibility, widgetOrder, widgetsPerRow, githubToken, selectedRepos]);
+  }, [user, widgetVisibility, widgetOrder, widgetsPerRow, selectedRepos]);
+
+  useEffect(() => {
+    setVisibleWidgetRows(INITIAL_WIDGET_ROWS);
+  }, [selectedRepos, widgetVisibility, widgetOrder, widgetsPerRow]);
 
   useEffect(() => {
     console.log("🟢 Auto-load useEffect running...");
@@ -566,7 +471,6 @@ export default function Home() {
     }
     setGithubConnections([]);
     setActiveGithubConnectionId(null);
-    setUsesPatForGithub(false);
   };
 
   const handleSignOut = async () => {
@@ -614,42 +518,6 @@ export default function Home() {
     setIssues(allIssues);
   };
 
-  const [isOAuthStarting, setIsOAuthStarting] = useState(false);
-
-  const handleGithubOAuthConnect = async (loginHint?: string) => {
-    setTokenError("");
-    const { data: { session } } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
-    if (!accessToken) {
-      setTokenError("You must be signed in to connect GitHub.");
-      return;
-    }
-    setIsOAuthStarting(true);
-    try {
-      const q =
-        typeof loginHint === "string" && loginHint.trim()
-          ? `?login=${encodeURIComponent(loginHint.trim())}`
-          : "";
-      const res = await fetch(`/api/github/oauth/start${q}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok) {
-        setTokenError(data.error || "Could not start GitHub OAuth");
-        return;
-      }
-      if (!data.url) {
-        setTokenError("Invalid response from server");
-        return;
-      }
-      window.location.assign(data.url);
-    } catch (e: unknown) {
-      setTokenError(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setIsOAuthStarting(false);
-    }
-  };
-
   const handleSwitchGithubAccount = async (connectionId: string) => {
     if (!user) return;
     try {
@@ -664,6 +532,8 @@ export default function Home() {
       setSelectedRepos([]);
       setIssues([]);
       await saveUserSettings(user.id, { selected_repos: [] });
+      const list = await getGitHubConnections();
+      setGithubConnections(list);
     } catch (e: unknown) {
       console.error(e);
       alert(e instanceof Error ? e.message : "Could not switch account");
@@ -678,17 +548,15 @@ export default function Home() {
       setGithubConnections(next);
       const st = await getUserSettings(user.id);
       setActiveGithubConnectionId(st?.active_github_connection_id ?? null);
-      if (!usesPatForGithub) {
-        const conn = await getGitHubConnection();
-        if (conn?.access_token) {
-          setToken(conn.access_token);
-          setGithubToken(conn.access_token);
-        } else {
-          setToken("");
-          setGithubToken("");
-          setSelectedRepos([]);
-          setIssues([]);
-        }
+      const conn = await getGitHubConnection();
+      if (conn?.access_token) {
+        setToken(conn.access_token);
+        setGithubToken(conn.access_token);
+      } else {
+        setToken("");
+        setGithubToken("");
+        setSelectedRepos([]);
+        setIssues([]);
       }
     } catch (e: unknown) {
       console.error(e);
@@ -706,6 +574,14 @@ export default function Home() {
       return;
     }
 
+    let profileLabel: string;
+    try {
+      profileLabel = normalizeProfileName(connectionProfileName.trim());
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Invalid profile name");
+      return;
+    }
+
     const cleanToken = githubToken.trim();
     
     if (cleanToken.length < 20) {
@@ -713,21 +589,34 @@ export default function Home() {
       return;
     }
 
+    if (!user) {
+      alert("You must be signed in.");
+      return;
+    }
+
     setIsLoadingRepos(true);
     try {
-      console.log("🔑 Attempting to fetch repositories with provided token...");
       const repos = await fetchUserRepositories(cleanToken);
       
       if (repos.length === 0) {
         alert("No repositories found. This could mean:\n1. Your account has no repositories\n2. Your token lacks repo (and read:org for org listing) scopes\n3. Your organization has not approved this app for third-party access");
         return;
       }
+
+      await saveGitHubConnection(cleanToken, {
+        profileName: profileLabel,
+        connectionId: pendingConnectionSaveId ?? undefined,
+      });
+      const nextConnections = await getGitHubConnections();
+      setGithubConnections(nextConnections);
+      const st = await getUserSettings(user.id);
+      setActiveGithubConnectionId(st?.active_github_connection_id ?? null);
       
       setAvailableRepos(repos);
       setConnectionStep("repos");
       setToken(cleanToken);
       setGithubToken(cleanToken);
-      setDialogSelectedRepos([...selectedRepos]); // Initialize with current selection
+      setDialogSelectedRepos([...selectedRepos]);
     } catch (error: any) {
       console.error("Failed to fetch repositories:", error);
       
@@ -766,11 +655,8 @@ export default function Home() {
       // Save token and repos to Supabase for persistence
       if (user) {
         await saveUserSettings(user.id, {
-          github_token: token,
           selected_repos: dialogSelectedRepos,
         });
-        setUsesPatForGithub(true);
-        console.log("🔴 Saved token and repos to Supabase");
       }
       
       if (rememberMe) {
@@ -832,9 +718,10 @@ export default function Home() {
     const tokenToUse = token || githubToken;
     
     if (!tokenToUse) {
-      // No token - show token entry screen
       setConnectionStep("token");
       setDialogSelectedRepos([]);
+      setConnectionProfileName("");
+      setPendingConnectionSaveId(null);
       setShowConnectionDialog(true);
       return;
     }
@@ -929,40 +816,23 @@ export default function Home() {
     });
   }, [issues, filters, dateRange]);
 
-  const analytics = useMemo(() => {
-    return {
-      insights: generateSmartInsights(filteredIssues),
-      severities: calculateSeverityDistribution(filteredIssues),
-      resolutionTime: calculateAverageResolutionTime(filteredIssues),
-      trend: calculateIssueTrend(filteredIssues, 30),
-      stability: calculateModuleStability(filteredIssues),
-      reopened: calculateReopenedIssues(filteredIssues),
-      categories: calculateCategoryBreakdown(filteredIssues),
-      hotspots: calculateBugHotspots(filteredIssues, 5),
-      atRiskRelease: calculateAtRiskRelease(filteredIssues),
-      agingIssues: calculateAgingIssues(filteredIssues),
-      criticalUntouched: calculateCriticalUntouched(filteredIssues, 3),
-      backlogGrowth: calculateBacklogGrowth(filteredIssues),
-      bugFixEfficiency: calculateBugFixEfficiency(filteredIssues, 30),
-      repeatBugs: detectRepeatBugs(filteredIssues, 7),
-      developerLoad: calculateDeveloperLoad(filteredIssues),
-      focusRecommendations: generateFocusRecommendations(filteredIssues),
-      bugHeatmap: calculateBugHeatmap(filteredIssues, 30),
-      resolutionHistogram: calculateResolutionHistogram(filteredIssues),
-      priorityScatter: calculatePriorityResolutionScatter(filteredIssues),
-      stackedAreaData: calculateStackedAreaData(filteredIssues, 30),
-      issueFunnel: calculateIssueFunnel(filteredIssues),
-      backlogWaterfall: calculateBacklogWaterfall(filteredIssues, 4),
-      moduleTreemap: calculateModuleTreemap(filteredIssues),
-      moduleRadar: calculateModuleRadarData(filteredIssues, 5),
-      kpiMetrics: calculateKPIMetrics(filteredIssues),
-      sparklines: {
-        open: calculateSparklineData(filteredIssues, "open", 14),
-        closed: calculateSparklineData(filteredIssues, "closed", 14),
-        created: calculateSparklineData(filteredIssues, "created", 14),
-      },
-    };
-  }, [filteredIssues]);
+  const visibleOrderedWidgets = useMemo(
+    () => widgetOrder.filter((key) => widgetVisibility[key]),
+    [widgetOrder, widgetVisibility]
+  );
+
+  const widgetsToRender = useMemo(() => {
+    const limit = widgetsPerRow * visibleWidgetRows;
+    return visibleOrderedWidgets.slice(0, limit);
+  }, [visibleOrderedWidgets, widgetsPerRow, visibleWidgetRows]);
+
+  const hiddenWidgetCount = Math.max(0, visibleOrderedWidgets.length - widgetsToRender.length);
+  const hasMoreWidgets = hiddenWidgetCount > 0;
+
+  const analytics = useMemo(
+    () => computeDashboardAnalytics(filteredIssues, widgetsToRender),
+    [filteredIssues, widgetsToRender]
+  );
 
   const metrics = useMemo(() => {
     const statusCounts = { open: 0, inProgress: 0, closed: 0 };
@@ -981,6 +851,15 @@ export default function Home() {
       statuses: [],
       search: "",
     });
+  };
+
+  const openAddGitHubProfileDialog = () => {
+    setTokenError("");
+    setConnectionProfileName("");
+    setPendingConnectionSaveId(null);
+    setGithubToken("");
+    setConnectionStep("token");
+    setShowConnectionDialog(true);
   };
 
   return (
@@ -1006,19 +885,100 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-2">
+            {user && githubConnections.length > 0 && (
+              <Popover open={githubProfilePopoverOpen} onOpenChange={setGithubProfilePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 max-w-[200px] shrink min-w-0" type="button">
+                    <Github className="h-4 w-4 shrink-0" />
+                    <span className="truncate hidden sm:inline">
+                      {(() => {
+                        const c =
+                          githubConnections.find((x) => x.id === activeGithubConnectionId) ??
+                          githubConnections[0];
+                        return c ? c.profile_name : "GitHub";
+                      })()}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 p-0">
+                  <div className="px-3 py-2 border-b text-xs font-medium text-muted-foreground">
+                    GitHub profiles
+                  </div>
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {githubConnections.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-muted ${
+                          activeGithubConnectionId === c.id ? "bg-muted/70" : ""
+                        }`}
+                        onClick={() => {
+                          void handleSwitchGithubAccount(c.id);
+                          setGithubProfilePopoverOpen(false);
+                        }}
+                      >
+                        {activeGithubConnectionId === c.id ? (
+                          <Check className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <Github className="h-4 w-4 shrink-0 opacity-60" />
+                        )}
+                        <span className="truncate">
+                          <span className="font-medium">{c.profile_name}</span>
+                          <span className="text-muted-foreground"> @{c.username}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="p-2 border-t space-y-0.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-9"
+                      type="button"
+                      onClick={() => {
+                        setGithubProfilePopoverOpen(false);
+                        openAddGitHubProfileDialog();
+                      }}
+                    >
+                      <PlusCircle className="h-4 w-4 mr-2 shrink-0" />
+                      Add profile…
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start h-9"
+                      type="button"
+                      onClick={() => {
+                        setGithubProfilePopoverOpen(false);
+                        router.push("/profile");
+                      }}
+                    >
+                      <User className="h-4 w-4 mr-2 shrink-0" />
+                      Manage profiles
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {user && (token || githubToken).trim() && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleManageRepositories()}
+                className="gap-2 shrink-0"
+                type="button"
+              >
+                <GitBranch className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  Repositories{selectedRepos.length > 0 ? ` (${selectedRepos.length})` : ""}
+                </span>
+              </Button>
+            )}
+
             {selectedRepos.length > 0 && (
               <>
-                {/* Change Repos Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManageRepositories}
-                  className="gap-2"
-                >
-                  <GitBranch className="h-4 w-4" />
-                  <span className="hidden sm:inline">Repos ({selectedRepos.length})</span>
-                </Button>
-                
                 {/* Column Selector */}
                 <div className="hidden md:flex items-center border rounded-md">
                   {[1, 2, 3, 4].map((cols) => (
@@ -1178,75 +1138,43 @@ export default function Home() {
                     <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
                       GitHub
                     </DropdownMenuLabel>
-                    {selectedRepos.length === 0 && (
-                      <DropdownMenuItem
-                        onClick={() => void handleManageRepositories()}
-                        className="font-medium"
-                      >
-                        <GitBranch className="h-4 w-4 mr-2 shrink-0" />
-                        {(token || githubToken).trim()
-                          ? "Choose repositories…"
-                          : "Connect & choose repositories…"}
-                      </DropdownMenuItem>
-                    )}
-                    {usesPatForGithub && (
-                      <div className="px-2 py-1.5 text-xs text-muted-foreground leading-snug">
-                        A personal access token is saved and is used for API calls until you remove it in
-                        Profile.
-                      </div>
-                    )}
-                    {!usesPatForGithub &&
-                      githubConnections.map((c) => (
-                        <Fragment key={c.id}>
-                          <DropdownMenuItem
-                            disabled={activeGithubConnectionId === c.id}
-                            onClick={() => void handleSwitchGithubAccount(c.id)}
-                          >
-                            {activeGithubConnectionId === c.id ? (
-                              <Check className="h-4 w-4 mr-2 shrink-0" />
-                            ) : (
-                              <Github className="h-4 w-4 mr-2 shrink-0" />
-                            )}
-                            <span className="truncate">Use @{c.username}</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => void handleRemoveGithubConnection(c.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2 shrink-0" />
-                            <span className="truncate">Remove @{c.username}</span>
-                          </DropdownMenuItem>
-                        </Fragment>
-                      ))}
                     <DropdownMenuItem
-                      disabled={isOAuthStarting}
-                      onClick={() => void handleGithubOAuthConnect()}
+                      onClick={() => void handleManageRepositories()}
+                      className="font-medium"
                     >
-                      <Link2 className="h-4 w-4 mr-2 shrink-0" />
-                      {isOAuthStarting
-                        ? "Opening GitHub…"
-                        : "Add GitHub (this browser session)"}
+                      <GitBranch className="h-4 w-4 mr-2 shrink-0" />
+                      Repositories
+                      {selectedRepos.length > 0 ? ` (${selectedRepos.length})` : ""}
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={isOAuthStarting}
-                      onClick={() => {
-                        setOauthLoginHintInput("");
-                        setShowOauthLoginHintDialog(true);
-                      }}
-                    >
-                      <UserPlus className="h-4 w-4 mr-2 shrink-0" />
-                      Add GitHub (different user)…
+                    {githubConnections.map((c) => (
+                      <Fragment key={c.id}>
+                        <DropdownMenuItem
+                          disabled={activeGithubConnectionId === c.id}
+                          onClick={() => void handleSwitchGithubAccount(c.id)}
+                        >
+                          {activeGithubConnectionId === c.id ? (
+                            <Check className="h-4 w-4 mr-2 shrink-0" />
+                          ) : (
+                            <Github className="h-4 w-4 mr-2 shrink-0" />
+                          )}
+                          <span className="truncate">
+                            Use <span className="font-medium">{c.profile_name}</span> (@{c.username})
+                          </span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => void handleRemoveGithubConnection(c.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2 shrink-0" />
+                          <span className="truncate">Remove {c.profile_name}</span>
+                        </DropdownMenuItem>
+                      </Fragment>
+                    ))}
+                    <DropdownMenuItem onClick={() => openAddGitHubProfileDialog()}>
+                      <PlusCircle className="h-4 w-4 mr-2 shrink-0" />
+                      Add profile (token)…
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowConnectionDialog(true);
-                        setConnectionStep("token");
-                      }}
-                    >
-                      <Key className="h-4 w-4 mr-2 shrink-0" />
-                      Connect with personal token
-                    </DropdownMenuItem>
-                    {(githubConnections.length > 0 || usesPatForGithub) && (
+                    {githubConnections.length > 0 && (
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => void handleDisconnectAllGithubFromNav()}
@@ -1264,31 +1192,24 @@ export default function Home() {
                     <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
                       Dashboard
                     </DropdownMenuLabel>
-                    <DropdownMenuItem onClick={handleManageRepositories}>
+                    <DropdownMenuItem onClick={() => void handleManageRepositories()}>
                       <GitBranch className="h-4 w-4 mr-2 shrink-0" />
-                      Manage Repositories
+                      Manage repositories
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <WidgetSettings
-                        visibility={widgetVisibility}
-                        onVisibilityChange={handleVisibilityChange}
-                        widgetsPerRow={widgetsPerRow}
-                        onWidgetsPerRowChange={setWidgetsPerRow}
-                        widgetOrder={widgetOrder}
-                        onWidgetOrderChange={setWidgetOrder}
-                      />
+                    <DropdownMenuItem onClick={() => setShowWidgetSettingsDialog(true)}>
+                      <Settings className="h-4 w-4 mr-2 shrink-0" />
+                      Widget layout…
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <ReportSettings
-                        config={reportConfig}
-                        onConfigChange={handleReportConfigChange}
-                      />
+                    <DropdownMenuItem onClick={() => setShowReportSettingsDialog(true)}>
+                      <Settings className="h-4 w-4 mr-2 shrink-0" />
+                      Report settings…
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <PDFExport
-                        disabled={filteredIssues.length === 0}
-                        reportConfig={reportConfig}
-                      />
+                    <DropdownMenuItem
+                      disabled={filteredIssues.length === 0}
+                      onClick={() => setShowPdfExportDialog(true)}
+                    >
+                      <FileDown className="h-4 w-4 mr-2 shrink-0" />
+                      Export PDF…
                     </DropdownMenuItem>
                   </>
                 )}
@@ -1313,49 +1234,36 @@ export default function Home() {
         </div>
       </header>
 
-      {oauthSuccessBanner && (
-        <div className="border-b bg-muted/30">
-          <div className="container mx-auto flex items-start justify-between gap-3 px-4 py-2">
-            <p className="text-sm text-foreground pt-0.5">{oauthSuccessBanner}</p>
-            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setOauthSuccessBanner(null)}>
-              Dismiss
-            </Button>
-          </div>
-        </div>
-      )}
-
       <main className="container mx-auto px-6 py-8">
         {selectedRepos.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
             <GitBranch className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-heading font-bold mb-2">
-              {(token || githubToken).trim() ? "Choose repositories" : "Connect to GitHub"}
+              {(token || githubToken).trim() ? "Choose repositories" : "Add a GitHub profile"}
             </h2>
             <p className="text-muted-foreground mb-8 max-w-md">
               {(token || githubToken).trim()
-                ? "You are linked to GitHub. Pick one or more repositories to load issues and dashboards."
-                : "Connect your GitHub account, then select which repositories to analyze with Bugzilla."}
+                ? "Pick one or more repositories to load issues and dashboards for the active profile."
+                : "Create a named profile and paste a Personal Access Token. You can add multiple profiles and switch between them from the header or Menu."}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
               <Button size="lg" className="w-full sm:w-auto" onClick={() => void handleManageRepositories()}>
                 <GitBranch className="h-4 w-4 mr-2" />
-                {(token || githubToken).trim() ? "Choose repositories" : "Connect & choose repositories"}
+                {(token || githubToken).trim() ? "Choose repositories" : "Repositories"}
               </Button>
               <Button
                 variant="outline"
                 size="lg"
                 className="w-full sm:w-auto"
-                onClick={() => {
-                  setShowConnectionDialog(true);
-                  setConnectionStep("token");
-                }}
+                onClick={() => openAddGitHubProfileDialog()}
               >
-                <Settings className="h-4 w-4 mr-2" />
-                Other connection options
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Add profile (token)
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-6 max-w-md">
-              Tip: you can also use <span className="font-medium">Menu</span> → GitHub → Choose repositories.
+              Tip: use the <span className="font-medium">GitHub</span> button in the header to switch profiles, or{" "}
+              <span className="font-medium">Menu</span> → GitHub.
             </p>
           </div>
         ) : (
@@ -1377,9 +1285,7 @@ export default function Home() {
                   columnClassName="pl-6 bg-clip-padding"
                   id="analytics-widgets-section"
                 >
-                  {widgetOrder.map((widgetKey) => {
-                    if (!widgetVisibility[widgetKey]) return null;
-                    
+                  {widgetsToRender.map((widgetKey) => {
                     switch (widgetKey) {
                       case "repositoryFilter":
                         return selectedRepos.length > 0 ? (
@@ -1612,6 +1518,26 @@ export default function Home() {
                   })}
                 </Masonry>
 
+                {hasMoreWidgets && (
+                  <div className="flex justify-center py-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      className="gap-2"
+                      onClick={() =>
+                        setVisibleWidgetRows((rows) => rows + WIDGET_ROWS_INCREMENT)
+                      }
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                      Load more widgets
+                      <span className="text-muted-foreground font-normal">
+                        ({hiddenWidgetCount} remaining)
+                      </span>
+                    </Button>
+                  </div>
+                )}
+
                 {availableLabels.length > 0 && (
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-3">
@@ -1787,13 +1713,12 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Github className="h-5 w-5" />
-              {connectionStep === "token" ? "Connect to GitHub" : "Select Repositories"}
+              {connectionStep === "token" ? "Add GitHub profile" : "Select Repositories"}
             </DialogTitle>
             <DialogDescription>
-              {connectionStep === "token" 
-                ? "Authorize with GitHub (recommended) or paste a Personal Access Token."
-                : `Select repositories to track (${dialogSelectedRepos.length} selected)`
-              }
+              {connectionStep === "token"
+                ? "Choose a unique profile name, then paste a Personal Access Token. The token is stored only for this profile."
+                : `Select repositories to track (${dialogSelectedRepos.length} selected)`}
             </DialogDescription>
           </DialogHeader>
           
@@ -1805,39 +1730,17 @@ export default function Home() {
                   <AlertDescription>{tokenError}</AlertDescription>
                 </Alert>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => void handleGithubOAuthConnect()}
-                disabled={isOAuthStarting}
-              >
-                {isOAuthStarting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Redirecting to GitHub…
-                  </>
-                ) : (
-                  <>
-                    <Github className="h-4 w-4 mr-2" />
-                    Continue with GitHub
-                  </>
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                disabled={isOAuthStarting}
-                onClick={() => {
-                  setOauthLoginHintInput("");
-                  setShowOauthLoginHintDialog(true);
-                }}
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Sign in as another GitHub user…
-              </Button>
-              <p className="text-center text-xs text-muted-foreground">or use a token</p>
+              <div className="space-y-2">
+                <Label htmlFor="profile-name">Profile name</Label>
+                <Input
+                  id="profile-name"
+                  placeholder="e.g. Work, Client A"
+                  value={connectionProfileName}
+                  onChange={(e) => setConnectionProfileName(e.target.value)}
+                  autoCapitalize="off"
+                />
+                <p className="text-xs text-muted-foreground">Unique per account — used to switch between tokens.</p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="token">Personal Access Token</Label>
                 <div className="relative">
@@ -1951,7 +1854,7 @@ export default function Home() {
             {connectionStep === "token" ? (
               <Button 
                 onClick={handleTokenSubmit} 
-                disabled={!githubToken || isLoadingRepos}
+                disabled={!githubToken.trim() || !connectionProfileName.trim() || isLoadingRepos}
                 className="w-full sm:w-auto"
               >
                 {isLoadingRepos ? (
@@ -1995,51 +1898,46 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showOauthLoginHintDialog} onOpenChange={setShowOauthLoginHintDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showWidgetSettingsDialog} onOpenChange={setShowWidgetSettingsDialog}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Link a different GitHub user</DialogTitle>
-            <DialogDescription className="text-left space-y-2">
-              <span>
-                GitHub uses your current <span className="font-medium">github.com</span> browser
-                session. To add a <strong>second</strong> account while signed in as someone else,
-                enter that account&apos;s GitHub username — GitHub will ask you to sign in as them.
-              </span>
-            </DialogDescription>
+            <DialogTitle>Widget layout</DialogTitle>
+            <DialogDescription>Show, hide, and reorder dashboard widgets.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="gh-login-hint">GitHub username to authorize</Label>
-            <Input
-              id="gh-login-hint"
-              placeholder="octocat"
-              value={oauthLoginHintInput}
-              onChange={(e) => setOauthLoginHintInput(e.target.value)}
-              autoCapitalize="off"
-              autoCorrect="off"
-            />
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => setShowOauthLoginHintDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={isOAuthStarting}
-              onClick={async () => {
-                const hint = oauthLoginHintInput.trim();
-                if (!hint) {
-                  setTokenError("Enter the GitHub username you want to link.");
-                  return;
-                }
-                setTokenError("");
-                setShowOauthLoginHintDialog(false);
-                setOauthLoginHintInput("");
-                await handleGithubOAuthConnect(hint);
-              }}
-            >
-              Continue to GitHub
-            </Button>
-          </DialogFooter>
+          <WidgetSettingsPanel
+            visibility={widgetVisibility}
+            onVisibilityChange={handleVisibilityChange}
+            widgetsPerRow={widgetsPerRow}
+            onWidgetsPerRowChange={setWidgetsPerRow}
+            widgetOrder={widgetOrder}
+            onWidgetOrderChange={setWidgetOrder}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showReportSettingsDialog} onOpenChange={setShowReportSettingsDialog}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Report settings</DialogTitle>
+            <DialogDescription>Customize PDF report appearance and branding.</DialogDescription>
+          </DialogHeader>
+          <ReportSettingsPanel
+            config={reportConfig}
+            onConfigChange={handleReportConfigChange}
+            onClose={() => setShowReportSettingsDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPdfExportDialog} onOpenChange={setShowPdfExportDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Export PDF</DialogTitle>
+            <DialogDescription>Generate a PDF from the current dashboard view.</DialogDescription>
+          </DialogHeader>
+          {showPdfExportDialog && (
+            <LazyPDFExport disabled={filteredIssues.length === 0} reportConfig={reportConfig} />
+          )}
         </DialogContent>
       </Dialog>
     </div>

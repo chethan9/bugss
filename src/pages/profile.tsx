@@ -29,6 +29,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
+import {
+  disconnectGitHubConnection,
+  getGitHubConnections,
+  migrateLegacyGithubTokenIfPresent,
+  renameGitHubConnection,
+  saveGitHubConnection,
+  setActiveGitHubConnection,
+  normalizeProfileName,
+  type GitHubConnectionRow,
+} from "@/services/githubService";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { 
   ArrowLeft, 
@@ -39,9 +49,8 @@ import {
   Trash2, 
   Save, 
   CheckCircle2,
+  Check,
   AlertCircle,
-  Link2,
-  Unlink,
   Bug,
   LayoutDashboard,
   Settings,
@@ -60,8 +69,12 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   
-  const [githubToken, setGithubToken] = useState("");
-  const [hasGithubToken, setHasGithubToken] = useState(false);
+  const [githubConnections, setGithubConnections] = useState<GitHubConnectionRow[]>([]);
+  const [activeGithubConnectionId, setActiveGithubConnectionId] = useState<string | null>(null);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [newProfilePat, setNewProfilePat] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [isGithubOAuth, setIsGithubOAuth] = useState(false);
   
   // Branding settings
@@ -83,18 +96,19 @@ export default function ProfilePage() {
         // Check if user logged in with GitHub OAuth
         const isOAuth = session.user.app_metadata?.provider === "github";
         setIsGithubOAuth(isOAuth);
-        
-        // Load settings to check for GitHub token and branding
+
+        await migrateLegacyGithubTokenIfPresent();
+
         const settings = await getUserSettings(session.user.id);
-        if (settings?.github_token) {
-          setHasGithubToken(true);
-        }
         if (settings?.app_name) {
           setAppName(settings.app_name);
         }
         if (settings?.logo_url) {
           setLogoUrl(settings.logo_url);
         }
+        setActiveGithubConnectionId(settings?.active_github_connection_id ?? null);
+        const conns = await getGitHubConnections();
+        setGithubConnections(conns);
       } catch (error) {
         console.error("Auth error:", error);
         router.push("/auth");
@@ -161,36 +175,75 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSaveGithubToken = async () => {
-    if (!user || !githubToken) return;
-    
+  const refreshGithubConnections = async () => {
+    const conns = await getGitHubConnections();
+    setGithubConnections(conns);
+    if (user) {
+      const st = await getUserSettings(user.id);
+      setActiveGithubConnectionId(st?.active_github_connection_id ?? null);
+    }
+  };
+
+  const handleAddGithubProfile = async () => {
+    if (!user || !newProfilePat.trim()) return;
     setIsSaving(true);
     setMessage(null);
-    
     try {
-      await saveUserSettings(user.id, { github_token: githubToken });
-      setHasGithubToken(true);
-      setGithubToken("");
-      setMessage({ type: "success", text: "GitHub token saved successfully" });
+      const profileName = normalizeProfileName(newProfileName.trim());
+      await saveGitHubConnection(newProfilePat.trim(), { profileName });
+      setNewProfileName("");
+      setNewProfilePat("");
+      await refreshGithubConnections();
+      setMessage({ type: "success", text: "GitHub profile added" });
     } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to save GitHub token" });
+      setMessage({ type: "error", text: error.message || "Failed to add profile" });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleRemoveGithubToken = async () => {
+  const handleSetActiveProfile = async (id: string) => {
     if (!user) return;
-    
     setIsSaving(true);
     setMessage(null);
-    
     try {
-      await saveUserSettings(user.id, { github_token: null });
-      setHasGithubToken(false);
-      setMessage({ type: "success", text: "GitHub token removed" });
+      await setActiveGitHubConnection(id);
+      setActiveGithubConnectionId(id);
+      setMessage({ type: "success", text: "Active profile updated" });
     } catch (error: any) {
-      setMessage({ type: "error", text: error.message || "Failed to remove GitHub token" });
+      setMessage({ type: "error", text: error.message || "Failed to set active profile" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemoveGithubProfile = async (id: string) => {
+    if (!user) return;
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      await disconnectGitHubConnection(id);
+      await refreshGithubConnections();
+      setMessage({ type: "success", text: "Profile removed" });
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to remove profile" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRenameProfile = async (id: string) => {
+    if (!user) return;
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      await renameGitHubConnection(id, renameValue);
+      setRenamingId(null);
+      setRenameValue("");
+      await refreshGithubConnections();
+      setMessage({ type: "success", text: "Profile renamed" });
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to rename" });
     } finally {
       setIsSaving(false);
     }
@@ -394,88 +447,151 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Link2 className="h-5 w-5" />
-                  Linked Accounts
+                  <Github className="h-5 w-5" />
+                  GitHub profiles
                 </CardTitle>
                 <CardDescription>
-                  Connect external services to enhance your experience
+                  Each profile is one personal access token. Names must be unique; you can have multiple profiles for the same GitHub login.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* GitHub OAuth Status */}
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Github className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium">GitHub Account</p>
-                      <p className="text-sm text-muted-foreground">
-                        {isGithubOAuth ? "Signed in with GitHub OAuth" : "Not connected via OAuth"}
-                      </p>
-                    </div>
+                {isGithubOAuth && (
+                  <p className="text-sm text-muted-foreground">
+                    You signed in to Bugzilla with GitHub. GitHub API access for issues still uses the PAT profiles below (not your login provider).
+                  </p>
+                )}
+
+                {githubConnections.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No profiles yet. Add one below.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {githubConnections.map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex flex-col gap-2 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium truncate">{c.profile_name}</p>
+                            {activeGithubConnectionId === c.id && (
+                              <Badge variant="secondary" className="shrink-0">
+                                <Check className="h-3 w-3 mr-1" />
+                                Active
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground truncate">@{c.username}</p>
+                          {renamingId === c.id ? (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <Input
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                className="max-w-xs"
+                              />
+                              <Button
+                                size="sm"
+                                type="button"
+                                disabled={isSaving}
+                                onClick={() => void handleRenameProfile(c.id)}
+                              >
+                                Save name
+                              </Button>
+                              <Button
+                                size="sm"
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                  setRenamingId(null);
+                                  setRenameValue("");
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto px-0 mt-1"
+                              type="button"
+                              onClick={() => {
+                                setRenamingId(c.id);
+                                setRenameValue(c.profile_name);
+                              }}
+                            >
+                              Rename
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            type="button"
+                            disabled={isSaving || activeGithubConnectionId === c.id}
+                            onClick={() => void handleSetActiveProfile(c.id)}
+                          >
+                            Set active
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => void handleRemoveGithubProfile(c.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  {isGithubOAuth && (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-600">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Connected
-                    </Badge>
-                  )}
-                </div>
+                )}
 
                 <Separator />
 
-                {/* GitHub Personal Access Token */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">GitHub Personal Access Token</p>
-                      <p className="text-sm text-muted-foreground">
-                        Required to access private repositories
-                      </p>
-                    </div>
-                    {hasGithubToken && (
-                      <Badge variant="secondary" className="bg-green-500/10 text-green-600">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Saved
-                      </Badge>
-                    )}
+                <div className="space-y-3">
+                  <p className="font-medium">Add profile</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-profile-name">Profile name</Label>
+                    <Input
+                      id="new-profile-name"
+                      value={newProfileName}
+                      onChange={(e) => setNewProfileName(e.target.value)}
+                      placeholder="e.g. Work"
+                    />
                   </div>
-                  
-                  {hasGithubToken ? (
-                    <div className="flex items-center gap-2">
-                      <Input value="••••••••••••••••" disabled className="bg-muted flex-1" />
-                      <Button variant="destructive" size="sm" onClick={handleRemoveGithubToken}>
-                        <Unlink className="h-4 w-4 mr-2" />
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="password"
-                        value={githubToken}
-                        onChange={(e) => setGithubToken(e.target.value)}
-                        placeholder="ghp_xxxxxxxxxxxx"
-                        className="flex-1"
-                      />
-                      <Button onClick={handleSaveGithubToken} disabled={!githubToken || isSaving}>
-                        <Save className="h-4 w-4 mr-2" />
-                        Save
-                      </Button>
-                    </div>
-                  )}
-                  
+                  <div className="space-y-2">
+                    <Label htmlFor="new-profile-pat">Personal access token</Label>
+                    <Input
+                      id="new-profile-pat"
+                      type="password"
+                      value={newProfilePat}
+                      onChange={(e) => setNewProfilePat(e.target.value)}
+                      placeholder="ghp_…"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => void handleAddGithubProfile()}
+                    disabled={isSaving || !newProfileName.trim() || !newProfilePat.trim()}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Add profile
+                  </Button>
                   <p className="text-xs text-muted-foreground">
                     Create a token at{" "}
-                    <a 
-                      href="https://github.com/settings/tokens" 
-                      target="_blank" 
+                    <a
+                      href="https://github.com/settings/tokens"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
                     >
-                      GitHub Settings → Developer settings → Personal access tokens
+                      GitHub → Settings → Developer settings → Personal access tokens
                     </a>
+                    . Use <span className="font-medium">repo</span> and{" "}
+                    <span className="font-medium">read:org</span> scopes for private and organization repos.
                   </p>
                 </div>
               </CardContent>

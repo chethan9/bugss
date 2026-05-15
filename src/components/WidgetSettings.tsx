@@ -164,7 +164,7 @@ const WIDGET_LABELS: Record<keyof WidgetVisibility, string> = {
   kpiBulletChart: "🎯 KPI Bullet Chart",
 };
 
-interface WidgetSettingsProps {
+export interface WidgetSettingsProps {
   visibility: WidgetVisibility;
   onVisibilityChange: (visibility: WidgetVisibility) => void;
   widgetsPerRow: number;
@@ -173,16 +173,15 @@ interface WidgetSettingsProps {
   onWidgetOrderChange: (order: (keyof WidgetVisibility)[]) => void;
 }
 
-export function WidgetSettings({ 
-  visibility, 
+/** Panel only — use inside a dialog or dropdown content (no nested menu trigger). */
+export function WidgetSettingsPanel({
+  visibility,
   onVisibilityChange,
   widgetsPerRow,
   onWidgetsPerRowChange,
   widgetOrder,
   onWidgetOrderChange,
 }: WidgetSettingsProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -209,7 +208,7 @@ export function WidgetSettings({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     if (over && active.id !== over.id) {
       const oldIndex = widgetOrder.indexOf(active.id as keyof WidgetVisibility);
       const newIndex = widgetOrder.indexOf(over.id as keyof WidgetVisibility);
@@ -219,6 +218,71 @@ export function WidgetSettings({
 
   const visibleCount = Object.values(visibility).filter(Boolean).length;
   const totalCount = Object.keys(visibility).length;
+
+  return (
+    <div className="w-full max-w-md space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">Widget Settings</span>
+        <Button variant="ghost" size="sm" onClick={handleResetDefaults} className="h-auto py-1 px-2 text-xs">
+          Reset
+        </Button>
+      </div>
+
+      <div>
+        <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+          <LayoutGrid className="h-3 w-3" />
+          Widgets Per Row
+        </div>
+        <div className="flex gap-1">
+          {[1, 2, 3, 4].map((num) => (
+            <Button
+              key={num}
+              variant={widgetsPerRow === num ? "default" : "outline"}
+              size="sm"
+              className="flex-1 h-7 text-xs"
+              onClick={() => onWidgetsPerRowChange(num)}
+            >
+              {num}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t pt-2 max-h-[min(400px,55vh)] overflow-y-auto">
+        <div className="text-xs text-muted-foreground flex items-center justify-between mb-2">
+          <span>Widgets ({visibleCount}/{totalCount})</span>
+          <span className="text-[10px] opacity-70">Drag to reorder</span>
+        </div>
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={widgetOrder} strategy={verticalListSortingStrategy}>
+            <div className="space-y-0.5">
+              {widgetOrder.map((key) => (
+                <SortableWidgetItem
+                  key={key}
+                  id={key}
+                  label={WIDGET_LABELS[key]}
+                  checked={visibility[key]}
+                  onCheckedChange={(checked) => handleToggle(key, checked)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+    </div>
+  );
+}
+
+export function WidgetSettings({
+  visibility,
+  onVisibilityChange,
+  widgetsPerRow,
+  onWidgetsPerRowChange,
+  widgetOrder,
+  onWidgetOrderChange,
+}: WidgetSettingsProps) {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -231,81 +295,29 @@ export function WidgetSettings({
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Widget Settings</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetDefaults}
-            className="h-auto py-1 px-2 text-xs"
-          >
-            Reset
-          </Button>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        
-        {/* Widgets Per Row Setting */}
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-muted-foreground flex items-center gap-1">
-            <LayoutGrid className="h-3 w-3" />
-            Widgets Per Row
-          </DropdownMenuLabel>
-          <div className="flex gap-1 px-2 py-1">
-            {[1, 2, 3, 4].map((num) => (
-              <Button
-                key={num}
-                variant={widgetsPerRow === num ? "default" : "outline"}
-                size="sm"
-                className="flex-1 h-7 text-xs"
-                onClick={() => onWidgetsPerRowChange(num)}
-              >
-                {num}
-              </Button>
-            ))}
-          </div>
-        </DropdownMenuGroup>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuGroup className="max-h-[400px] overflow-y-auto">
-          <DropdownMenuLabel className="text-xs text-muted-foreground flex items-center justify-between">
-            <span>Widgets ({visibleCount}/{totalCount})</span>
-            <span className="text-[10px] opacity-70">Drag to reorder</span>
-          </DropdownMenuLabel>
-          
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={widgetOrder}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-0.5 px-1">
-                {widgetOrder.map((key) => (
-                  <SortableWidgetItem
-                    key={key}
-                    id={key}
-                    label={WIDGET_LABELS[key]}
-                    checked={visibility[key]}
-                    onCheckedChange={(checked) => handleToggle(key, checked)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+        <DropdownMenuGroup className="p-2">
+          <WidgetSettingsPanel
+            visibility={visibility}
+            onVisibilityChange={onVisibilityChange}
+            widgetsPerRow={widgetsPerRow}
+            onWidgetsPerRowChange={onWidgetsPerRowChange}
+            widgetOrder={widgetOrder}
+            onWidgetOrderChange={onWidgetOrderChange}
+          />
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-// Sortable widget item component
-function SortableWidgetItem({ 
+function SortableWidgetItem({
   id,
-  label, 
-  checked, 
-  onCheckedChange 
-}: { 
+  label,
+  checked,
+  onCheckedChange,
+}: {
   id: string;
   label: string;
   checked: boolean;
@@ -336,6 +348,7 @@ function SortableWidgetItem({
       `}
     >
       <button
+        type="button"
         {...attributes}
         {...listeners}
         className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-muted rounded"
@@ -349,10 +362,7 @@ function SortableWidgetItem({
         onCheckedChange={onCheckedChange}
         className="h-4 w-4"
       />
-      <label
-        htmlFor={id}
-        className="text-sm flex-1 cursor-pointer select-none"
-      >
+      <label htmlFor={id} className="text-sm flex-1 cursor-pointer select-none">
         {label}
       </label>
     </div>

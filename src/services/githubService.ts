@@ -1,8 +1,23 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { saveUserSettings } from "@/services/userSettingsService";
+import { getUserSettings, saveUserSettings } from "@/services/userSettingsService";
 
 export type GitHubConnectionRow = Tables<"github_connections">;
+
+const PROFILE_NAME_MAX = 80;
+
+export function normalizeProfileName(name: string): string {
+  const t = name.trim();
+  if (!t) throw new Error("Profile name is required");
+  if (t.length > PROFILE_NAME_MAX) {
+    throw new Error(`Profile name must be ${PROFILE_NAME_MAX} characters or fewer`);
+  }
+  return t;
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === "23505" || (error?.message ?? "").includes("duplicate key");
+}
 
 interface GitHubRepo {
   id: number;
@@ -27,54 +42,64 @@ interface GitHubIssue {
   html_url: string;
 }
 
-export async function saveGitHubConnection(accessToken: string) {
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  console.log("Session check:", { session, sessionError });
+export type SaveGitHubConnectionOptions = {
+  profileName: string;
+  /** When set, updates that connection’s token and metadata (must belong to the user). */
+  connectionId?: string | null;
+};
 
-  if (!session?.user) {
-    console.error("No session found");
+/**
+ * Create or update a PAT profile. Each row is one token; `profile_name` is unique per user.
+ */
+export async function saveGitHubConnection(accessToken: string, options: SaveGitHubConnectionOptions) {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.user) {
     throw new Error("Not authenticated. Please refresh the page and try again.");
   }
 
   const user = session.user;
+  const profile_name = normalizeProfileName(options.profileName);
+  const token = accessToken.trim();
+  if (!token) throw new Error("GitHub token is required");
 
   const userResponse = await fetch("https://api.github.com/user", {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.v3+json",
     },
   });
 
   if (!userResponse.ok) throw new Error("Invalid GitHub token");
   const userData = (await userResponse.json()) as { login: string; avatar_url?: string | null };
-  console.log("GitHub user data:", userData);
-
-  const { data: existing } = await supabase
-    .from("github_connections")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("username", userData.login)
-    .maybeSingle();
 
   const row = {
     username: userData.login,
-    access_token: accessToken,
+    access_token: token,
     avatar_url: userData.avatar_url ?? null,
     connected_at: new Date().toISOString(),
+    profile_name,
   };
 
   let connectionId: string;
 
-  if (existing?.id) {
-    const { error } = await supabase
+  if (options.connectionId) {
+    const { data: owned, error: ownErr } = await supabase
       .from("github_connections")
-      .update(row)
-      .eq("id", existing.id);
+      .select("id")
+      .eq("id", options.connectionId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (ownErr) throw ownErr;
+    if (!owned?.id) throw new Error("GitHub profile not found");
+
+    const { error } = await supabase.from("github_connections").update(row).eq("id", owned.id);
     if (error) {
-      console.error("Update error:", error);
+      if (isUniqueViolation(error)) {
+        throw new Error("You already have a profile with this name. Choose a different name.");
+      }
       throw error;
     }
-    connectionId = existing.id;
+    connectionId = owned.id;
   } else {
     const { data: inserted, error } = await supabase
       .from("github_connections")
@@ -85,15 +110,76 @@ export async function saveGitHubConnection(accessToken: string) {
       .select("id")
       .single();
     if (error) {
+      if (isUniqueViolation(error)) {
+        throw new Error("You already have a profile with this name. Choose a different name.");
+      }
       console.error("Insert error:", error);
       throw error;
     }
-    if (!inserted?.id) throw new Error("Failed to save GitHub connection");
+    if (!inserted?.id) throw new Error("Failed to save GitHub profile");
     connectionId = inserted.id;
   }
 
   await saveUserSettings(user.id, { active_github_connection_id: connectionId });
-  console.log("GitHub connection saved successfully");
+}
+
+/**
+ * Rename an existing profile (same token until user edits token via saveGitHubConnection).
+ */
+export async function renameGitHubConnection(connectionId: string, profileName: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const profile_name = normalizeProfileName(profileName);
+
+  const { data: owned, error: ownErr } = await supabase
+    .from("github_connections")
+    .select("id")
+    .eq("id", connectionId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (ownErr) throw ownErr;
+  if (!owned?.id) throw new Error("GitHub profile not found");
+
+  const { error } = await supabase
+    .from("github_connections")
+    .update({ profile_name })
+    .eq("id", connectionId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    if (isUniqueViolation(error)) {
+      throw new Error("You already have a profile with this name. Choose a different name.");
+    }
+    throw error;
+  }
+}
+
+/** If `user_settings.github_token` is set, create a profile and clear the legacy column. */
+export async function migrateLegacyGithubTokenIfPresent(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
+  const settings = await getUserSettings(session.user.id);
+  const token = settings?.github_token?.trim();
+  if (!token) return;
+
+  const emailPart = session.user.email?.split("@")[0]?.trim() || "GitHub";
+  const base = emailPart.slice(0, PROFILE_NAME_MAX);
+  const candidates = [base, `${base} profile`, `Imported`, `Imported ${Math.random().toString(36).slice(2, 8)}`];
+
+  for (const profileName of candidates) {
+    try {
+      await saveGitHubConnection(token, { profileName });
+      await saveUserSettings(session.user.id, { github_token: null });
+      return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("already have a profile with this name")) continue;
+      console.error("[migrateLegacyGithubTokenIfPresent]", e);
+      return;
+    }
+  }
 }
 
 export async function getGitHubConnections(): Promise<GitHubConnectionRow[]> {
@@ -104,7 +190,7 @@ export async function getGitHubConnections(): Promise<GitHubConnectionRow[]> {
     .from("github_connections")
     .select("*")
     .eq("user_id", user.id)
-    .order("connected_at", { ascending: false });
+    .order("profile_name", { ascending: true });
 
   if (error) {
     console.error("Error fetching GitHub connections:", error);
@@ -198,7 +284,16 @@ export async function disconnectGitHubConnection(connectionId: string) {
   if (error) throw error;
 
   if (settingsRow?.active_github_connection_id === connectionId) {
-    await saveUserSettings(user.id, { active_github_connection_id: null });
+    const { data: remaining } = await supabase
+      .from("github_connections")
+      .select("id")
+      .eq("user_id", user.id)
+      .order("profile_name", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    await saveUserSettings(user.id, {
+      active_github_connection_id: remaining?.id ?? null,
+    });
   }
 }
 
@@ -212,10 +307,14 @@ export async function disconnectAllGitHubConnections() {
     .eq("user_id", user.id);
 
   if (error) throw error;
-  await saveUserSettings(user.id, { active_github_connection_id: null });
+  await saveUserSettings(user.id, {
+    active_github_connection_id: null,
+    github_token: null,
+    selected_repos: [],
+  });
 }
 
-/** Removes all linked GitHub OAuth rows for the signed-in user. */
+/** Removes all GitHub PAT profiles for the signed-in user. */
 export async function disconnectGitHub() {
   await disconnectAllGitHubConnections();
 }
@@ -456,9 +555,8 @@ export interface GitHubRepository {
  * pass via `GET /user/orgs` + `GET /orgs/{org}/repos`, deduped by GitHub repo id.
  * (Do not add `type` to `GET /user/repos` when using `affiliation` — GitHub returns 422.)
  *
- * For organization and private org repos, ensure:
- * - OAuth: app is approved under the org (GitHub → Organization → Third-party access).
- * - PAT: scopes include `repo` and `read:org` (re-generate the token after adding scopes).
+ * For organization and private org repos, ensure PAT scopes include `repo` and `read:org`
+ * (re-generate the token after adding scopes). Org SSO may require token authorization.
  */
 export async function fetchUserRepositories(token: string): Promise<GitHubRepository[]> {
   if (!token || token.trim() === "") {
@@ -532,7 +630,7 @@ export async function fetchUserRepositories(token: string): Promise<GitHubReposi
             console.warn(
               "[github repos] user/orgs returned",
               orgRes.status,
-              "— add read:org to PAT scopes, or approve this OAuth app for the organization (Org settings → Third-party access)."
+              "— add read:org to PAT scopes for organization repository listing."
             );
           } else {
             console.warn("[github repos] user/orgs returned", orgRes.status);

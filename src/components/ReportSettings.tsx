@@ -10,9 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { FileText, Upload, X, Settings, Image as ImageIcon } from "lucide-react";
+import { FileText, Upload, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -45,18 +44,23 @@ export const DEFAULT_REPORT_CONFIG: ReportConfig = {
   companyName: "",
 };
 
-interface ReportSettingsProps {
+interface ReportSettingsPanelProps {
   config: ReportConfig;
   onConfigChange: (config: ReportConfig) => void;
+  /** When omitted, footer shows only Save (for embedding in an outer dialog). */
+  onClose?: () => void;
 }
 
-export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) {
-  const [open, setOpen] = useState(false);
+export function ReportSettingsPanel({ config, onConfigChange, onClose }: ReportSettingsPanelProps) {
   const [localConfig, setLocalConfig] = useState<ReportConfig>(config);
+
+  useEffect(() => {
+    setLocalConfig(config);
+  }, [config]);
 
   const handleSave = () => {
     onConfigChange(localConfig);
-    setOpen(false);
+    onClose?.();
   };
 
   const handleReset = () => {
@@ -68,19 +72,182 @@ export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) 
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setLocalConfig({ ...localConfig, companyLogo: e.target?.result as string });
+      reader.onload = (ev) => {
+        setLocalConfig({ ...localConfig, companyLogo: ev.target?.result as string });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const confidentialityLabels = {
-    none: "None",
-    public: "Public",
-    internal: "Internal Use Only",
-    confidential: "Confidential",
-  };
+  return (
+    <>
+      <div className="space-y-6 py-4 max-h-[min(520px,70vh)] overflow-y-auto">
+        <div className="space-y-4">
+          <h3 className="font-semibold text-sm">Company Information</h3>
+
+          <div className="space-y-2">
+            <Label htmlFor="companyName">Company Name</Label>
+            <Input
+              id="companyName"
+              value={localConfig.companyName}
+              onChange={(e) => setLocalConfig({ ...localConfig, companyName: e.target.value })}
+              placeholder="Your Company Name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="projectName">Project/Repository Name</Label>
+            <Input
+              id="projectName"
+              value={localConfig.projectName}
+              onChange={(e) => setLocalConfig({ ...localConfig, projectName: e.target.value })}
+              placeholder="Project Name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="logo">Company Logo</Label>
+            <div className="flex items-center gap-4">
+              <Input id="logo" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+              <label htmlFor="logo">
+                <Button type="button" variant="outline" size="sm" className="gap-2" asChild>
+                  <span className="cursor-pointer">
+                    <Upload className="h-4 w-4" />
+                    Upload Logo
+                  </span>
+                </Button>
+              </label>
+              {localConfig.companyLogo && (
+                <div className="relative">
+                  <img
+                    src={localConfig.companyLogo}
+                    alt="Logo preview"
+                    className="h-12 w-auto border rounded"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLocalConfig({ ...localConfig, companyLogo: "" })}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Recommended: PNG or SVG, max 200px height</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="font-semibold text-sm">Report Details</h3>
+
+          <div className="space-y-2">
+            <Label htmlFor="reportTitle">Report Title</Label>
+            <Input
+              id="reportTitle"
+              value={localConfig.reportTitle}
+              onChange={(e) => setLocalConfig({ ...localConfig, reportTitle: e.target.value })}
+              placeholder="GitHub Issue Analytics Report"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="reportingPeriod">Reporting Period</Label>
+            <Input
+              id="reportingPeriod"
+              value={localConfig.reportingPeriod}
+              onChange={(e) => setLocalConfig({ ...localConfig, reportingPeriod: e.target.value })}
+              placeholder="Last 30 Days"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confidentiality">Confidentiality Level</Label>
+            <Select
+              value={localConfig.confidentialityLevel}
+              onValueChange={(value) =>
+                setLocalConfig({
+                  ...localConfig,
+                  confidentialityLevel: value as ReportConfig["confidentialityLevel"],
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="internal">Internal Use Only</SelectItem>
+                <SelectItem value="confidential">Confidential</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="footerText">Footer Text</Label>
+            <Input
+              id="footerText"
+              value={localConfig.customFooter}
+              onChange={(e) => setLocalConfig({ ...localConfig, customFooter: e.target.value })}
+              placeholder="Generated by Issue Dashboard"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="font-semibold text-sm">Display Options</h3>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="pageNumbers" className="cursor-pointer">
+              Show Page Numbers
+            </Label>
+            <Switch
+              id="pageNumbers"
+              checked={localConfig.showPageNumbers}
+              onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showPageNumbers: checked })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="timestamp" className="cursor-pointer">
+              Show Generation Timestamp
+            </Label>
+            <Switch
+              id="timestamp"
+              checked={localConfig.showTimestamp}
+              onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showTimestamp: checked })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between pt-4 border-t">
+        <Button variant="outline" size="sm" onClick={handleReset}>
+          Reset to Defaults
+        </Button>
+        <div className="flex gap-2">
+          {onClose && (
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
+          <Button size="sm" onClick={handleSave}>
+            Save Settings
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+interface ReportSettingsProps {
+  config: ReportConfig;
+  onConfigChange: (config: ReportConfig) => void;
+}
+
+export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) {
+  const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -96,180 +263,9 @@ export function ReportSettings({ config, onConfigChange }: ReportSettingsProps) 
             <FileText className="h-5 w-5" />
             Report Settings
           </DialogTitle>
-          <DialogDescription>
-            Customize your PDF report appearance and branding
-          </DialogDescription>
+          <DialogDescription>Customize your PDF report appearance and branding</DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-6 py-4">
-          {/* Company & Project Info */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">Company Information</h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name</Label>
-              <Input
-                id="companyName"
-                value={localConfig.companyName}
-                onChange={(e) => setLocalConfig({ ...localConfig, companyName: e.target.value })}
-                placeholder="Your Company Name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="projectName">Project/Repository Name</Label>
-              <Input
-                id="projectName"
-                value={localConfig.projectName}
-                onChange={(e) => setLocalConfig({ ...localConfig, projectName: e.target.value })}
-                placeholder="Project Name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="logo">Company Logo</Label>
-              <div className="flex items-center gap-4">
-                <Input
-                  id="logo"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                />
-                <label htmlFor="logo">
-                  <Button type="button" variant="outline" size="sm" className="gap-2" asChild>
-                    <span className="cursor-pointer">
-                      <Upload className="h-4 w-4" />
-                      Upload Logo
-                    </span>
-                  </Button>
-                </label>
-                {localConfig.companyLogo && (
-                  <div className="relative">
-                    <img
-                      src={localConfig.companyLogo}
-                      alt="Logo preview"
-                      className="h-12 w-auto border rounded"
-                    />
-                    <button
-                      onClick={() => setLocalConfig({ ...localConfig, companyLogo: "" })}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Recommended: PNG or SVG, max 200px height
-              </p>
-            </div>
-          </div>
-
-          {/* Report Settings */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">Report Details</h3>
-
-            <div className="space-y-2">
-              <Label htmlFor="reportTitle">Report Title</Label>
-              <Input
-                id="reportTitle"
-                value={localConfig.reportTitle}
-                onChange={(e) => setLocalConfig({ ...localConfig, reportTitle: e.target.value })}
-                placeholder="GitHub Issue Analytics Report"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="reportingPeriod">Reporting Period</Label>
-              <Input
-                id="reportingPeriod"
-                value={localConfig.reportingPeriod}
-                onChange={(e) => setLocalConfig({ ...localConfig, reportingPeriod: e.target.value })}
-                placeholder="Last 30 Days"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confidentiality">Confidentiality Level</Label>
-              <Select
-                value={localConfig.confidentialityLevel}
-                onValueChange={(value) =>
-                  setLocalConfig({
-                    ...localConfig,
-                    confidentialityLevel: value as ReportConfig["confidentialityLevel"],
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="internal">Internal Use Only</SelectItem>
-                  <SelectItem value="confidential">Confidential</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="footerText">Footer Text</Label>
-              <Input
-                id="footerText"
-                value={localConfig.customFooter}
-                onChange={(e) => setLocalConfig({ ...localConfig, customFooter: e.target.value })}
-                placeholder="Generated by Issue Dashboard"
-              />
-            </div>
-          </div>
-
-          {/* Display Options */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">Display Options</h3>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="pageNumbers" className="cursor-pointer">
-                Show Page Numbers
-              </Label>
-              <Switch
-                id="pageNumbers"
-                checked={localConfig.showPageNumbers}
-                onCheckedChange={(checked) =>
-                  setLocalConfig({ ...localConfig, showPageNumbers: checked })
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="timestamp" className="cursor-pointer">
-                Show Generation Timestamp
-              </Label>
-              <Switch
-                id="timestamp"
-                checked={localConfig.showTimestamp}
-                onCheckedChange={(checked) =>
-                  setLocalConfig({ ...localConfig, showTimestamp: checked })
-                }
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <Button variant="outline" size="sm" onClick={handleReset}>
-            Reset to Defaults
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleSave}>
-              Save Settings
-            </Button>
-          </div>
-        </div>
+        <ReportSettingsPanel config={config} onConfigChange={onConfigChange} onClose={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   );
